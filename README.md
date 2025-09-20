@@ -114,7 +114,7 @@ The application can be configured via `config.js`:
 const CONDUCTOR_WEB_CONFIG = {
   api: {
     baseUrl: 'http://localhost:5006',
-    endpoint: '/api/v1/execute-direct',
+    endpoint: '/execute',
     apiKey: 'your-api-key',
     timeout: 30000
   },

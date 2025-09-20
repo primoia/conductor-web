@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Conductor Chat - Interface Web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🤖 Conductor</h1>
+            <div class="status" id="status">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Conectando...</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <strong>Conductor:</strong> Olá! Sou o Conductor Chat. Posso executar agentes de IA para você. 
+                        <br><br>
+                        <strong>Comandos disponíveis:</strong>
+                        <ul>
+                            <li><code>lista os agentes que vc tem?</code> - Lista agentes disponíveis</li>
+                            <li><code>execute agente [nome] com [tarefa]</code> - Executa um agente</li>
+                            <li><code>backup dos agentes</code> - Faz backup dos agentes</li>
+                            <li><code>valida o sistema</code> - Valida o sistema Conductor</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-group">
+                    <input type="text" id="messageInput" placeholder="Digite ou fale sua mensagem..." autocomplete="off">
+                    <button id="micButton" onclick="toggleSpeechRecognition()" title="Clique para falar">
+                        <span id="micIcon">🎤</span>
+                    </button>
+                    <button id="sendButton" onclick="sendMessage()">
+                        <span id="sendButtonText">Enviar</span>
+                        <span id="sendButtonSpinner" class="spinner" style="display: none;">⏳</span>
+                    </button>
+                </div>
+                <!-- Quick actions removidos para mobile -->
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Conductor Gateway v3.1.0 | Powered by FastAPI + MCP</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

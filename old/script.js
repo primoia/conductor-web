@@ -1,7 +1,7 @@
 // Configurações da API - usar config.js se disponível
 const API_CONFIG = window.CONDUCTOR_WEB_CONFIG?.api || {
     baseUrl: 'http://192.168.0.119:5006', // IP atual da máquina
-    endpoint: '/execute',  // Endpoint direto (fallback)
+    endpoint: '/api/v1/execute-direct',  // Endpoint direto (fallback)
     streamEndpoint: '/api/v1/stream-execute',    // Novo endpoint SSE híbrido
     apiKey: 'test-api-key-123' // Em produção, usar variável de ambiente
 };
