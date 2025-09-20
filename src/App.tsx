@@ -10,7 +10,7 @@ import './styles.css';
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
     baseUrl: 'http://localhost:5006',
-    endpoint: '/api/v1/execute-direct',
+    endpoint: '/execute',
     streamEndpoint: '/api/v1/stream-execute',
     apiKey: 'test-api-key-123',
     timeout: 30000,
@@ -81,6 +81,9 @@ function App() {
     isLoading: false
   });
 
+  const [progressMessage, setProgressMessage] = useState<Message | null>(null);
+  const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
+
   const config = (window as any).CONDUCTOR_WEB_CONFIG || DEFAULT_CONFIG;
   const { sendMessage, checkConnection } = useConductorApi(config.api);
   const { isRecording, toggleRecording, transcript } = useSpeechRecognition();
@@ -128,6 +131,42 @@ function App() {
     }
   };
 
+  const addProgressMessage = (text: string) => {
+    const progress: Message = {
+      id: `progress-${Date.now()}`,
+      content: text,
+      type: 'bot',
+      timestamp: new Date()
+    };
+    setProgressMessage(progress);
+  };
+
+  const updateProgressMessage = (text: string) => {
+    if (progressMessage) {
+      setProgressMessage(prev => prev ? { ...prev, content: text } : null);
+    } else {
+      addProgressMessage(text);
+    }
+  };
+
+  const clearProgressMessage = () => {
+    setProgressMessage(null);
+  };
+
+  const appendToStreamingMessage = (token: string) => {
+    if (!streamingMessage) {
+      const newMessage: Message = {
+        id: `stream-${Date.now()}`,
+        content: token,
+        type: 'bot',
+        timestamp: new Date()
+      };
+      setStreamingMessage(newMessage);
+    } else {
+      setStreamingMessage(prev => prev ? { ...prev, content: prev.content + token } : null);
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || chatState.isLoading) return;
 
@@ -144,25 +183,90 @@ function App() {
       isLoading: true
     }));
 
+    // Clear any existing progress/streaming messages
+    clearProgressMessage();
+    setStreamingMessage(null);
+
     try {
-      const response = await sendMessage(content.trim());
+      const response = await sendMessage(content.trim(), (event) => {
+        console.log('Progress event:', event);
 
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response.data || response.message || 'Resposta recebida',
-        type: 'bot',
-        timestamp: new Date()
-      };
+        switch (event.event) {
+          case 'job_started':
+            addProgressMessage('🚀 Iniciando execução...');
+            break;
+          case 'status_update':
+            updateProgressMessage(event.data?.message || 'Processando...');
+            break;
+          case 'on_llm_start':
+            updateProgressMessage('🤖 LLM iniciando análise...');
+            break;
+          case 'on_llm_new_token':
+            if (event.data?.chunk) {
+              appendToStreamingMessage(event.data.chunk);
+            }
+            break;
+          case 'on_tool_start':
+            if (event.data?.tool) {
+              updateProgressMessage(`🔧 Usando ferramenta: ${event.data.tool.name || event.data.tool}...`);
+            }
+            break;
+          case 'on_tool_end':
+            if (event.data?.output) {
+              const toolResult = event.data.output.substring(0, 100) + '...';
+              setChatState(prev => ({
+                ...prev,
+                messages: [...prev.messages, {
+                  id: `tool-${Date.now()}`,
+                  content: `⚙️ Ferramenta concluída: ${toolResult}`,
+                  type: 'bot',
+                  timestamp: new Date()
+                }]
+              }));
+            }
+            break;
+          case 'result':
+            clearProgressMessage();
+            break;
+          case 'error':
+            clearProgressMessage();
+            break;
+        }
+      });
 
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, botMessage],
-        isLoading: false
-      }));
+      // Clear progress and add final result
+      clearProgressMessage();
+
+      // If we have a streaming message, finalize it
+      if (streamingMessage) {
+        setChatState(prev => ({
+          ...prev,
+          messages: [...prev.messages, streamingMessage],
+          isLoading: false
+        }));
+        setStreamingMessage(null);
+      } else {
+        // Add final result message
+        const finalMessage: Message = {
+          id: `final-${Date.now()}`,
+          content: response.data || response.message || 'Execução concluída',
+          type: 'bot',
+          timestamp: new Date()
+        };
+
+        setChatState(prev => ({
+          ...prev,
+          messages: [...prev.messages, finalMessage],
+          isLoading: false
+        }));
+      }
     } catch (error) {
+      clearProgressMessage();
+      setStreamingMessage(null);
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: `Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        content: `❌ Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
         type: 'bot',
         timestamp: new Date()
       };

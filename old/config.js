@@ -3,7 +3,7 @@ const CONDUCTOR_WEB_CONFIG = {
     // Configurações da API
     api: {
         baseUrl: 'http://localhost:5006',
-        endpoint: '/execute',  // Endpoint direto
+        endpoint: '/api/v1/execute-direct',  // Endpoint direto
         apiKey: 'test-api-key-123',
         timeout: 30000, // 30 segundos
         retryAttempts: 3
