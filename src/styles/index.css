@@ -1,0 +1,9 @@
+/* Main CSS file - imports all modules */
+@import './base/reset.css';
+@import './base/animations.css';
+@import './components/header.css';
+@import './components/status.css';
+@import './components/chat.css';
+@import './components/messages.css';
+@import './components/input.css';
+@import './responsive/mobile.css';
