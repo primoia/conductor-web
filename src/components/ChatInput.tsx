@@ -5,6 +5,8 @@ interface ChatInputProps {
   isLoading: boolean;
   isRecording: boolean;
   onToggleRecording: () => void;
+  transcript?: string;
+  onTranscriptUsed?: () => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -12,8 +14,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   isLoading,
   isRecording,
   onToggleRecording,
+  transcript,
+  onTranscriptUsed,
 }) => {
   const [message, setMessage] = useState('');
+
+  // Handle transcript like old/ version - put in input for user to review
+  React.useEffect(() => {
+    if (transcript) {
+      setMessage(transcript);
+      if (onTranscriptUsed) {
+        onTranscriptUsed();
+      }
+      // Focus input for user to review/edit like old/ version
+      const input = document.getElementById('messageInput') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        // Auto-resize input like old/ version
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
+      }
+    }
+  }, [transcript, onTranscriptUsed]);
 
   const handleSend = () => {
     if (message.trim() && !isLoading) {
@@ -44,12 +66,15 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         />
         <button
           id="micButton"
-          onClick={onToggleRecording}
-          title="Clique para falar"
+          onClick={() => {
+            console.log('Mic button clicked!');
+            onToggleRecording();
+          }}
+          title={isRecording ? 'Gravando... Clique para parar' : 'Clique para falar'}
           className={isRecording ? 'recording' : ''}
           disabled={isLoading}
         >
-          <span id="micIcon">{isRecording ? '⏹️' : '🎤'}</span>
+          <span id="micIcon">{isRecording ? '🔴' : '🎤'}</span>
         </button>
         <button
           id="sendButton"

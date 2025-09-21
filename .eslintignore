@@ -1,0 +1,6 @@
+dist/
+node_modules/
+*.config.js
+*.config.ts
+vite.config.ts
+old/

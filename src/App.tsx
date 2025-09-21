@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChatState, Message, ConductorConfig } from './types';
-import { useConductorApi } from './hooks/useConductorApi';
-import { useSpeechRecognition } from './hooks/useSpeechRecognition';
-import { ChatMessages } from './components/ChatMessages';
-import { ChatInput } from './components/ChatInput';
-import { StatusIndicator } from './components/StatusIndicator';
-import './styles.css';
+import { useConductorApi, useSpeechRecognition } from './hooks';
+import { ChatMessages, ChatInput, StatusIndicator } from './components';
+import './styles/index.css';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -86,7 +83,7 @@ function App() {
 
   const config = (window as any).CONDUCTOR_WEB_CONFIG || DEFAULT_CONFIG;
   const { sendMessage, checkConnection } = useConductorApi(config.api);
-  const { isRecording, toggleRecording, transcript } = useSpeechRecognition();
+  const { isRecording, toggleRecording, transcript, clearTranscript } = useSpeechRecognition();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,11 +99,13 @@ function App() {
     }
   }, [chatState.messages, config.ui.autoScroll]);
 
-  useEffect(() => {
-    if (transcript) {
-      handleSendMessage(transcript);
-    }
-  }, [transcript]);
+  // Remove auto-send - let user control when to send like old/ version
+  // useEffect(() => {
+  //   if (transcript) {
+  //     handleSendMessage(transcript);
+  //     clearTranscript();
+  //   }
+  // }, [transcript, clearTranscript]);
 
   const initializeChat = () => {
     const welcomeMessage: Message = {
@@ -187,8 +186,11 @@ function App() {
     clearProgressMessage();
     setStreamingMessage(null);
 
-    try {
-      const response = await sendMessage(content.trim(), (event) => {
+    // EVENT-DRIVEN approach like old/ - use callbacks, no await
+    sendMessage(
+      content.trim(),
+      // onProgress - handle events immediately
+      (event) => {
         console.log('Progress event:', event);
 
         switch (event.event) {
@@ -232,51 +234,54 @@ function App() {
             clearProgressMessage();
             break;
         }
-      });
+      },
+      // onComplete - when result comes
+      (result) => {
+        clearProgressMessage();
 
-      // Clear progress and add final result
-      clearProgressMessage();
+        // If we have a streaming message, finalize it
+        if (streamingMessage) {
+          setChatState(prev => ({
+            ...prev,
+            messages: [...prev.messages, streamingMessage],
+            isLoading: false
+          }));
+          setStreamingMessage(null);
+        } else {
+          // Add final result message
+          const finalMessage: Message = {
+            id: `final-${Date.now()}`,
+            content: result?.result || result?.message || 'Execução concluída',
+            type: 'bot',
+            timestamp: new Date()
+          };
 
-      // If we have a streaming message, finalize it
-      if (streamingMessage) {
-        setChatState(prev => ({
-          ...prev,
-          messages: [...prev.messages, streamingMessage],
-          isLoading: false
-        }));
+          setChatState(prev => ({
+            ...prev,
+            messages: [...prev.messages, finalMessage],
+            isLoading: false
+          }));
+        }
+      },
+      // onError - when error occurs
+      (error) => {
+        clearProgressMessage();
         setStreamingMessage(null);
-      } else {
-        // Add final result message
-        const finalMessage: Message = {
-          id: `final-${Date.now()}`,
-          content: response.data || response.message || 'Execução concluída',
+
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: `❌ Erro: ${error}`,
           type: 'bot',
           timestamp: new Date()
         };
 
         setChatState(prev => ({
           ...prev,
-          messages: [...prev.messages, finalMessage],
+          messages: [...prev.messages, errorMessage],
           isLoading: false
         }));
       }
-    } catch (error) {
-      clearProgressMessage();
-      setStreamingMessage(null);
-
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `❌ Erro: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-        type: 'bot',
-        timestamp: new Date()
-      };
-
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, errorMessage],
-        isLoading: false
-      }));
-    }
+    );
   };
 
 
@@ -294,6 +299,8 @@ function App() {
         <ChatMessages
           messages={chatState.messages}
           isLoading={chatState.isLoading}
+          progressMessage={progressMessage}
+          streamingMessage={streamingMessage}
         />
         <div ref={messagesEndRef} />
 
@@ -302,6 +309,8 @@ function App() {
           isLoading={chatState.isLoading}
           isRecording={isRecording}
           onToggleRecording={toggleRecording}
+          transcript={transcript}
+          onTranscriptUsed={clearTranscript}
         />
       </div>
 
