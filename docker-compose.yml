@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  conductor-web:
+    build: .
+    ports:
+      - "3001:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  # Optional: Development container
+  conductor-web-dev:
+    build:
+      context: .
+      target: builder
+    ports:
+      - "3000:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      - NODE_ENV=development
+    profiles: ["dev"]

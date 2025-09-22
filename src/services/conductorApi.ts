@@ -1,4 +1,4 @@
-import { ApiConfig, ApiResponse } from '../types';
+import { ApiConfig } from '../types';
 
 export class ConductorApiService {
   constructor(private config: ApiConfig) {}
@@ -48,7 +48,7 @@ export class ConductorApiService {
       console.log('Connecting to SSE stream:', streamUrl);
 
       const eventSource = new EventSource(streamUrl);
-      let finalResult = null;
+      let finalResult: any = null;
       let streamStarted = false;
 
       eventSource.onopen = () => {
