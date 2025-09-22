@@ -16,7 +16,7 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
   const [transcript, setTranscript] = useState('');
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
-  const { isMobile, isIOSMobile, isSupported } = getBrowserInfo();
+  const { isSupported } = getBrowserInfo();
 
   console.log('Browser detection:', getBrowserInfo());
 
