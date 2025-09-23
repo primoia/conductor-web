@@ -1,0 +1,332 @@
+.interactive-editor-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.interactive-editor {
+  width: 100%;
+  min-height: 500px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  outline: none;
+
+  &:focus-within {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  }
+}
+
+// TipTap Editor Styles
+::ng-deep .interactive-editor-content {
+  outline: none;
+
+  // Headings
+  h1, h2, h3, h4, h5, h6 {
+    margin: 1.5rem 0 0.5rem 0;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #2c3e50;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  h1 {
+    font-size: 2rem;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  // Paragraphs
+  p {
+    margin: 0.75rem 0;
+
+    &.is-editor-empty:first-child::before {
+      content: attr(data-placeholder);
+      float: left;
+      color: #adb5bd;
+      pointer-events: none;
+      height: 0;
+    }
+  }
+
+  // Lists
+  ul, ol {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+
+    li {
+      margin: 0.25rem 0;
+
+      p {
+        margin: 0;
+      }
+    }
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  // Task Lists
+  .task-list {
+    list-style: none;
+    padding-left: 0;
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      margin: 0.25rem 0;
+
+      > label {
+        flex: 0 0 auto;
+        margin-right: 0.5rem;
+        margin-top: 0.125rem;
+        user-select: none;
+
+        input[type="checkbox"] {
+          margin: 0;
+        }
+      }
+
+      > div {
+        flex: 1 1 auto;
+      }
+    }
+  }
+
+  // Code blocks
+  pre {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.4;
+
+    code {
+      background: none;
+      padding: 0;
+      border: none;
+      font-size: inherit;
+    }
+  }
+
+  // Inline code
+  code {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 3px;
+    padding: 0.125rem 0.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+  }
+
+  // Blockquotes
+  blockquote {
+    border-left: 4px solid #007bff;
+    margin: 1rem 0;
+    padding-left: 1rem;
+    color: #6c757d;
+    font-style: italic;
+  }
+
+  // Custom blocks
+  .custom-block {
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.proposta-block {
+      background: linear-gradient(135deg, #fff9e6 0%, #ffeaa7 100%);
+      border-color: #fdcb6e;
+      color: #2d3436;
+
+      &:hover {
+        border-color: #e17055;
+      }
+    }
+
+    &.gatilho-block {
+      background: linear-gradient(135deg, #e6f7ff 0%, #b3e5fc 100%);
+      border-color: #74b9ff;
+      color: #2d3436;
+
+      &:hover {
+        border-color: #0984e3;
+      }
+    }
+
+    &.include-block {
+      background: linear-gradient(135deg, #f0e6ff 0%, #d1c4e9 100%);
+      border-color: #a29bfe;
+      color: #2d3436;
+
+      &:hover {
+        border-color: #6c5ce7;
+      }
+    }
+  }
+}
+
+// Slash Menu Styles
+.slash-menu {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  min-width: 300px;
+  max-width: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  .slash-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem 0.5rem;
+    border-bottom: 1px solid #f1f3f5;
+
+    .slash-menu-title {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 0.875rem;
+    }
+
+    .slash-menu-tip {
+      font-size: 0.75rem;
+      color: #6c757d;
+      background: #f8f9fa;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+    }
+  }
+
+  .slash-menu-items {
+    padding: 0.5rem 0;
+  }
+
+  .slash-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover,
+    &.selected {
+      background: #f8f9fa;
+    }
+
+    &.selected {
+      background: #e3f2fd;
+      border-left: 3px solid #2196f3;
+    }
+
+    .item-icon {
+      flex: 0 0 auto;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f3f5;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-right: 0.75rem;
+    }
+
+    .item-content {
+      flex: 1 1 auto;
+      min-width: 0;
+
+      .item-label {
+        font-weight: 500;
+        color: #2c3e50;
+        font-size: 0.875rem;
+        margin-bottom: 0.125rem;
+      }
+
+      .item-description {
+        color: #6c757d;
+        font-size: 0.75rem;
+        line-height: 1.2;
+      }
+    }
+
+    .item-shortcut {
+      flex: 0 0 auto;
+      font-size: 0.75rem;
+      color: #adb5bd;
+      background: #f8f9fa;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+  }
+
+  .slash-menu-footer {
+    padding: 0.5rem 1rem 0.75rem;
+    border-top: 1px solid #f1f3f5;
+    text-align: center;
+
+    span {
+      font-size: 0.75rem;
+      color: #adb5bd;
+    }
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .slash-menu {
+    max-width: 280px;
+    font-size: 0.875rem;
+  }
+
+  .interactive-editor {
+    padding: 0.75rem;
+    min-height: 300px;
+  }
+}
+
+// Animation for smooth interactions
+.interactive-editor-container * {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+// Focus styles
+.interactive-editor:focus-within {
+  outline: none;
+}

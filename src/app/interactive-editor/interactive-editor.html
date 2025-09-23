@@ -1,0 +1,40 @@
+<div class="interactive-editor-container">
+  <!-- Editor Element -->
+  <div #editorRef class="interactive-editor"></div>
+
+  <!-- Slash Command Menu -->
+  <div *ngIf="isSlashMenuOpen"
+       class="slash-menu"
+       [style.left.px]="slashMenuPosition.x"
+       [style.top.px]="slashMenuPosition.y">
+
+    <div class="slash-menu-header">
+      <span class="slash-menu-title">Inserir bloco</span>
+      <span class="slash-menu-tip">↵ para inserir</span>
+    </div>
+
+    <div class="slash-menu-items">
+      <div *ngFor="let item of filteredSlashItems; let i = index"
+           class="slash-menu-item"
+           [class.selected]="i === 0"
+           (click)="executeSlashCommand(item)">
+
+        <div class="item-icon">{{ item.label.charAt(0) }}</div>
+        <div class="item-content">
+          <div class="item-label">{{ item.label }}</div>
+          <div class="item-description">{{ item.description }}</div>
+        </div>
+        <div class="item-shortcut">{{ item.shortcut }}</div>
+      </div>
+    </div>
+
+    <div class="slash-menu-footer">
+      <span>Esc para cancelar</span>
+    </div>
+  </div>
+
+  <!-- Floating Toolbar (for formatting) -->
+  <div class="floating-toolbar" *ngIf="false">
+    <!-- TODO: Implement floating toolbar for text formatting -->
+  </div>
+</div>

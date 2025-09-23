@@ -1,0 +1,103 @@
+<div class="proposal-block" [class]="getStatusClass()" [attr.contenteditable]="false">
+  <!-- Header with status and actions -->
+  <div class="proposal-header">
+    <div class="proposal-status">
+      <span class="status-icon">{{ getStatusIcon() }}</span>
+      <span class="status-text">{{ data.status | titlecase }}</span>
+    </div>
+
+    <div class="proposal-actions" *ngIf="data.status === 'pending'">
+      <button class="btn btn-accept" (click)="onAccept()" title="Aceitar Proposta">
+        ✅ Aceitar
+      </button>
+      <button class="btn btn-reject" (click)="onReject()" title="Rejeitar Proposta">
+        ❌ Rejeitar
+      </button>
+    </div>
+
+    <div class="proposal-meta">
+      <button class="btn-expand" (click)="toggleExpanded()" title="Expandir/Recolher">
+        <span class="expand-icon" [class.rotated]="isExpanded">▼</span>
+      </button>
+      <button class="btn-edit" (click)="startEditing()" *ngIf="editable && !isEditing" title="Editar">
+        ✏️
+      </button>
+      <button class="btn-delete" (click)="onDelete()" title="Deletar">
+        🗑️
+      </button>
+    </div>
+  </div>
+
+  <!-- Title and Description -->
+  <div class="proposal-content">
+    <div class="proposal-title" *ngIf="!isEditing">
+      <h3>{{ data.title || 'Nova Proposta' }}</h3>
+    </div>
+    <input
+      *ngIf="isEditing"
+      type="text"
+      class="title-input"
+      [value]="data.title"
+      (input)="onTitleChange($event)"
+      placeholder="Título da proposta..."
+      (blur)="stopEditing()"
+      (keydown.enter)="stopEditing()">
+
+    <div class="proposal-description" *ngIf="!isEditing && data.description">
+      <p>{{ data.description }}</p>
+    </div>
+    <textarea
+      *ngIf="isEditing"
+      class="description-input"
+      [value]="data.description"
+      (input)="onDescriptionChange($event)"
+      placeholder="Descreva a proposta..."
+      rows="3"
+      (blur)="stopEditing()">
+    </textarea>
+
+    <!-- Agent Tag -->
+    <div class="proposal-agent" *ngIf="data.agent">
+      <span class="agent-tag">{{ data.agent }}</span>
+    </div>
+  </div>
+
+  <!-- Expandable Code Section -->
+  <div class="proposal-code" *ngIf="isExpanded && data.codeContent">
+    <div class="code-header">
+      <span class="code-label">💻 Implementação</span>
+      <div class="code-actions">
+        <button class="btn-copy" (click)="copyCode()" title="Copiar código">
+          📋 Copiar
+        </button>
+        <span class="code-language" *ngIf="data.language">{{ data.language }}</span>
+      </div>
+    </div>
+
+    <div class="code-content" *ngIf="!isEditing">
+      <pre><code>{{ data.codeContent }}</code></pre>
+    </div>
+    <textarea
+      *ngIf="isEditing"
+      class="code-input"
+      [value]="data.codeContent"
+      (input)="onCodeChange($event)"
+      placeholder="Código da implementação..."
+      rows="10"
+      (blur)="stopEditing()">
+    </textarea>
+  </div>
+
+  <!-- Expandable Code Preview (Collapsed State) -->
+  <div class="proposal-code-preview" *ngIf="!isExpanded && data.codeContent" (click)="toggleExpanded()">
+    <span class="code-preview-label">💻 Ver implementação...</span>
+    <span class="code-preview-lines">{{ data.codeContent.split('\n').length }} linhas</span>
+  </div>
+
+  <!-- Footer with timestamp -->
+  <div class="proposal-footer" *ngIf="isExpanded">
+    <small class="timestamp">
+      Criado em {{ data.createdAt | date:'dd/MM/yyyy HH:mm' }}
+    </small>
+  </div>
+</div>

@@ -1,0 +1,339 @@
+.proposal-block {
+  margin: 1rem 0;
+  border: 2px solid #ffc107;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fff9e6 0%, #ffeaa7 100%);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  &.status-accepted {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #e6f7e6 0%, #c3e6cb 100%);
+  }
+
+  &.status-rejected {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #ffe6e6 0%, #f8d7da 100%);
+  }
+
+  &.status-pending {
+    animation: pulse-border 2s infinite;
+  }
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #ffc107; }
+  50% { border-color: #fd7e14; }
+}
+
+.proposal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.3);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.proposal-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  .status-icon {
+    font-size: 1.25rem;
+  }
+
+  .status-text {
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.proposal-actions {
+  display: flex;
+  gap: 0.5rem;
+
+  .btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    &.btn-accept {
+      background: #28a745;
+      color: white;
+
+      &:hover {
+        background: #218838;
+      }
+    }
+
+    &.btn-reject {
+      background: #dc3545;
+      color: white;
+
+      &:hover {
+        background: #c82333;
+      }
+    }
+  }
+}
+
+.proposal-meta {
+  display: flex;
+  gap: 0.25rem;
+
+  button {
+    background: none;
+    border: none;
+    padding: 0.375rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.875rem;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  .expand-icon {
+    transition: transform 0.2s ease;
+
+    &.rotated {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+.proposal-content {
+  padding: 1rem;
+
+  .proposal-title {
+    margin-bottom: 0.75rem;
+
+    h3 {
+      margin: 0;
+      color: #2c3e50;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+  }
+
+  .title-input {
+    width: 100%;
+    border: none;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.75rem;
+
+    &:focus {
+      outline: 2px solid #007bff;
+      background: white;
+    }
+  }
+
+  .proposal-description {
+    margin-bottom: 0.75rem;
+
+    p {
+      margin: 0;
+      color: #495057;
+      line-height: 1.5;
+    }
+  }
+
+  .description-input {
+    width: 100%;
+    border: none;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 0.5rem;
+    border-radius: 4px;
+    resize: vertical;
+    font-family: inherit;
+    color: #495057;
+    margin-bottom: 0.75rem;
+
+    &:focus {
+      outline: 2px solid #007bff;
+      background: white;
+    }
+  }
+
+  .proposal-agent {
+    margin-top: 0.5rem;
+
+    .agent-tag {
+      background: rgba(0, 0, 0, 0.1);
+      color: #2c3e50;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      font-weight: 600;
+    }
+  }
+}
+
+.proposal-code {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.05);
+
+    .code-label {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 0.875rem;
+    }
+
+    .code-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      .btn-copy {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+
+        &:hover {
+          background: #5a6268;
+        }
+      }
+
+      .code-language {
+        background: #f8f9fa;
+        color: #6c757d;
+        padding: 0.125rem 0.375rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        font-family: monospace;
+      }
+    }
+  }
+
+  .code-content {
+    padding: 1rem;
+    background: #f8f9fa;
+
+    pre {
+      margin: 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      color: #2c3e50;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  }
+
+  .code-input {
+    width: 100%;
+    border: none;
+    background: #f8f9fa;
+    padding: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: #2c3e50;
+    resize: vertical;
+
+    &:focus {
+      outline: 2px solid #007bff;
+      background: white;
+    }
+  }
+}
+
+.proposal-code-preview {
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .code-preview-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .code-preview-lines {
+    color: #adb5bd;
+    font-size: 0.75rem;
+    font-family: monospace;
+  }
+}
+
+.proposal-footer {
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+
+  .timestamp {
+    color: #6c757d;
+    font-size: 0.75rem;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .proposal-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+
+  .proposal-actions {
+    justify-content: center;
+  }
+
+  .code-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .code-actions {
+    justify-content: center;
+  }
+}
