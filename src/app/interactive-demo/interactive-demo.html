@@ -1,0 +1,147 @@
+<div class="interactive-demo">
+  <header class="demo-header">
+    <div class="header-content">
+      <h1>🚀 Editor de Blocos Interativos</h1>
+      <p class="subtitle">Inspirado no Notion - O futuro do "Roteiro Vivo"</p>
+    </div>
+  </header>
+
+  <div class="demo-content">
+    <!-- Main Editor -->
+    <section class="editor-section">
+      <div class="section-header">
+        <h2>✏️ Editor Principal</h2>
+        <p>Digite diretamente no documento. Use <code>/</code> para comandos e atalhos Markdown.</p>
+      </div>
+
+      <app-interactive-editor
+        [content]="editorContent"
+        [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
+        (contentChange)="onEditorContentChange($event)"
+        (blockCommand)="onBlockCommand($event)">
+      </app-interactive-editor>
+    </section>
+
+    <!-- Sample Blocks -->
+    <section class="blocks-section">
+      <div class="section-header">
+        <h2>🧩 Blocos Interativos</h2>
+        <p>Exemplos dos blocos customizados que podem ser inseridos no editor:</p>
+      </div>
+
+      <div class="blocks-grid">
+        <!-- Proposal Block -->
+        <div class="block-container">
+          <h3>✨ Bloco de Proposta</h3>
+          <p class="block-description">
+            Sistema de aprovação/rejeição de propostas de IA com código embutido.
+          </p>
+          <app-proposal-block
+            [data]="sampleProposal"
+            [editable]="true"
+            (statusChange)="onProposalStatusChange($event)">
+          </app-proposal-block>
+        </div>
+
+        <!-- Execution Trigger Block -->
+        <div class="block-container">
+          <h3>▶️ Gatilho de Execução</h3>
+          <p class="block-description">
+            Botão executável que roda comandos e mostra resultados em tempo real.
+          </p>
+          <app-execution-trigger
+            [data]="sampleTrigger"
+            [editable]="true"
+            (execute)="onTriggerExecute($event)">
+          </app-execution-trigger>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Overview -->
+    <section class="features-section">
+      <div class="section-header">
+        <h2>🎯 Recursos Implementados</h2>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Edição Fluida</h3>
+          <p>Clique e digite diretamente como no Word. Aparência final enquanto edita.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔥</div>
+          <h3>Comando /</h3>
+          <p>Digite <code>/</code> para abrir menu contextual com todos os tipos de blocos.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📝</div>
+          <h3>Atalhos Markdown</h3>
+          <p>Conversão automática: <code>#</code> → título, <code>**</code> → negrito</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🧩</div>
+          <h3>Blocos Customizados</h3>
+          <p>Propostas, gatilhos e includes do "Roteiro Vivo" como componentes Angular.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Visão Macro/Micro</h3>
+          <p>Blocos recolhíveis para navegar entre visão geral e detalhes.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚙️</div>
+          <h3>Interatividade Real</h3>
+          <p>Botões funcionais, estados dinâmicos e feedback em tempo real.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Instructions -->
+    <section class="instructions-section">
+      <div class="section-header">
+        <h2>🎮 Como Usar</h2>
+      </div>
+
+      <div class="instructions-grid">
+        <div class="instruction-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>Digite <code>/</code></h4>
+            <p>Abre o menu de comandos com todos os tipos de blocos disponíveis.</p>
+          </div>
+        </div>
+
+        <div class="instruction-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>Escolha um bloco</h4>
+            <p>Use <code>/proposta</code>, <code>/gatilho</code>, <code>/h1</code>, <code>/code</code>, etc.</p>
+          </div>
+        </div>
+
+        <div class="instruction-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>Edite e interaja</h4>
+            <p>Clique nos blocos para editar, aceitar propostas, executar comandos.</p>
+          </div>
+        </div>
+
+        <div class="instruction-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h4>Use atalhos</h4>
+            <p><code>#</code> para títulos, <code>**texto**</code> para negrito, etc.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

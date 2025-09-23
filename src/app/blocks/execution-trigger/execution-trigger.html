@@ -1,0 +1,146 @@
+<div class="execution-trigger" [class]="getStatusClass()" [attr.contenteditable]="false">
+  <!-- Header with status and main action -->
+  <div class="trigger-header">
+    <div class="trigger-info">
+      <div class="trigger-type">
+        <span class="type-icon">{{ getTypeIcon() }}</span>
+        <span class="type-label">{{ getTypeLabel() }}</span>
+      </div>
+      <div class="trigger-status">
+        <span class="status-icon">{{ getStatusIcon() }}</span>
+        <span class="status-text">{{ getStatusText() }}</span>
+      </div>
+    </div>
+
+    <div class="trigger-actions">
+      <button
+        class="btn-execute"
+        [class]="getStatusClass()"
+        [disabled]="!canExecute()"
+        (click)="onExecute()"
+        title="Executar comando">
+        <span class="execute-icon">{{ getStatusIcon() }}</span>
+        <span class="execute-text">{{ getStatusText() }}</span>
+      </button>
+
+      <div class="trigger-meta">
+        <button class="btn-expand" (click)="toggleExpanded()" title="Expandir/Recolher">
+          <span class="expand-icon" [class.rotated]="isExpanded">▼</span>
+        </button>
+        <button class="btn-edit" (click)="startEditing()" *ngIf="editable && !isEditing" title="Editar">
+          ✏️
+        </button>
+        <button class="btn-delete" (click)="onDelete()" title="Deletar">
+          🗑️
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Title and Description -->
+  <div class="trigger-content">
+    <div class="trigger-title" *ngIf="!isEditing">
+      <h3>{{ data.title || 'Novo Gatilho' }}</h3>
+    </div>
+    <input
+      *ngIf="isEditing"
+      type="text"
+      class="title-input"
+      [value]="data.title"
+      (input)="onTitleChange($event)"
+      placeholder="Título do gatilho..."
+      (blur)="stopEditing()"
+      (keydown.enter)="stopEditing()">
+
+    <div class="trigger-description" *ngIf="!isEditing && data.description">
+      <p>{{ data.description }}</p>
+    </div>
+    <textarea
+      *ngIf="isEditing"
+      class="description-input"
+      [value]="data.description"
+      (input)="onDescriptionChange($event)"
+      placeholder="Descreva o que este gatilho faz..."
+      rows="2"
+      (blur)="stopEditing()">
+    </textarea>
+  </div>
+
+  <!-- Command Section -->
+  <div class="trigger-command">
+    <div class="command-header">
+      <span class="command-label">💻 Comando</span>
+      <button class="btn-copy" (click)="copyCommand()" title="Copiar comando">
+        📋 Copiar
+      </button>
+    </div>
+
+    <div class="command-content" *ngIf="!isEditing">
+      <code>{{ data.command || 'Nenhum comando definido' }}</code>
+    </div>
+    <input
+      *ngIf="isEditing"
+      type="text"
+      class="command-input"
+      [value]="data.command"
+      (input)="onCommandChange($event)"
+      placeholder="comando a ser executado..."
+      (blur)="stopEditing()"
+      (keydown.enter)="stopEditing()">
+  </div>
+
+  <!-- Expanded Section with Output/Error -->
+  <div class="trigger-details" *ngIf="isExpanded">
+    <!-- Execution Output -->
+    <div class="execution-output" *ngIf="data.output">
+      <div class="output-header">
+        <span class="output-label">📤 Saída</span>
+        <span class="output-time" *ngIf="data.lastExecuted">
+          {{ getExecutionDuration() }}
+        </span>
+      </div>
+      <div class="output-content">
+        <pre>{{ data.output }}</pre>
+      </div>
+    </div>
+
+    <!-- Execution Error -->
+    <div class="execution-error" *ngIf="data.error">
+      <div class="error-header">
+        <span class="error-label">❌ Erro</span>
+      </div>
+      <div class="error-content">
+        <pre>{{ data.error }}</pre>
+      </div>
+    </div>
+
+    <!-- Execution History/Stats -->
+    <div class="execution-stats" *ngIf="data.lastExecuted">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Última execução</span>
+          <span class="stat-value">{{ data.lastExecuted | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+        </div>
+        <div class="stat-item" *ngIf="data.status === 'running'">
+          <span class="stat-label">Duração</span>
+          <span class="stat-value">{{ getExecutionDuration() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress indicator for running state -->
+    <div class="execution-progress" *ngIf="data.status === 'running'">
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="progress-text">Executando comando...</div>
+    </div>
+  </div>
+
+  <!-- Footer with quick info -->
+  <div class="trigger-footer" *ngIf="!isExpanded && data.lastExecuted">
+    <small class="last-execution">
+      Última execução: {{ data.lastExecuted | date:'dd/MM/yyyy HH:mm' }}
+    </small>
+  </div>
+</div>
