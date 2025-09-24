@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -15,7 +15,7 @@ import { createLowlight } from 'lowlight';
   templateUrl: './interactive-editor.html',
   styleUrls: ['./interactive-editor.scss']
 })
-export class InteractiveEditor implements OnInit, OnDestroy {
+export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   @ViewChild('editorRef', { static: true }) editorRef!: ElementRef;
   @Input() content: string = '';
   @Input() placeholder: string = 'Digite / para comandos ou comece a escrever...';
@@ -43,6 +43,15 @@ export class InteractiveEditor implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initializeEditor();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['content'] && this.editor && !changes['content'].isFirstChange()) {
+      const newContent = changes['content'].currentValue;
+      if (newContent !== this.editor.getHTML()) {
+        this.editor.commands.setContent(newContent);
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -207,11 +216,62 @@ export class InteractiveEditor implements OnInit, OnDestroy {
     // Emit to parent component to handle custom block insertion
     this.blockCommand.emit(type);
 
-    // Insert placeholder content for now
+    // Insert rich demo content that looks more realistic
     const placeholders = {
-      proposta: '<div class="custom-block proposta-block">✨ Bloco de Proposta - Digite o conteúdo...</div>',
-      gatilho: '<div class="custom-block gatilho-block">▶️ Gatilho de Execução - Digite o comando...</div>',
-      include: '<div class="custom-block include-block">📦 Include - Digite o caminho do arquivo...</div>'
+      proposta: `
+        <div class="custom-block proposta-block" style="border: 2px solid #e3f2fd; border-radius: 12px; padding: 20px; margin: 16px 0; background: linear-gradient(135deg, #f8fffe 0%, #f0f9ff 100%); box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">✨</span>
+            <strong style="color: #1976d2; font-size: 18px;">Proposta de IA</strong>
+            <span style="background: #ffa726; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">PENDENTE</span>
+          </div>
+          <h4 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">Implementar Sistema de Autenticação JWT</h4>
+          <p style="margin: 0 0 12px 0; color: #666; line-height: 1.5;">Criar service Angular para autenticação segura usando JWT tokens com refresh automático e interceptors HTTP.</p>
+          <div style="background: #f5f5f5; border-radius: 8px; padding: 12px; margin: 12px 0; font-family: 'Courier New', monospace; font-size: 13px; border-left: 4px solid #1976d2;">
+            <div style="color: #888; margin-bottom: 4px;">// AuthService Preview</div>
+            <div style="color: #d73a49;">export class</div> <div style="color: #6f42c1;">AuthService</div> {<br/>
+            &nbsp;&nbsp;<div style="color: #d73a49;">login</div>(<div style="color: #e36209;">credentials</div>): <div style="color: #6f42c1;">Observable</div>&lt;<div style="color: #6f42c1;">AuthResponse</div>&gt;<br/>
+            }
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 16px;">
+            <button style="background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">✅ Aceitar</button>
+            <button style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">❌ Rejeitar</button>
+            <button style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">👁️ Ver Código</button>
+          </div>
+        </div>
+      `,
+      gatilho: `
+        <div class="custom-block gatilho-block" style="border: 2px solid #e8f5e8; border-radius: 12px; padding: 20px; margin: 16px 0; background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%); box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">▶️</span>
+            <strong style="color: #388e3c; font-size: 18px;">Gatilho de Execução</strong>
+            <span style="background: #66bb6a; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">PRONTO</span>
+          </div>
+          <h4 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">Executar Testes Unitários</h4>
+          <p style="margin: 0 0 12px 0; color: #666; line-height: 1.5;">Roda todos os testes do projeto com coverage para verificar integridade do código.</p>
+          <div style="background: #2d2d2d; border-radius: 8px; padding: 12px; margin: 12px 0; font-family: 'Courier New', monospace; font-size: 13px; color: #f8f8f2;">
+            <div style="color: #50fa7b;">$</div> <span style="color: #8be9fd;">npm test -- --coverage --watchAll=false</span>
+          </div>
+          <button style="background: #4caf50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">🚀 Executar Comando</button>
+        </div>
+      `,
+      include: `
+        <div class="custom-block include-block" style="border: 2px solid #fff3e0; border-radius: 12px; padding: 20px; margin: 16px 0; background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%); box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <span style="font-size: 24px;">📦</span>
+            <strong style="color: #f57c00; font-size: 18px;">Include Sub-Roteiro</strong>
+          </div>
+          <h4 style="margin: 0 0 8px 0; color: #333; font-size: 16px;">Importar Configuração de Database</h4>
+          <p style="margin: 0 0 12px 0; color: #666; line-height: 1.5;">Inclui configurações padrão do banco de dados PostgreSQL com conexões e migrations.</p>
+          <div style="background: #f5f5f5; border-radius: 8px; padding: 12px; margin: 12px 0; font-family: 'Courier New', monospace; font-size: 13px; border-left: 4px solid #f57c00;">
+            <span style="color: #666;">📁</span> roteiros/database/postgres-setup.md
+          </div>
+          <div style="display: flex; gap: 8px; margin-top: 16px;">
+            <button style="background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold;">📂 Selecionar Arquivo</button>
+            <button style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">👁️ Preview</button>
+          </div>
+        </div>
+      `
     };
 
     this.editor.commands.insertContent(placeholders[type as keyof typeof placeholders] || '');
