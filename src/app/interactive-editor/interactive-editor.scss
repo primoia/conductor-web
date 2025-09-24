@@ -10,7 +10,7 @@
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 1rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol';
   line-height: 1.6;
   outline: none;
 
@@ -23,6 +23,7 @@
 // TipTap Editor Styles
 ::ng-deep .interactive-editor-content {
   outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
 
   // Headings
   h1, h2, h3, h4, h5, h6 {
@@ -53,6 +54,7 @@
   // Paragraphs
   p {
     margin: 0.75rem 0;
+    font-family: inherit !important;
 
     &.is-editor-empty:first-child::before {
       content: attr(data-placeholder);
@@ -61,6 +63,11 @@
       pointer-events: none;
       height: 0;
     }
+  }
+
+  // Force emoji rendering on all text elements
+  p, h1, h2, h3, h4, h5, h6, li, span, div {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
   }
 
   // Lists
