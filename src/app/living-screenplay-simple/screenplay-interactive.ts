@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { ProposalModal } from '../modal/proposal-modal';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
+// @ts-ignore - html-to-md doesn't have TypeScript definitions
+import { htmlToMd } from 'html-to-md';
 
 interface AgentConfig {
   id: string;
@@ -23,6 +25,37 @@ interface EmojiInfo {
   count: number;
   positions: number[];
 }
+
+// Represents a unique agent instance linked to an emoji in the text
+interface AgentInstance {
+  id: string; // UUID v4 - anchor in Markdown and key in "database"
+  emoji: string;
+  definition: { title: string; description: string; unicode: string; }; // Link to AGENT_DEFINITIONS
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  position: CirclePosition; // XY position on screen
+  // Future: last_run, results_summary, etc.
+}
+
+// Agent definitions mapping emoji to their properties
+const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string; unicode: string; } } = {
+  '🚀': { title: 'Performance Agent', description: 'Monitors application performance', unicode: '\\u{1F680}' },
+  '🔐': { title: 'Auth Agent', description: 'Manages user authentication', unicode: '\\u{1F510}' },
+  '📊': { title: 'Analytics Agent', description: 'Collects usage metrics', unicode: '\\u{1F4CA}' },
+  '🛡️': { title: 'Security Agent', description: 'Verifies vulnerabilities', unicode: '\\u{1F6E1}' },
+  '⚡': { title: 'Speed Agent', description: 'Optimizes response speed', unicode: '\\u{26A1}' },
+  '🎯': { title: 'Target Agent', description: 'Focuses on specific goals', unicode: '\\u{1F3AF}' },
+  '🧠': { title: 'AI Agent', description: 'AI processing', unicode: '\\u{1F9E0}' },
+  '💻': { title: 'System Agent', description: 'Manages system resources', unicode: '\\u{1F4BB}' },
+  '📱': { title: 'Mobile Agent', description: 'Responsive mobile interface', unicode: '\\u{1F4F1}' },
+  '🌐': { title: 'Network Agent', description: 'Connectivity and network', unicode: '\\u{1F310}' },
+  '🔍': { title: 'Search Agent', description: 'Search and indexing', unicode: '\\u{1F50D}' },
+  '🎪': { title: 'Entertainment Agent', description: 'Entertainment and gamification', unicode: '\\u{1F3AA}' },
+  '🏆': { title: 'Achievement Agent', description: 'Achievements and awards', unicode: '\\u{1F3C6}' },
+  '🔮': { title: 'Prediction Agent', description: 'Predictions and trends', unicode: '\\u{1F52E}' },
+  '💎': { title: 'Premium Agent', description: 'Premium resources', unicode: '\\u{1F48E}' },
+  '⭐': { title: 'Star Agent', description: 'Reviews and favorites', unicode: '\\u{2B50}' },
+  '🌟': { title: 'Featured Agent', description: 'Special highlights', unicode: '\\u{1F31F}' }
+};
 
 @Component({
   selector: 'app-screenplay-interactive',
@@ -53,11 +86,8 @@ interface EmojiInfo {
           <button (click)="addManualAgent()" class="control-btn add-agent-btn">
             ➕ Adicionar Círculo
           </button>
-          <button (click)="scanAndCreateAgents()" class="control-btn">
-            🔍 Escanear Emojis
-          </button>
-          <button (click)="updateAgentPositionsFromText()" class="control-btn">
-            📍 Linkar com Texto
+          <button (click)="resyncManually()" class="control-btn">
+            🔄 Ressincronizar com Texto
           </button>
           <button (click)="clearAllAgents()" class="control-btn" *ngIf="agents.length > 0">
             🗑️ Limpar Todos
@@ -112,12 +142,13 @@ interface EmojiInfo {
         <div class="overlay-elements" *ngIf="currentView !== 'clean'">
           <!-- Multiple draggable circles -->
           <draggable-circle
-            *ngFor="let agent of agents"
-            [data]="agent.data"
+            *ngFor="let agent of getAgentInstancesAsArray()"
+            [data]="{ id: agent.id, emoji: agent.emoji, title: agent.definition.title, description: agent.definition.description, category: 'auth' }"
             [position]="agent.position"
             [container]="canvas"
-            (circleEvent)="onAgentCircleEvent($event, agent)"
-            (positionChange)="onAgentPositionChange($event, agent)">
+            [attr.data-status]="agent.status"
+            (circleEvent)="onAgentInstanceCircleEvent($event, agent)"
+            (positionChange)="onAgentInstancePositionChange($event, agent)">
           </draggable-circle>
         </div>
       </div>
@@ -370,6 +401,17 @@ export class ScreenplayInteractive implements AfterViewInit {
   // Timeout para debounce
   private updateTimeout: any;
 
+  // --- NEW: PERSISTENT ANCHOR SYSTEM ---
+
+  // Simulates MongoDB 'agent_instances' collection
+  // Key: agent ID (UUID), Value: AgentInstance object
+  private agentInstances = new Map<string, AgentInstance>();
+
+  // Stores the latest version of editor content with injected anchors
+  private contentWithAnchors = '';
+
+  // --- END: NEW PROPERTIES ---
+
   // Conteúdo do editor
   editorContent = `# 🎬 Roteiro Vivo Interativo
 
@@ -403,8 +445,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
 `;
 
   ngAfterViewInit(): void {
-    this.loadStoredAgents();
-    this.scanAndCreateAgents();
+    this.loadStateFromLocalStorage(); // Load saved state
+    setTimeout(() => {
+      this.syncAgentsWithMarkdown();    // Synchronize with initial text
+    }, 0);
   }
 
   // === Operações de Arquivo ===
@@ -412,20 +456,38 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.md,.txt';
-    input.onchange = (event: any) => {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.editorContent = e.target?.result as string;
-          this.currentFileName = file.name;
-          this.scanAndCreateAgents();
-          console.log('📁 Arquivo carregado:', file.name);
-        };
-        reader.readAsText(file);
-      }
-    };
+    input.onchange = (event: any) => this.handleFileLoad(event);
     input.click();
+  }
+
+  // Extracted for testability
+  handleFileLoad(event: any): void {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.processNewMarkdownContent(e.target?.result as string, file.name);
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  // Extracted for testability
+  private processNewMarkdownContent(content: string, filename: string): void {
+    // Clear previous state before loading new file
+    this.agentInstances.clear();
+    this.agents = []; // Also clear legacy agents array for backward compatibility
+    console.log('🧹 Previous agent state cleared.');
+
+    this.editorContent = content;
+    this.currentFileName = filename;
+
+    // Delay synchronization to guarantee DOM update happens before sync
+    setTimeout(() => {
+      this.syncAgentsWithMarkdown();
+    }, 0);
+
+    console.log('📁 File loaded:', filename);
   }
 
   saveMarkdownFile(): void {
@@ -433,7 +495,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       this.currentFileName = 'roteiro-vivo.md';
     }
 
-    const blob = new Blob([this.editorContent], { type: 'text/markdown' });
+    const blob = this.generateMarkdownBlob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -441,14 +503,54 @@ Aqui temos alguns agentes distribuídos pelo documento:
     a.click();
     URL.revokeObjectURL(url);
 
-    console.log('💾 Arquivo salvo:', this.currentFileName);
+    console.log(`💾 Markdown file saved: ${this.currentFileName}`);
+  }
+
+  // Extracted for testability
+  generateMarkdownBlob(): Blob {
+    // Get HTML content directly from the editor
+    const editorElement = this.canvas.nativeElement.querySelector('.ProseMirror');
+    if (!editorElement) {
+      console.error('Failed to find editor element for saving.');
+      // Return a blob with current editor content as fallback
+      return new Blob([this.editorContent], { type: 'text/markdown' });
+    }
+    const currentHtmlContent = editorElement.innerHTML;
+
+    // Convert HTML to Markdown
+    let markdownContent = htmlToMd(currentHtmlContent);
+
+    // Ensure ID anchors are present in final Markdown
+    this.agentInstances.forEach((instance, id) => {
+      const anchor = `<!-- agent-id: ${id} -->`;
+      const emojiWithAnchor = `${anchor}${instance.emoji}`;
+
+      // Regex to find emoji, optionally preceded by its anchor
+      const regex = new RegExp(`(<!--\\s*agent-id:\\s*${id}\\s*-->\\s*)?${instance.emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
+
+      if (!markdownContent.includes(anchor)) {
+         // If anchor doesn't exist, replace first occurrence of "orphan" emoji
+         // This logic might need future refinement if same emoji is used for
+         // multiple agents without anchor
+         markdownContent = markdownContent.replace(instance.emoji, emojiWithAnchor);
+      }
+    });
+
+    console.log('📄 Original HTML:', currentHtmlContent);
+    console.log('📄 Converted Markdown:', markdownContent);
+    console.log('💾 Number of agent instances:', this.agentInstances.size);
+
+    return new Blob([markdownContent], { type: 'text/markdown' });
   }
 
   newMarkdownFile(): void {
+    // Clear all state for new file
+    this.agentInstances.clear();
+    this.agents = []; // Also clear legacy agents array for backward compatibility
     this.editorContent = '# Novo Roteiro\n\nDigite seu conteúdo aqui...';
     this.currentFileName = '';
-    this.clearAllAgents();
-    console.log('📄 Novo arquivo criado');
+    this.saveStateToLocalStorage(); // Persist the cleared state
+    console.log('📄 New file created, all agent state cleared');
   }
 
   // === Controle de Views ===
@@ -458,109 +560,161 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   // === Gerenciamento de Agentes ===
-  scanAndCreateAgents(): void {
-    const emojiPattern = /(\u{1F680}|\u{1F510}|\u{1F4CA}|\u{1F6E1}|\u{26A1}|\u{1F3AF}|\u{1F9E0}|\u{1F4BB}|\u{1F4F1}|\u{1F310}|\u{1F50D}|\u{1F3AA}|\u{1F3C6}|\u{1F52E}|\u{1F48E}|\u{2B50}|\u{1F31F})/gu;
-    const matches = [...this.editorContent.matchAll(emojiPattern)];
 
-    const emojiCount: { [key: string]: number } = {};
-    const emojiPositions: { [key: string]: number[] } = {};
-
-    matches.forEach(match => {
-      const emoji = match[1];
-      const position = match.index!;
-
-      if (!emojiCount[emoji]) {
-        emojiCount[emoji] = 0;
-        emojiPositions[emoji] = [];
-      }
-      emojiCount[emoji]++;
-      emojiPositions[emoji].push(position);
+  // Generate a simple UUID v4
+  private generateUUID(): string {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
     });
+  }
+
+  private syncAgentsWithMarkdown(): void {
+    console.log('🔄 Synchronizing agents with Markdown...');
+    const sourceText = this.editorContent;
+    let updatedText = sourceText;
+    const foundAgentIds = new Set<string>();
+
+    // 1. Regex to find agent emoji, optionally preceded by an ID anchor
+    // Use proper Unicode code points without curly braces for regex compatibility
+    const emojiPattern = /(🚀|🔐|📊|🛡️|⚡|🎯|🧠|💻|📱|🌐|🔍|🎪|🏆|🔮|💎|⭐|🌟)/gu;
+    const anchorAndEmojiRegex = new RegExp(`(<!--\\s*agent-id:\\s*([a-f0-9-]{36})\\s*-->\\s*)?(${emojiPattern.source.slice(1, -3)})`, 'gu');
+
+    // 2. First pass: Process all found emojis
+    const matches = [...sourceText.matchAll(anchorAndEmojiRegex)];
+
+    for (const match of matches) {
+      let agentId = match[2]; // Captured ID
+      const emoji = match[3]; // The emoji character itself
+
+      if (!emoji || !AGENT_DEFINITIONS[emoji]) continue;
+
+      const definition = AGENT_DEFINITIONS[emoji];
+
+      if (agentId && this.agentInstances.has(agentId)) {
+        // Case 1: Existing agent with ID. Just mark as found.
+        foundAgentIds.add(agentId);
+      } else {
+        // Case 2: New agent (legacy emoji without anchor) or unknown ID
+        if (!agentId) {
+          agentId = this.generateUUID();
+          // Inject anchor in text. Important: we'll do the replacement after to not mess up indices
+          const originalFragment = match[0];
+          const newFragment = `<!-- agent-id: ${agentId} -->${originalFragment}`;
+          updatedText = updatedText.replace(originalFragment, newFragment);
+        }
+
+        const newInstance: AgentInstance = {
+          id: agentId,
+          emoji: emoji,
+          definition: definition,
+          status: 'pending',
+          position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 }, // Random initial position
+        };
+        this.agentInstances.set(agentId, newInstance);
+        foundAgentIds.add(agentId);
+      }
+    }
+
+    // 3. Second pass: Clean orphaned agents
+    for (const id of this.agentInstances.keys()) {
+      if (!foundAgentIds.has(id)) {
+        this.agentInstances.delete(id);
+        console.log(`🗑️ Orphaned agent removed: ${id}`);
+      }
+    }
+
+    // 4. Update editor content if new anchors were injected
+    this.contentWithAnchors = updatedText;
+    if (this.editorContent !== this.contentWithAnchors) {
+      // Ideally, the editor would be updated without losing cursor position
+      // For prototyping, direct replacement is sufficient
+      this.editorContent = this.contentWithAnchors;
+    }
+
+    // 5. Position agents over their corresponding emojis in the DOM
+    this.positionAgentsOverEmojis();
+
+    // 6. Save state and update legacy structures
+    this.saveStateToLocalStorage(); // Simulates saving to MongoDB
+
+    console.log(`✅ Synchronization complete. ${this.agentInstances.size} active agents.`);
+
+    // Update legacy structures for backward compatibility
+    this.updateAvailableEmojis();
+    this.updateLegacyAgentsFromInstances();
+  }
+
+  // For backward compatibility with template
+  private updateAvailableEmojis(): void {
+    const emojiCount: { [key: string]: number } = {};
+    for (const instance of this.agentInstances.values()) {
+      emojiCount[instance.emoji] = (emojiCount[instance.emoji] || 0) + 1;
+    }
 
     this.availableEmojis = Object.keys(emojiCount).map(emoji => ({
       emoji,
       count: emojiCount[emoji],
-      positions: emojiPositions[emoji]
+      positions: [] // Will be updated by updateAgentPositionsFromText
     }));
+  }
 
-    // Auto-create agents for found emojis that don't have agents yet
-    this.availableEmojis.forEach(emojiInfo => {
-      this.createAgentsForEmoji(emojiInfo);
-    });
+  // Update legacy agents array from agentInstances for template compatibility
+  private updateLegacyAgentsFromInstances(): void {
+    this.agents = Array.from(this.agentInstances.values()).map(instance => ({
+      id: instance.id,
+      emoji: instance.emoji,
+      position: instance.position,
+      data: {
+        id: instance.id,
+        emoji: instance.emoji,
+        category: 'auth' as const, // Default category for backward compatibility
+        title: instance.definition.title,
+        description: instance.definition.description
+      }
+    }));
+  }
 
-    // Update positions of existing agents to match emoji positions in text
-    this.updateAgentPositionsFromText();
+  // Legacy function name for backward compatibility
+  scanAndCreateAgents(): void {
+    this.syncAgentsWithMarkdown();
+  }
 
-    console.log('🔍 Escanear completo:', this.availableEmojis.length, 'tipos de emoji,', this.agents.length, 'agentes totais');
+  // Legacy function for template compatibility
+  createAgentsForEmoji(emojiInfo: EmojiInfo): void {
+    // This now just triggers a sync since the new system handles creation automatically
+    this.syncAgentsWithMarkdown();
+    console.log(`✨ Triggered sync for ${emojiInfo.emoji} (new persistence system)`);
   }
 
   addManualAgent(): void {
     const canvas = this.canvas.nativeElement;
-    const rect = canvas.getBoundingClientRect();
 
     const emojis = ['🚀', '🔐', '📊', '🛡️', '⚡', '🎯', '🧠', '💻', '📱', '🌐', '🔍'];
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    const definition = AGENT_DEFINITIONS[randomEmoji];
+    const agentId = `manual-${this.generateUUID()}`;
 
-    const agent: AgentConfig = {
-      id: `manual-${Date.now()}`,
+    const newInstance: AgentInstance = {
+      id: agentId,
       emoji: randomEmoji,
+      definition: definition,
+      status: 'pending',
       position: {
-        x: Math.random() * (rect.width - 100) + 50,
-        y: Math.random() * (rect.height - 100) + 50
-      },
-      data: {
-        id: `manual-${Date.now()}`,
-        emoji: randomEmoji,
-        category: 'auth',
-        title: this.getEmojiTitle(randomEmoji),
-        description: this.getEmojiDescription(randomEmoji)
+        x: Math.random() * (canvas.offsetWidth - 100) + 50,
+        y: Math.random() * (canvas.offsetHeight - 100) + 50
       }
     };
 
-    this.agents.push(agent);
-    this.saveAgentsToStorage();
+    this.agentInstances.set(agentId, newInstance);
+    this.saveStateToLocalStorage();
+
+    // Update legacy agents array for backward compatibility
+    this.updateLegacyAgentsFromInstances();
+
     console.log('➕ Agente manual adicionado:', randomEmoji);
   }
 
-  createAgentsForEmoji(emojiInfo: EmojiInfo): void {
-    const existingAgents = this.agents.filter(a => a.emoji === emojiInfo.emoji);
-    const missingCount = emojiInfo.count - existingAgents.length;
-
-    if (missingCount <= 0) {
-      console.log('✅ Todos os agentes já existem para', emojiInfo.emoji);
-      return;
-    }
-
-    const canvas = this.canvas.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-
-    for (let i = 0; i < missingCount; i++) {
-      const instanceIndex = existingAgents.length + i;
-
-      const agent: AgentConfig = {
-        id: `${emojiInfo.emoji}-${instanceIndex}-${Date.now()}`,
-        emoji: emojiInfo.emoji,
-        instanceIndex,
-        textPosition: emojiInfo.positions[instanceIndex] || 0,
-        position: {
-          x: Math.random() * (rect.width - 100) + 50,
-          y: Math.random() * (rect.height - 100) + 50
-        },
-        data: {
-          id: `${emojiInfo.emoji}-${instanceIndex}`,
-          emoji: emojiInfo.emoji,
-          category: 'auth',
-          title: this.getEmojiTitle(emojiInfo.emoji),
-          description: this.getEmojiDescription(emojiInfo.emoji)
-        }
-      };
-
-      this.agents.push(agent);
-    }
-
-    this.saveAgentsToStorage();
-    console.log(`✨ ${missingCount} agentes criados para ${emojiInfo.emoji}`);
-  }
 
   clearAllAgents(): void {
     this.agents = [];
@@ -575,28 +729,52 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('🧹 Storage limpo - todos os dados de agentes removidos');
   }
 
-  updateAgentPositionsFromText(): void {
-    const canvas = this.canvas.nativeElement;
-    if (!canvas) return;
+  // Manual resynchronization function - calls the main sync logic
+  resyncManually(): void {
+    console.log('🔄 Executing manual resynchronization...');
 
-    const editorElement = canvas.querySelector('.ProseMirror') || canvas.querySelector('[contenteditable]');
-    if (!editorElement) {
-      console.warn('⚠️ Editor element não encontrado para posicionamento');
+    // Call the main synchronization function, which handles creation and positioning
+    this.syncAgentsWithMarkdown();
+
+    console.log('🔄 Manual resynchronization complete');
+  }
+
+  // Position agents over their corresponding emojis in the DOM
+  private positionAgentsOverEmojis(): void {
+    const canvas = this.canvas.nativeElement;
+    if (!canvas) {
+      console.warn('⚠️ Canvas element not found for positioning');
       return;
     }
 
-    // Group agents by emoji type
-    const agentsByEmoji: { [emoji: string]: AgentConfig[] } = {};
-    this.agents.forEach(agent => {
-      if (!agentsByEmoji[agent.emoji]) {
-        agentsByEmoji[agent.emoji] = [];
+    const editorElement = canvas.querySelector('.ProseMirror') || canvas.querySelector('[contenteditable]');
+    if (!editorElement) {
+      console.warn('⚠️ Editor element not found for positioning');
+      return;
+    }
+
+    // --- DEBUG: Canvas positioning information ---
+    const canvasRect = canvas.getBoundingClientRect();
+    console.log('🔧 Positioning Debug - Canvas coordinates:', canvasRect);
+    console.log('🔧 Editor element:', editorElement);
+    console.log('🔧 Number of agent instances to position:', this.agentInstances.size);
+    // --- END DEBUG ---
+
+    // Group agent instances by emoji type
+    const instancesByEmoji: { [emoji: string]: AgentInstance[] } = {};
+    this.agentInstances.forEach(instance => {
+      if (!instancesByEmoji[instance.emoji]) {
+        instancesByEmoji[instance.emoji] = [];
       }
-      agentsByEmoji[agent.emoji].push(agent);
+      instancesByEmoji[instance.emoji].push(instance);
     });
 
+    console.log('🔧 Instances grouped by emoji:', instancesByEmoji);
+
     // Find and position each emoji in the DOM
-    this.availableEmojis.forEach(emojiInfo => {
-      const agentsForEmoji = agentsByEmoji[emojiInfo.emoji] || [];
+    Object.keys(instancesByEmoji).forEach(emoji => {
+      const instancesForEmoji = instancesByEmoji[emoji];
+      console.log(`🔧 Processing emoji: ${emoji}, ${instancesForEmoji.length} instances`);
 
       // Find all occurrences of this emoji in the DOM
       const walker = document.createTreeWalker(
@@ -607,51 +785,59 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
       let node;
       let emojiInstanceIndex = 0;
-      const canvasRect = canvas.getBoundingClientRect();
 
       while (node = walker.nextNode()) {
         const textContent = node.textContent || '';
         let startIndex = 0;
 
         while (true) {
-          const emojiIndex = textContent.indexOf(emojiInfo.emoji, startIndex);
+          const emojiIndex = textContent.indexOf(emoji, startIndex);
           if (emojiIndex === -1) break;
 
-          // Position the corresponding agent if it exists
-          if (emojiInstanceIndex < agentsForEmoji.length) {
-            const agent = agentsForEmoji[emojiInstanceIndex];
+          // Position the corresponding agent instance if it exists
+          if (emojiInstanceIndex < instancesForEmoji.length) {
+            const instance = instancesForEmoji[emojiInstanceIndex];
 
             try {
               const range = document.createRange();
               range.setStart(node, emojiIndex);
-              range.setEnd(node, emojiIndex + emojiInfo.emoji.length);
+              range.setEnd(node, emojiIndex + emoji.length);
 
               const rect = range.getBoundingClientRect();
 
-              // Calculate position relative to canvas
+              // --- DETAILED DEBUG LOGS ---
+              console.log(`-- Found ${emoji} #${emojiInstanceIndex} --`);
+              console.log('🔧 Emoji coordinates (absolute):', rect);
+              console.log('🔧 Canvas coordinates (absolute):', canvasRect);
+
               const newPosition = {
                 x: rect.left - canvasRect.left,
                 y: rect.top - canvasRect.top
               };
 
-              // Update agent position
-              agent.position = newPosition;
-              agent.textPosition = emojiIndex;
-              agent.instanceIndex = emojiInstanceIndex;
+              console.log('🔧 Calculated position (relative to canvas):', newPosition);
+              // --- END DETAILED DEBUG LOGS ---
 
-              console.log(`📍 ${emojiInfo.emoji} #${emojiInstanceIndex} posicionado em (${newPosition.x}, ${newPosition.y})`);
+              // Update agent instance position
+              instance.position = newPosition;
+
             } catch (error) {
-              console.warn('⚠️ Erro ao posicionar emoji:', error);
+              console.warn('⚠️ Error positioning emoji:', error);
             }
           }
 
           emojiInstanceIndex++;
-          startIndex = emojiIndex + emojiInfo.emoji.length;
+          startIndex = emojiIndex + emoji.length;
         }
       }
     });
 
-    this.saveAgentsToStorage();
+    console.log('🔧 Positioning complete');
+  }
+
+  // Keep the old function name for any internal calls but delegate to main sync
+  updateAgentPositionsFromText(): void {
+    this.resyncManually();
   }
 
   // === Event Handlers ===
@@ -661,7 +847,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Debounce to avoid too many updates while typing
     clearTimeout(this.updateTimeout);
     this.updateTimeout = setTimeout(() => {
-      this.scanAndCreateAgents();
+      this.syncAgentsWithMarkdown();
     }, 1000);
   }
 
@@ -682,11 +868,32 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.saveAgentsToStorage();
   }
 
+  // New event handlers for AgentInstance
+  onAgentInstanceCircleEvent(event: CircleEvent, instance: AgentInstance): void {
+    console.log('🎯 Agent instance circle event:', event.type, instance.emoji, instance.id);
+
+    if (event.type === 'doubleClick') {
+      this.showModal = true;
+    }
+  }
+
+  onAgentInstancePositionChange(position: CirclePosition, instance: AgentInstance): void {
+    instance.position = position;
+    this.saveStateToLocalStorage();
+    console.log(`📍 Agent instance ${instance.id} moved to (${position.x}, ${position.y})`);
+  }
+
   closeModal(): void {
     this.showModal = false;
   }
 
   // === Utilitários ===
+
+  // Helper method for template to iterate over agentInstances Map
+  getAgentInstancesAsArray(): AgentInstance[] {
+    return Array.from(this.agentInstances.values());
+  }
+
   hasSomeAgentsForEmoji(emoji: string): boolean {
     const count = this.getAgentCountForEmoji(emoji);
     const total = this.availableEmojis.find(e => e.emoji === emoji)?.count || 0;
@@ -761,40 +968,34 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   // === Persistência ===
+  saveStateToLocalStorage(): void {
+    // Convert Map to array of [key, value] to be JSON serializable
+    const serializableInstances = Array.from(this.agentInstances.entries());
+    localStorage.setItem('screenplay-agent-instances', JSON.stringify(serializableInstances));
+    console.log('💾 State saved to LocalStorage.');
+  }
+
+  loadStateFromLocalStorage(): void {
+    const storedState = localStorage.getItem('screenplay-agent-instances');
+    if (storedState) {
+      try {
+        const parsedState = JSON.parse(storedState);
+        this.agentInstances = new Map<string, AgentInstance>(parsedState);
+        console.log(`🔄 ${this.agentInstances.size} agent instances loaded from LocalStorage.`);
+      } catch (e) {
+        console.error('Error loading state from LocalStorage:', e);
+        this.agentInstances.clear();
+      }
+    }
+  }
+
+  // Legacy function for backward compatibility
   private saveAgentsToStorage(): void {
-    const markdownHash = this.generateHash(this.editorContent);
-    this.markdownAgentMap[markdownHash] = [...this.agents];
-    localStorage.setItem('screenplay-agents', JSON.stringify(this.markdownAgentMap));
+    this.saveStateToLocalStorage();
   }
 
   private loadStoredAgents(): void {
-    try {
-      const stored = localStorage.getItem('screenplay-agents');
-      if (stored) {
-        this.markdownAgentMap = JSON.parse(stored);
-
-        const markdownHash = this.generateHash(this.editorContent);
-        if (this.markdownAgentMap[markdownHash]) {
-          // Reconstruct agents with proper data structure
-          this.agents = this.markdownAgentMap[markdownHash].map(agent => ({
-            ...agent,
-            data: {
-              id: agent.id,
-              emoji: agent.emoji,
-              category: 'auth' as const,
-              title: this.getEmojiTitle(agent.emoji),
-              description: this.getEmojiDescription(agent.emoji)
-            }
-          }));
-          console.log(`🔄 ${this.agents.length} agentes restaurados e reconstruídos do localStorage`);
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ Erro ao carregar agentes do localStorage:', error);
-      // Clear corrupted storage
-      localStorage.removeItem('screenplay-agents');
-      this.markdownAgentMap = {};
-    }
+    this.loadStateFromLocalStorage();
   }
 
   private generateHash(content: string): string {
