@@ -46,12 +46,11 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['content'] && this.editor && !changes['content'].isFirstChange()) {
+    // Apenas reaja à primeira vez que o conteúdo é definido pelo pai.
+    // Depois disso, o editor é a única fonte da verdade.
+    if (this.editor && changes['content']?.isFirstChange()) {
       const newContent = changes['content'].currentValue;
-
-      // Only update if the content actually changed to avoid change detection loops
-      if (newContent && newContent !== this._lastProcessedContent) {
-        this._lastProcessedContent = newContent;
+      if (newContent && newContent !== this.getHTML()) {
         const processedContent = this.processMarkdownContent(newContent);
         this.editor.commands.setContent(processedContent);
       }
@@ -310,11 +309,16 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
     }
   }
 
-  setContent(content: string): void {
+  setContent(content: string, emitChange: boolean = false): void {
     if (this.editor) {
       // Convert markdown-style line breaks to HTML paragraphs for proper rendering
       const processedContent = this.processMarkdownContent(content);
       this.editor.commands.setContent(processedContent);
+
+      if (emitChange) {
+        // Emit change event to notify parent component
+        setTimeout(() => this.contentChange.emit(this.getMarkdown()), 0);
+      }
     }
   }
 
@@ -370,6 +374,16 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   }
 
   // Improved method to get Markdown content with better line break handling
+  public insertContentAt(position: number, content: string): void {
+    if (!this.editor || this.editor.isDestroyed) {
+      return;
+    }
+
+    // Usa a API de transações do Tiptap para inserir conteúdo
+    // sem destruir o estado do editor. O 'true' no final foca o editor novamente.
+    this.editor.chain().focus().insertContentAt(position, content).run();
+  }
+
   getMarkdown(): string {
     if (!this.editor) return '';
 
