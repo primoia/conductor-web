@@ -326,7 +326,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       flex: 1;
       position: relative;
       background: #ffffff;
-      overflow: hidden;
+      overflow: auto;
     }
 
     .editor-content {
@@ -680,8 +680,85 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   private positionAgentsOverEmojis(): void {
-    // Implementação simplificada para posicionamento
-    console.log('🔧 Positioning agents over emojis...');
+    console.log('--- Iniciando Posicionamento de Agentes ---');
+
+    const canvas = this.canvas.nativeElement;
+    if (!canvas) {
+      console.error('❌ BUG: Elemento do Canvas não encontrado.');
+      return;
+    }
+
+    const editorElement = this.interactiveEditor.getEditorElement();
+    if (!editorElement) {
+      console.error('❌ BUG: Elemento do Editor (.ProseMirror) não foi encontrado pelo filho.');
+      return;
+    }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    console.log('📦 Coordenadas do Canvas (referência):', canvasRect);
+
+    // --- INÍCIO DA CORREÇÃO ---
+    // 1. Obtenha a posição de scroll do container que ROLA. Neste caso, é o próprio canvas.
+    const scrollTop = canvas.scrollTop;
+    console.log(`📜 Posição do Scroll Top: ${scrollTop}`);
+    // --- FIM DA CORREÇÃO ---
+
+    if (this.agentInstances.size === 0) {
+      console.log('ℹ️ Nenhuma instância de agente para posicionar.');
+      return;
+    }
+
+    // Agrupa instâncias por emoji para processamento
+    const instancesByEmoji = new Map<string, AgentInstance[]>();
+    this.agentInstances.forEach(inst => {
+      const list = instancesByEmoji.get(inst.emoji) || [];
+      list.push(inst);
+      instancesByEmoji.set(inst.emoji, list);
+    });
+
+    instancesByEmoji.forEach((instances, emoji) => {
+      console.log(`-- Buscando posições para o emoji: "${emoji}" (${instances.length} instâncias)`);
+
+      const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT, null);
+      let node;
+      let emojiInstanceIndex = 0;
+
+      while ((node = walker.nextNode()) && emojiInstanceIndex < instances.length) {
+        const textContent = node.textContent || '';
+        let searchIndex = -1;
+
+        while ((searchIndex = textContent.indexOf(emoji, searchIndex + 1)) !== -1) {
+          if (emojiInstanceIndex >= instances.length) break;
+
+          const instance = instances[emojiInstanceIndex];
+          const range = document.createRange();
+          range.setStart(node, searchIndex);
+          range.setEnd(node, searchIndex + emoji.length);
+          const rect = range.getBoundingClientRect();
+
+          if (rect.width === 0 && rect.height === 0) {
+              console.warn(`⚠️ Posição do emoji "${emoji}" #${emojiInstanceIndex} não pôde ser calculada (rect is zero).`);
+              emojiInstanceIndex++;
+              continue;
+          }
+
+          // --- INÍCIO DA CORREÇÃO ---
+          // 2. Adicione scrollTop ao cálculo da coordenada Y.
+          const newPosition = {
+            x: rect.left - canvasRect.left,
+            y: (rect.top - canvasRect.top) + scrollTop // A MUDANÇA CRÍTICA
+          };
+          // --- FIM DA CORREÇÃO ---
+
+          console.log(`✅ Emoji "${emoji}" #${emojiInstanceIndex} encontrado. Rect:`, rect, `Posição Relativa com Scroll:`, newPosition);
+
+          instance.position = newPosition;
+          emojiInstanceIndex++;
+        }
+      }
+    });
+
+    console.log('--- Posicionamento de Agentes (com Scroll) Concluído ---');
   }
 
   updateAgentPositionsFromText(): void {

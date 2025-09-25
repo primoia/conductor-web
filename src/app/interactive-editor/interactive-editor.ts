@@ -384,6 +384,10 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
     this.editor.chain().focus().insertContentAt(position, content).run();
   }
 
+  public getEditorElement(): HTMLElement | null {
+    return this.editorRef.nativeElement.querySelector('.ProseMirror');
+  }
+
   getMarkdown(): string {
     if (!this.editor) return '';
 
