@@ -743,10 +743,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
           }
 
           // --- INÍCIO DA CORREÇÃO ---
-          // 2. Adicione scrollTop ao cálculo da coordenada Y.
+          // 2. Adicione scrollTop ao cálculo da coordenada Y e offset para centralização perfeita
+          const fontSize = parseFloat(getComputedStyle(editorElement).fontSize);
+          const offsetX = fontSize / 2 + 2; // Ajuste fino para X (+2px para direita)
+          const offsetY = fontSize / 2 + 1; // Centraliza no meio do emoji (+1px para baixo)
+
           const newPosition = {
-            x: rect.left - canvasRect.left,
-            y: (rect.top - canvasRect.top) + scrollTop // A MUDANÇA CRÍTICA
+            x: (rect.left - canvasRect.left) + offsetX,
+            y: (rect.top - canvasRect.top) + scrollTop + offsetY // Scroll + centralização
           };
           // --- FIM DA CORREÇÃO ---
 

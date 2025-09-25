@@ -53,7 +53,9 @@ interface DragState {
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 16px;
+      width: 18px;
+      height: 18px;
       cursor: grab;
       user-select: none;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -66,12 +68,16 @@ interface DragState {
       background: transparent;
       border: none;
 
+      /* Centralização: move o ponto de ancoragem para o centro */
+      transform: translate(-50%, -50%);
+      line-height: 1;
+
       /* Add subtle hover effects */
       filter: drop-shadow(0 0 0 transparent);
     }
 
     .draggable-circle:hover {
-      transform: scale(1.15);
+      transform: translate(-50%, -50%) scale(1.15);
       z-index: 20;
 
       /* Subtle glow effect on hover */
@@ -83,7 +89,7 @@ interface DragState {
     .draggable-circle:active,
     .draggable-circle.dragging {
       cursor: grabbing !important;
-      transform: scale(1.2) !important;
+      transform: translate(-50%, -50%) scale(1.2) !important;
       z-index: 30 !important;
 
       /* More pronounced glow when dragging */
@@ -98,7 +104,7 @@ interface DragState {
       transition: none !important;
     }
 
-    /* Responsive font sizes */
+    /* Responsive font sizes disabled for consistent sizing
     @media (max-width: 768px) {
       .draggable-circle {
         font-size: 20px;
@@ -109,7 +115,7 @@ interface DragState {
       .draggable-circle {
         font-size: 28px;
       }
-    }
+    } */
 
     /* Special animation for manual agents */
     .draggable-circle[data-manual="true"] {
@@ -117,8 +123,8 @@ interface DragState {
     }
 
     @keyframes subtlePulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.05); }
     }
 
     /* Hover states for different contexts */
@@ -180,12 +186,16 @@ export class DraggableCircle implements OnInit, OnDestroy {
     event.stopPropagation();
 
     const rect = (event.target as HTMLElement).getBoundingClientRect();
+    // Como o elemento tem transform: translate(-50%, -50%), vamos calcular o offset do centro
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
     this.dragState = {
       isDragging: true,
       startX: event.clientX,
       startY: event.clientY,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
+      offsetX: event.clientX - centerX,
+      offsetY: event.clientY - centerY,
       hasMoved: false
     };
 
