@@ -476,4 +476,120 @@ describe('ScreenplayInteractive', () => {
       expect(agentData.status).toBe('pending');
     });
   });
+
+  describe('Critical Markdown Save Functionality', () => {
+    it('should generate pure Markdown with anchors when saving', () => {
+      // -------------------
+      // DADO (Setup)
+      // -------------------
+      // 1. Simula um agente no estado da aplicação
+      const agentId = 'test-uuid-12345';
+      const emoji = '🚀';
+      const agentInstance = {
+        id: agentId,
+        emoji: emoji,
+        definition: { title: 'Test Agent', description: 'A test agent', unicode: '\\u{1F680}' },
+        status: 'pending' as const,
+        position: { x: 10, y: 10 },
+      };
+      (component as any).agentInstances.set(agentId, agentInstance);
+
+      // 2. Mock canvas and ProseMirror editor element
+      const mockCanvas = document.createElement('div');
+      const mockEditorElement = document.createElement('div');
+      mockEditorElement.classList.add('ProseMirror');
+
+      // 3. Simula o conteúdo HTML rico dentro do editor
+      mockEditorElement.innerHTML = `<h1>Título de Teste</h1><p>Conteúdo com <strong>negrito</strong> e o emoji 🚀.</p>`;
+      mockCanvas.appendChild(mockEditorElement);
+      (component as any).canvas = { nativeElement: mockCanvas };
+
+      // Mock html-to-md to simulate conversion
+      const mockHtmlToMd = jasmine.createSpy('htmlToMd').and.returnValue('# Título de Teste\n\nConteúdo com **negrito** e o emoji 🚀.');
+
+      // -------------------
+      // QUANDO (Action)
+      // -------------------
+      // 4. Chamamos a função refatorada que contém a lógica pura
+      const resultMarkdown = component.generateMarkdownForSave();
+
+      // -------------------
+      // ENTÃO (Assertions)
+      // -------------------
+      // 5. Verificamos as saídas
+
+      // Deve conter a âncora e o emoji
+      const expectedAnchor = `<!-- agent-id: ${agentId} -->${emoji}`;
+      expect(resultMarkdown).toContain(expectedAnchor);
+
+      // Deve estar em formato Markdown
+      expect(resultMarkdown).toContain('# Título de Teste');
+      expect(resultMarkdown).toContain('**negrito**');
+
+      // NÃO PODE conter tags HTML
+      expect(resultMarkdown).not.toContain('<h1>');
+      expect(resultMarkdown).not.toContain('<p>');
+      expect(resultMarkdown).not.toContain('<strong>');
+
+      console.log('🧪 Test result markdown:', resultMarkdown);
+    });
+
+    it('should handle missing editor element gracefully', () => {
+      // ARRANGE
+      const agentId = 'test-uuid-67890';
+      const agentInstance = {
+        id: agentId,
+        emoji: '📊',
+        definition: { title: 'Analytics Agent', description: 'Test analytics', unicode: '\\u{1F4CA}' },
+        status: 'pending' as const,
+        position: { x: 20, y: 20 },
+      };
+      (component as any).agentInstances.set(agentId, agentInstance);
+
+      // Mock canvas without ProseMirror element
+      const mockCanvas = document.createElement('div');
+      (component as any).canvas = { nativeElement: mockCanvas };
+      component.editorContent = 'Fallback content 📊';
+
+      // ACT
+      const resultMarkdown = component.generateMarkdownForSave();
+
+      // ASSERT
+      expect(resultMarkdown).toBe('Fallback content 📊');
+      expect(resultMarkdown).toContain('📊');
+    });
+
+    it('should preserve existing anchors and not duplicate them', () => {
+      // ARRANGE
+      const agentId = 'existing-uuid-99999';
+      const emoji = '⚡';
+      const agentInstance = {
+        id: agentId,
+        emoji: emoji,
+        definition: { title: 'Speed Agent', description: 'Existing agent', unicode: '\\u{26A1}' },
+        status: 'completed' as const,
+        position: { x: 30, y: 30 },
+      };
+      (component as any).agentInstances.set(agentId, agentInstance);
+
+      // Mock editor with content that already has the anchor
+      const mockCanvas = document.createElement('div');
+      const mockEditorElement = document.createElement('div');
+      mockEditorElement.classList.add('ProseMirror');
+      const existingAnchor = `<!-- agent-id: ${agentId} -->`;
+      mockEditorElement.innerHTML = `<h2>Performance</h2><p>Speed optimization ${existingAnchor}⚡ is critical.</p>`;
+      mockCanvas.appendChild(mockEditorElement);
+      (component as any).canvas = { nativeElement: mockCanvas };
+
+      // ACT
+      const resultMarkdown = component.generateMarkdownForSave();
+
+      // ASSERT
+      // Should contain the anchor only once
+      const anchorCount = (resultMarkdown.match(new RegExp(existingAnchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+      expect(anchorCount).toBe(1);
+      expect(resultMarkdown).toContain(existingAnchor);
+      expect(resultMarkdown).toContain('⚡');
+    });
+  });
 });
