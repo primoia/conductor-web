@@ -129,6 +129,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       <div class="screenplay-canvas" #canvas>
         <div class="editor-content">
           <app-interactive-editor
+            [content]="editorContent"
             [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
             (contentChange)="handleContentUpdate($event)"
             (blockCommand)="onBlockCommand($event)">
@@ -494,26 +495,38 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   generateMarkdownForSave(): string {
     if (!this.interactiveEditor) {
-      console.error('Editor not found. Cannot save.');
+      console.error('Editor não encontrado. Não é possível salvar.');
       return '';
     }
 
-    let markdownContent = this.interactiveEditor.getMarkdown();
+    // 1. Pega o conteúdo como HTML, que é a representação mais estruturada.
+    let htmlContent = this.interactiveEditor.getHTML();
 
-    // Itera em todas as instâncias e injeta a âncora antes do emoji correspondente
+    // 2. Itera sobre as instâncias para injetar as âncoras diretamente no HTML.
     this.agentInstances.forEach((instance) => {
-      // Apenas injeta se a âncora ainda não estiver lá
       const anchor = `<!-- agent-id: ${instance.id} -->`;
-      if (!markdownContent.includes(instance.id)) {
-        // Encontra o emoji "órfão" e adiciona a âncora antes dele
-        markdownContent = markdownContent.replace(instance.emoji, `${anchor}${instance.emoji}`);
+
+      // Procura pelo emoji que NÃO seja imediatamente precedido por uma âncora.
+      // Evita adicionar âncoras duplicadas usando uma verificação simples
+      if (!htmlContent.includes(instance.id)) {
+        // Escape do emoji para regex (alguns emojis têm caracteres especiais)
+        const escapedEmoji = instance.emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Injeta a âncora antes da primeira ocorrência "órfã" encontrada.
+        // Esta é uma abordagem mais segura do que o replace simples no Markdown.
+        const regex = new RegExp(escapedEmoji);
+        htmlContent = htmlContent.replace(regex, `${anchor}${instance.emoji}`);
       }
     });
 
-    console.log('📄 Converted Markdown:', markdownContent);
+    // 3. AGORA, com o HTML enriquecido, fazemos a conversão final para Markdown.
+    // Delega a responsabilidade de preservar a formatação para a função do editor.
+    const finalMarkdown = this.interactiveEditor.convertHtmlToMarkdown(htmlContent);
+
+    console.log('📄 Markdown Final para Salvar:', finalMarkdown);
     console.log('💾 Number of agent instances:', this.agentInstances.size);
 
-    return markdownContent;
+    return finalMarkdown;
   }
 
   generateMarkdownBlob(): Blob {

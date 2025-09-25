@@ -7,6 +7,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { createLowlight } from 'lowlight';
+import TurndownService from 'turndown';
 
 @Component({
   selector: 'app-interactive-editor',
@@ -388,47 +389,67 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
     return this.editorRef.nativeElement.querySelector('.ProseMirror');
   }
 
+  // Função pública para conversão de HTML arbitrário para Markdown - usada pelo componente pai
+  public convertHtmlToMarkdown(html: string): string {
+    if (!html) {
+      return '';
+    }
+
+    const turndownService = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      emDelimiter: '*',
+      strongDelimiter: '**',
+      bulletListMarker: '-',
+    });
+
+    // Adiciona uma regra para garantir que comentários (nossas âncoras) sejam preservados
+    turndownService.keep(function(node: any) {
+      return node.nodeName === '#comment';
+    });
+
+    // Remove escapes desnecessários de caracteres que não precisam ser escapados
+    turndownService.escape = function(string: string) {
+      // Não escapa nada - deixa o texto natural
+      return string;
+    };
+
+    // Regras personalizadas para listas para evitar escapes
+    turndownService.addRule('unorderedList', {
+      filter: 'ul',
+      replacement: function (content: string) {
+        return '\n' + content + '\n';
+      }
+    });
+
+    turndownService.addRule('listItem', {
+      filter: 'li',
+      replacement: function (content: string, node: any) {
+        content = content
+          .replace(/^\n+/, '') // remove leading newlines
+          .replace(/\n+$/, '\n') // replace trailing newlines with just a single one
+          .replace(/\n/gm, '\n    '); // indent
+        
+        let prefix = '- ';
+        const parent = node.parentNode;
+        if (parent.nodeName === 'OL') {
+          const start = parent.getAttribute('start');
+          const index = Array.prototype.indexOf.call(parent.children, node);
+          prefix = (start ? parseInt(start) + index : index + 1) + '. ';
+        }
+        
+        return prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
+      }
+    });
+
+    const markdown = turndownService.turndown(html);
+    return markdown;
+  }
+
+  // A função getMarkdown agora usa a função convertHtmlToMarkdown
   getMarkdown(): string {
     if (!this.editor) return '';
-
     const html = this.editor.getHTML();
-
-    // Basic HTML to Markdown conversion with improved line break handling
-    let markdown = html
-      // Handle paragraphs with proper double line breaks
-      .replace(/<p[^>]*>/g, '')
-      .replace(/<\/p>/g, '\n\n')
-      // Handle line breaks
-      .replace(/<br\s*\/?>/gi, '\n')
-      // Handle headings
-      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
-      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
-      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
-      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
-      .replace(/<h5[^>]*>(.*?)<\/h5>/gi, '##### $1\n\n')
-      .replace(/<h6[^>]*>(.*?)<\/h6>/gi, '###### $1\n\n')
-      // Handle formatting
-      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-      .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-      .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-      .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-      // Handle lists
-      .replace(/<ul[^>]*>/gi, '')
-      .replace(/<\/ul>/gi, '\n')
-      .replace(/<ol[^>]*>/gi, '')
-      .replace(/<\/ol>/gi, '\n')
-      .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
-      // Handle blockquotes
-      .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n\n')
-      // Handle code blocks
-      .replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n')
-      .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-      // Clean up remaining HTML tags (preserve comments for our anchors)
-      .replace(/<(?!(!--|\/!--))[^>]*>/g, '')
-      // Clean up excessive whitespace but preserve intentional line breaks
-      .replace(/\n\n\n+/g, '\n\n')
-      .trim();
-
-    return markdown;
+    return this.convertHtmlToMarkdown(html);
   }
 }
