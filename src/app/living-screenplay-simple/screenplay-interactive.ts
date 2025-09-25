@@ -4,7 +4,7 @@ import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../exa
 import { ProposalModal } from '../modal/proposal-modal';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 // @ts-ignore - html-to-md doesn't have TypeScript definitions
-import { htmlToMd } from 'html-to-md';
+import htmlToMd from 'html-to-md';
 
 interface AgentConfig {
   id: string;
@@ -506,14 +506,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log(`💾 Markdown file saved: ${this.currentFileName}`);
   }
 
-  // Extracted for testability
-  generateMarkdownBlob(): Blob {
+  // Public method for generating pure Markdown content with anchors - testable
+  generateMarkdownForSave(): string {
     // Get HTML content directly from the editor
     const editorElement = this.canvas.nativeElement.querySelector('.ProseMirror');
     if (!editorElement) {
       console.error('Failed to find editor element for saving.');
-      // Return a blob with current editor content as fallback
-      return new Blob([this.editorContent], { type: 'text/markdown' });
+      // Return current editor content as fallback
+      return this.editorContent;
     }
     const currentHtmlContent = editorElement.innerHTML;
 
@@ -540,6 +540,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('📄 Converted Markdown:', markdownContent);
     console.log('💾 Number of agent instances:', this.agentInstances.size);
 
+    return markdownContent;
+  }
+
+  // Extracted for testability
+  generateMarkdownBlob(): Blob {
+    const markdownContent = this.generateMarkdownForSave();
     return new Blob([markdownContent], { type: 'text/markdown' });
   }
 
