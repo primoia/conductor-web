@@ -3,6 +3,21 @@
 /* Importar fontes de emoji para garantir renderização correta */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
 
+/*
+  Define uma família de fontes 'emoji' personalizada.
+  Isso nos dá um controle mais preciso sobre a renderização de emojis,
+  garantindo que o navegador use a fonte Noto Color Emoji primeiro,
+  antes de tentar outras fontes padrão do sistema.
+*/
+@font-face {
+  font-family: 'emoji';
+  src: local('Apple Color Emoji'), /* macOS/iOS */
+       local('Segoe UI Emoji'), /* Windows */
+       local('Noto Color Emoji'), /* Android/ChromeOS */
+       url('https://fonts.gstatic.com/s/notocoloremoji/v25/Yq6P-KqIXTD0J4-flNAUT2PjpALa2c8.woff2') format('woff2'); /* Fallback direto */
+  unicode-range: U+1F600-1F64F, U+1F300-1F5FF, U+1F680-1F6FF, U+2600-26FF, U+2700-27BF, U+FE0F; /* Opcional: Otimiza o carregamento */
+}
+
 /* Reset básico */
 * {
   margin: 0;

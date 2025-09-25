@@ -272,7 +272,7 @@ interface EmojiInfo {
       transition: all 0.2s;
 
       /* Força fontes de emoji para renderização correta */
-      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols', monospace !important;
+      font-family: 'emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important;
     }
 
     .emoji-btn:hover {
@@ -459,7 +459,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   // === Gerenciamento de Agentes ===
   scanAndCreateAgents(): void {
-    const emojiPattern = /([🚀🔐📊🛡️⚡🎯🧠💻📱🌐🔍🎪🏆🔮💎⭐🌟])/g;
+    const emojiPattern = /(\u{1F680}|\u{1F510}|\u{1F4CA}|\u{1F6E1}|\u{26A1}|\u{1F3AF}|\u{1F9E0}|\u{1F4BB}|\u{1F4F1}|\u{1F310}|\u{1F50D}|\u{1F3AA}|\u{1F3C6}|\u{1F52E}|\u{1F48E}|\u{2B50}|\u{1F31F})/gu;
     const matches = [...this.editorContent.matchAll(emojiPattern)];
 
     const emojiCount: { [key: string]: number } = {};
