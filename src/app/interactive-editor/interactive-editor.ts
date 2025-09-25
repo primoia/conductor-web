@@ -48,11 +48,17 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['content'] && this.editor && !changes['content'].isFirstChange()) {
       const newContent = changes['content'].currentValue;
-      if (newContent !== this.editor.getHTML()) {
-        this.editor.commands.setContent(newContent);
+
+      // Only update if the content actually changed to avoid change detection loops
+      if (newContent && newContent !== this._lastProcessedContent) {
+        this._lastProcessedContent = newContent;
+        const processedContent = this.processMarkdownContent(newContent);
+        this.editor.commands.setContent(processedContent);
       }
     }
   }
+
+  private _lastProcessedContent: string = '';
 
   ngOnDestroy(): void {
     if (this.editor) {
@@ -68,6 +74,16 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
       extensions: [
         StarterKit.configure({
           codeBlock: false, // We'll use CodeBlockLowlight instead
+          // Configure paragraph handling for better line break preservation
+          paragraph: {
+            HTMLAttributes: {
+              class: 'editor-paragraph',
+            },
+          },
+          // Ensure hardBreak handles line breaks properly
+          hardBreak: {
+            keepMarks: true,
+          },
         }),
         Placeholder.configure({
           placeholder: this.placeholder,
@@ -98,8 +114,9 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
         },
       },
       onUpdate: ({ editor }) => {
-        const html = editor.getHTML();
-        this.contentChange.emit(html);
+        // Emit markdown instead of HTML to preserve formatting when parent saves
+        const markdown = this.getMarkdown();
+        this.contentChange.emit(markdown);
       },
     });
 
@@ -295,8 +312,47 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
 
   setContent(content: string): void {
     if (this.editor) {
-      this.editor.commands.setContent(content);
+      // Convert markdown-style line breaks to HTML paragraphs for proper rendering
+      const processedContent = this.processMarkdownContent(content);
+      this.editor.commands.setContent(processedContent);
     }
+  }
+
+  // Helper method to convert markdown content to HTML for proper paragraph handling
+  private processMarkdownContent(markdown: string): string {
+    if (!markdown || typeof markdown !== 'string') {
+      return '<p></p>';
+    }
+
+    // Simple and reliable conversion: handle basic markdown and paragraphs
+    let html = markdown
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`(.*?)`/g, '<code>$1</code>');
+
+    // Handle headings first
+    html = html
+      .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+    // Split into paragraphs based on double line breaks
+    const paragraphs = html.split('\n\n').filter(p => p.trim().length > 0);
+
+    if (paragraphs.length === 0) {
+      return '<p></p>';
+    }
+
+    // Wrap content that isn't already wrapped in block elements
+    const processedParagraphs = paragraphs.map(paragraph => {
+      const trimmed = paragraph.trim();
+      if (trimmed.startsWith('<h') || trimmed.startsWith('<div') || trimmed.startsWith('<ul') || trimmed.startsWith('<ol')) {
+        return trimmed;
+      }
+      return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+    });
+
+    return processedParagraphs.join('\n');
   }
 
   getHTML(): string {
@@ -311,5 +367,50 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
     if (this.editor) {
       this.editor.commands.insertContent(content);
     }
+  }
+
+  // Improved method to get Markdown content with better line break handling
+  getMarkdown(): string {
+    if (!this.editor) return '';
+
+    const html = this.editor.getHTML();
+
+    // Basic HTML to Markdown conversion with improved line break handling
+    let markdown = html
+      // Handle paragraphs with proper double line breaks
+      .replace(/<p[^>]*>/g, '')
+      .replace(/<\/p>/g, '\n\n')
+      // Handle line breaks
+      .replace(/<br\s*\/?>/gi, '\n')
+      // Handle headings
+      .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+      .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
+      .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
+      .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
+      .replace(/<h5[^>]*>(.*?)<\/h5>/gi, '##### $1\n\n')
+      .replace(/<h6[^>]*>(.*?)<\/h6>/gi, '###### $1\n\n')
+      // Handle formatting
+      .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
+      .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
+      .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
+      .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
+      // Handle lists
+      .replace(/<ul[^>]*>/gi, '')
+      .replace(/<\/ul>/gi, '\n')
+      .replace(/<ol[^>]*>/gi, '')
+      .replace(/<\/ol>/gi, '\n')
+      .replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n')
+      // Handle blockquotes
+      .replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gi, '> $1\n\n')
+      // Handle code blocks
+      .replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n')
+      .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
+      // Clean up remaining HTML tags (preserve comments for our anchors)
+      .replace(/<(?!(!--|\/!--))[^>]*>/g, '')
+      // Clean up excessive whitespace but preserve intentional line breaks
+      .replace(/\n\n\n+/g, '\n\n')
+      .trim();
+
+    return markdown;
   }
 }
