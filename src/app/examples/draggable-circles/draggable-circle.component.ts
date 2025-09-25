@@ -60,7 +60,7 @@ interface DragState {
       z-index: 10;
 
       /* Força fontes de emoji para renderização correta */
-      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols', monospace !important;
+      font-family: 'emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important;
 
       /* No background, just the emoji */
       background: transparent;
