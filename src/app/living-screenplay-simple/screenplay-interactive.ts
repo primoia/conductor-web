@@ -3,8 +3,6 @@ import { CommonModule } from '@angular/common';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { ProposalModal } from '../modal/proposal-modal';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
-// @ts-ignore - html-to-md doesn't have TypeScript definitions
-import htmlToMd from 'html-to-md';
 
 interface AgentConfig {
   id: string;
@@ -379,6 +377,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 })
 export class ScreenplayInteractive implements AfterViewInit {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
+  @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
 
   // Estado da aplicação
   agents: AgentConfig[] = [];
@@ -506,37 +505,27 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log(`💾 Markdown file saved: ${this.currentFileName}`);
   }
 
-  // Public method for generating pure Markdown content with anchors - testable
+  // Public method for generating pure Markdown content with anchors - testable and robust
   generateMarkdownForSave(): string {
-    // Get HTML content directly from the editor
-    const editorElement = this.canvas.nativeElement.querySelector('.ProseMirror');
-    if (!editorElement) {
-      console.error('Failed to find editor element for saving.');
-      // Return current editor content as fallback
-      return this.editorContent;
+    if (!this.interactiveEditor) {
+      console.error('Editor not found. Cannot save.');
+      return '';
     }
-    const currentHtmlContent = editorElement.innerHTML;
 
-    // Convert HTML to Markdown
-    let markdownContent = htmlToMd(currentHtmlContent);
+    // 1. Get Markdown directly from the improved editor method
+    let markdownContent = this.interactiveEditor.getMarkdown();
 
-    // Ensure ID anchors are present in final Markdown
+    // 2. Inject agent anchors into the markdown content
     this.agentInstances.forEach((instance, id) => {
       const anchor = `<!-- agent-id: ${id} -->`;
-      const emojiWithAnchor = `${anchor}${instance.emoji}`;
-
-      // Regex to find emoji, optionally preceded by its anchor
-      const regex = new RegExp(`(<!--\\s*agent-id:\\s*${id}\\s*-->\\s*)?${instance.emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
 
       if (!markdownContent.includes(anchor)) {
-         // If anchor doesn't exist, replace first occurrence of "orphan" emoji
-         // This logic might need future refinement if same emoji is used for
-         // multiple agents without anchor
-         markdownContent = markdownContent.replace(instance.emoji, emojiWithAnchor);
+        // Replace first occurrence of the emoji with anchor + emoji
+        const escapedEmoji = instance.emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        markdownContent = markdownContent.replace(new RegExp(escapedEmoji), `${anchor}${instance.emoji}`);
       }
     });
 
-    console.log('📄 Original HTML:', currentHtmlContent);
     console.log('📄 Converted Markdown:', markdownContent);
     console.log('💾 Number of agent instances:', this.agentInstances.size);
 

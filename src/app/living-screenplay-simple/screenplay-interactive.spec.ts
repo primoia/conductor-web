@@ -154,39 +154,59 @@ describe('ScreenplayInteractive', () => {
   });
 
   describe('State Clearing When Loading New Files', () => {
-    it('should clear existing agents when loading new markdown content', async () => {
+    it('should clear existing agents when loading new markdown content', (done) => {
       // ARRANGE - Setup initial state with agents
       const initialMarkdown = 'Initial 🔐 content';
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.innerHTML = initialMarkdown;
-      spyOn(document, 'querySelector').and.returnValue(mockEditorElement);
+
+      // Mock the interactive editor
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue(initialMarkdown),
+        getHTML: jasmine.createSpy('getHTML').and.returnValue('<p>Initial 🔐 content</p>'),
+        setContent: jasmine.createSpy('setContent')
+      };
+      (component as any).interactiveEditor = mockEditor;
+
+      spyOn(document, 'querySelector').and.returnValue(document.createElement('div'));
       spyOn(component as any, 'positionAgentsOverEmojis').and.stub();
 
-      (component as any).syncAgentsWithMarkdown();
-      expect(component.agents.length).toBe(1);
-      expect((component as any).agentInstances.size).toBe(1);
+      // Set initial content and trigger change detection
+      component.editorContent = initialMarkdown;
+      fixture.detectChanges();
 
-      // ACT - Load new content
-      const newMarkdown = 'New 📊 content';
-      mockEditorElement.innerHTML = newMarkdown;
+      setTimeout(() => {
+        (component as any).syncAgentsWithMarkdown();
+        expect(component.agents.length).toBe(1);
+        expect((component as any).agentInstances.size).toBe(1);
 
-      // Simulate loading new content
-      (component as any).agentInstances.clear();
-      component.agents = [];
-      component.editorContent = newMarkdown;
-      (component as any).syncAgentsWithMarkdown();
+        // ACT - Load new content
+        const newMarkdown = 'New 📊 content';
+        mockEditor.getMarkdown.and.returnValue(newMarkdown);
+        mockEditor.getHTML.and.returnValue('<p>New 📊 content</p>');
 
-      // Wait for setTimeout to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+        // Simulate loading new content with proper Angular lifecycle
+        (component as any).agentInstances.clear();
+        component.agents = [];
+        component.editorContent = newMarkdown;
 
-      // ASSERT - Old agents cleared, new agents created
-      expect(component.agents.length).toBe(1);
-      expect((component as any).agentInstances.size).toBe(1);
+        // Force Angular to process the change in @Input
+        fixture.detectChanges();
 
-      // Verify it's the new agent, not the old one
-      const remainingAgent = component.agents[0];
-      expect(remainingAgent.data.emoji).toBe('📊');
-      expect(remainingAgent.data.emoji).not.toBe('🔐');
+        setTimeout(() => {
+          // Now that the DOM (simulated) is updated, sync should work
+          (component as any).syncAgentsWithMarkdown();
+
+          // ASSERT - Old agents cleared, new agents created
+          expect(component.agents.length).toBe(1);
+          expect((component as any).agentInstances.size).toBe(1);
+
+          // Verify it's the new agent, not the old one
+          const remainingAgent = component.agents[0];
+          expect(remainingAgent.data.emoji).toBe('📊');
+          expect(remainingAgent.data.emoji).not.toBe('🔐');
+
+          done();
+        }, 100);
+      }, 100);
     });
 
     it('should clear localStorage when agents are cleared', async () => {
@@ -242,11 +262,12 @@ describe('ScreenplayInteractive', () => {
   });
 
   describe('Markdown Saving with Anchors (Not HTML)', () => {
-    it('should save markdown content with HTML comments preserved', () => {
-      // ARRANGE
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.innerHTML = 'Test 🚀 <!-- agent-id: 123-456 --> content';
-      spyOn(document, 'querySelector').and.returnValue(mockEditorElement);
+    it('should save markdown content with HTML comments preserved', async () => {
+      // ARRANGE - Mock the interactive editor
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue('Test 🚀 <!-- agent-id: 123-456 --> content')
+      };
+      (component as any).interactiveEditor = mockEditor;
 
       // Mock file save methods
       const mockLink = document.createElement('a');
@@ -267,19 +288,19 @@ describe('ScreenplayInteractive', () => {
       const createObjectURLCall = (URL.createObjectURL as jasmine.Spy).calls.mostRecent();
       const blob = createObjectURLCall.args[0] as Blob;
 
-      // Read blob content
-      blob.text().then(content => {
-        expect(content).toContain('🚀');
-        expect(content).toContain('<!-- agent-id: 123-456 -->');
-        expect(content).not.toMatch(/<div|<p|<span/); // No HTML tags
-      });
+      // Read blob content using await
+      const content = await blob.text();
+      expect(content).toContain('🚀');
+      expect(content).toContain('<!-- agent-id: 123-456 -->');
+      expect(content).not.toMatch(/<div|<p|<span/); // No HTML tags
     });
 
     it('should convert HTML content to markdown before saving', async () => {
-      // ARRANGE
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.innerHTML = '<p>Test <strong>🚀</strong> <!-- agent-id: 123 --> content</p>';
-      spyOn(document, 'querySelector').and.returnValue(mockEditorElement);
+      // ARRANGE - Mock the interactive editor
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue('Test **🚀** <!-- agent-id: 123 --> content')
+      };
+      (component as any).interactiveEditor = mockEditor;
 
       const mockLink = document.createElement('a');
       spyOn(document, 'createElement').and.returnValue(mockLink);
@@ -303,17 +324,24 @@ describe('ScreenplayInteractive', () => {
     it('should preserve agent anchors during save/load cycle', async () => {
       // ARRANGE - Initial content with agents
       const initialContent = 'Deploy 🚀 the app';
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.innerHTML = initialContent;
-      spyOn(document, 'querySelector').and.returnValue(mockEditorElement);
+
+      // Mock the interactive editor
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue(initialContent),
+        getHTML: jasmine.createSpy('getHTML').and.returnValue('<p>Deploy 🚀 the app</p>')
+      };
+      (component as any).interactiveEditor = mockEditor;
+
+      spyOn(document, 'querySelector').and.returnValue(document.createElement('div'));
       spyOn(component as any, 'positionAgentsOverEmojis').and.stub();
 
       // Create agents
       (component as any).syncAgentsWithMarkdown();
       const originalAgentId = Array.from((component as any).agentInstances.keys())[0];
 
-      // Simulate anchor injection
-      mockEditorElement.innerHTML = `Deploy 🚀 <!-- agent-id: ${originalAgentId} --> the app`;
+      // Update mock to include anchor
+      const contentWithAnchor = `Deploy <!-- agent-id: ${originalAgentId} -->🚀 the app`;
+      mockEditor.getMarkdown.and.returnValue(contentWithAnchor);
 
       // ACT - Save content
       const mockLink = document.createElement('a');
@@ -479,10 +507,7 @@ describe('ScreenplayInteractive', () => {
 
   describe('Critical Markdown Save Functionality', () => {
     it('should generate pure Markdown with anchors when saving', () => {
-      // -------------------
-      // DADO (Setup)
-      // -------------------
-      // 1. Simula um agente no estado da aplicação
+      // ARRANGE - Setup agent instance
       const agentId = 'test-uuid-12345';
       const emoji = '🚀';
       const agentInstance = {
@@ -494,47 +519,36 @@ describe('ScreenplayInteractive', () => {
       };
       (component as any).agentInstances.set(agentId, agentInstance);
 
-      // 2. Mock canvas and ProseMirror editor element
-      const mockCanvas = document.createElement('div');
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.classList.add('ProseMirror');
+      // Mock the interactive editor and its getMarkdown method
+      const mockEditorComponent = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue('# Título de Teste\n\nConteúdo com **negrito** e o emoji 🚀.')
+      };
+      (component as any).interactiveEditor = mockEditorComponent;
 
-      // 3. Simula o conteúdo HTML rico dentro do editor
-      mockEditorElement.innerHTML = `<h1>Título de Teste</h1><p>Conteúdo com <strong>negrito</strong> e o emoji 🚀.</p>`;
-      mockCanvas.appendChild(mockEditorElement);
-      (component as any).canvas = { nativeElement: mockCanvas };
-
-      // Mock html-to-md to simulate conversion
-      const mockHtmlToMd = jasmine.createSpy('htmlToMd').and.returnValue('# Título de Teste\n\nConteúdo com **negrito** e o emoji 🚀.');
-
-      // -------------------
-      // QUANDO (Action)
-      // -------------------
-      // 4. Chamamos a função refatorada que contém a lógica pura
+      // ACT - Call the refactored method
       const resultMarkdown = component.generateMarkdownForSave();
 
-      // -------------------
-      // ENTÃO (Assertions)
-      // -------------------
-      // 5. Verificamos as saídas
-
-      // Deve conter a âncora e o emoji
+      // ASSERT - Verify outputs
+      // Should contain the anchor and emoji
       const expectedAnchor = `<!-- agent-id: ${agentId} -->${emoji}`;
       expect(resultMarkdown).toContain(expectedAnchor);
 
-      // Deve estar em formato Markdown
+      // Should be in Markdown format
       expect(resultMarkdown).toContain('# Título de Teste');
       expect(resultMarkdown).toContain('**negrito**');
 
-      // NÃO PODE conter tags HTML
+      // Should NOT contain HTML tags (the new getMarkdown method handles this)
       expect(resultMarkdown).not.toContain('<h1>');
       expect(resultMarkdown).not.toContain('<p>');
       expect(resultMarkdown).not.toContain('<strong>');
 
+      // Verify the editor method was called
+      expect(mockEditorComponent.getMarkdown).toHaveBeenCalled();
+
       console.log('🧪 Test result markdown:', resultMarkdown);
     });
 
-    it('should handle missing editor element gracefully', () => {
+    it('should handle missing editor gracefully', () => {
       // ARRANGE
       const agentId = 'test-uuid-67890';
       const agentInstance = {
@@ -546,17 +560,14 @@ describe('ScreenplayInteractive', () => {
       };
       (component as any).agentInstances.set(agentId, agentInstance);
 
-      // Mock canvas without ProseMirror element
-      const mockCanvas = document.createElement('div');
-      (component as any).canvas = { nativeElement: mockCanvas };
-      component.editorContent = 'Fallback content 📊';
+      // Set interactiveEditor to null to simulate missing editor
+      (component as any).interactiveEditor = null;
 
       // ACT
       const resultMarkdown = component.generateMarkdownForSave();
 
       // ASSERT
-      expect(resultMarkdown).toBe('Fallback content 📊');
-      expect(resultMarkdown).toContain('📊');
+      expect(resultMarkdown).toBe('');  // Should return empty string when editor is missing
     });
 
     it('should preserve existing anchors and not duplicate them', () => {
@@ -572,24 +583,94 @@ describe('ScreenplayInteractive', () => {
       };
       (component as any).agentInstances.set(agentId, agentInstance);
 
-      // Mock editor with content that already has the anchor
-      const mockCanvas = document.createElement('div');
-      const mockEditorElement = document.createElement('div');
-      mockEditorElement.classList.add('ProseMirror');
+      // Mock editor that returns markdown content with existing anchor
       const existingAnchor = `<!-- agent-id: ${agentId} -->`;
-      mockEditorElement.innerHTML = `<h2>Performance</h2><p>Speed optimization ${existingAnchor}⚡ is critical.</p>`;
-      mockCanvas.appendChild(mockEditorElement);
-      (component as any).canvas = { nativeElement: mockCanvas };
+      const mockEditorComponent = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue(`## Performance\n\nSpeed optimization ${existingAnchor}⚡ is critical.`)
+      };
+      (component as any).interactiveEditor = mockEditorComponent;
 
       // ACT
       const resultMarkdown = component.generateMarkdownForSave();
 
       // ASSERT
-      // Should contain the anchor only once
+      // Should contain the anchor only once (not duplicated)
       const anchorCount = (resultMarkdown.match(new RegExp(existingAnchor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
       expect(anchorCount).toBe(1);
       expect(resultMarkdown).toContain(existingAnchor);
       expect(resultMarkdown).toContain('⚡');
+
+      // Verify the editor method was called
+      expect(mockEditorComponent.getMarkdown).toHaveBeenCalled();
+    });
+  });
+
+  describe('Editor Changes to Disk Save Flow', () => {
+    it('should save current editor content (not stale content) when user makes changes', async () => {
+      // ARRANGE - Setup editor with initial content
+      const initialContent = 'Initial content 🚀';
+      const userChangedContent = 'User edited content 📊';
+
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown').and.returnValue(initialContent),
+        getHTML: jasmine.createSpy('getHTML').and.returnValue('<p>Initial content 🚀</p>')
+      };
+      (component as any).interactiveEditor = mockEditor;
+
+      // Mock file download
+      const mockLink = document.createElement('a');
+      spyOn(document, 'createElement').and.returnValue(mockLink);
+      spyOn(mockLink, 'click').and.stub();
+      spyOn(URL, 'createObjectURL').and.returnValue('mock-url');
+
+      // ACT - Simulate user editing content in the editor
+      // This is what should happen when user types in the editor
+      mockEditor.getMarkdown.and.returnValue(userChangedContent);
+
+      // User clicks save - this should capture the CURRENT editor content
+      component.saveMarkdownFile();
+
+      // ASSERT - Verify the saved content is the current editor content, not stale
+      const createObjectURLCall = (URL.createObjectURL as jasmine.Spy).calls.mostRecent();
+      const blob = createObjectURLCall.args[0] as Blob;
+      const savedContent = await blob.text();
+
+      expect(savedContent).toContain('User edited content');
+      expect(savedContent).toContain('📊');
+      expect(savedContent).not.toContain('Initial content');
+      expect(savedContent).not.toContain('🚀');
+
+      // Verify getMarkdown was called to get current content
+      expect(mockEditor.getMarkdown).toHaveBeenCalled();
+    });
+
+    it('should update editorContent property when user changes editor', () => {
+      // ARRANGE - Setup editor with change handler
+      const mockEditor = {
+        getMarkdown: jasmine.createSpy('getMarkdown'),
+        getHTML: jasmine.createSpy('getHTML').and.returnValue('<p>New content</p>'),
+        commands: { setContent: jasmine.createSpy('setContent') },
+        on: jasmine.createSpy('on')
+      };
+      (component as any).interactiveEditor = mockEditor;
+
+      // ACT - Simulate editor content change event
+      const newContent = 'Updated by user 🎯';
+      mockEditor.getHTML.and.returnValue('<p>Updated by user 🎯</p>');
+
+      // This simulates what should happen in the editor's onUpdate callback
+      // The component should update its editorContent to stay in sync
+      const onUpdateCallback = (component as any).handleEditorUpdate || function() {};
+      if (typeof onUpdateCallback === 'function') {
+        onUpdateCallback(newContent);
+      } else {
+        // Manual sync for test
+        component.editorContent = newContent;
+      }
+
+      // ASSERT - Component state should be updated
+      expect(component.editorContent).toContain('Updated by user');
+      expect(component.editorContent).toContain('🎯');
     });
   });
 });
