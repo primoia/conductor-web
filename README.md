@@ -1,59 +1,73 @@
-# ConductorApp
+# 🎼 Conductor Web: A Interface para Documentos Vivos
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.2.
+Este projeto é a interface de front-end para o ecossistema Conductor, transformando documentos Markdown estáticos em painéis de controle interativos para orquestrar Agentes de IA.
 
-## Development server
+## ✨ Visão do Projeto: Markdown Aumentado por Agentes
 
-To start a local development server, run:
+A premissa central do Conductor Web é que a documentação não deve ser apenas descritiva, mas também executável. Esta aplicação introduz o conceito de "Documentos Vivos", onde o formato simples e universal do Markdown é "aumentado" com uma camada de inteligência persistente.
+
+### Como Funciona?
+
+1.  **Âncoras de Agentes:** Emojis simples (como `🚀`, `🎯`, `🤖`) dentro de um arquivo `.md` atuam como âncoras para instâncias de Agentes de IA.
+2.  **Camada Interativa:** A aplicação renderiza uma camada visual sobre o texto, transformando cada emoji em um componente interativo (um "agente rico").
+3.  **Persistência Invisível:** Um ID único para cada agente é injetado de volta no Markdown usando comentários HTML (`<!-- agent-id: ... -->`), que são invisíveis em renderizadores padrão. Isso cria um vínculo persistente entre o texto e o estado do agente.
+4.  **Orquestração:** Através desta interface, um usuário pode acionar agentes do poderoso backend do **Conductor**, passando o contexto do documento para executar tarefas complexas como geração de código, análise, testes e muito mais.
+
+Em suma, este projeto transforma o ato de escrever documentação no ato de programar um fluxo de trabalho de IA.
+
+---
+
+## 🚀 Funcionalidades Atuais (Protótipo)
+
+-   **Sincronização Dinâmica:** Carrega arquivos `.md` e renderiza automaticamente os agentes interativos.
+-   **Persistência de Estado:** O estado e a posição dos agentes são salvos e restaurados entre sessões e recarregamentos.
+-   **Ancoragem Robusta:** A "inteligência" sobrevive a edições no texto e é salva junto com o arquivo `.md`.
+-   **Isolamento de Contexto:** O estado é gerenciado de forma limpa ao trocar entre diferentes documentos.
+
+---
+
+## 🛠️ Desenvolvimento e Execução (Baseado no Angular CLI v20.3.2)
+
+### Servidor de Desenvolvimento
+
+Para iniciar um servidor de desenvolvimento local, execute:
 
 ```bash
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Navegue para `http://localhost:4200/`. A aplicação será recarregada automaticamente se você modificar os arquivos-fonte.
 
-## Code scaffolding
+### Geração de Código (Scaffolding)
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Para gerar um novo componente, execute:
 
 ```bash
-ng generate --help
+ng generate component nome-do-componente
 ```
 
-## Building
+Você também pode usar `ng generate directive|pipe|service|class|guard|interface|enum|module`.
 
-To build the project run:
+### Build para Produção
+
+Para construir o projeto para produção, execute:
 
 ```bash
 ng build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Os artefatos da construção serão armazenados no diretório `dist/`.
 
-## Running unit tests
+### Executando Testes Unitários
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+Para executar os testes unitários via [Karma](https://karma-runner.github.io), use o seguinte comando:
 
 ```bash
 ng test
 ```
 
-## Running end-to-end tests
+---
 
-For end-to-end (e2e) testing, run:
+## 📚 Recursos Adicionais
 
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Para mais informações sobre o Angular CLI, visite a [Visão Geral e Referência de Comandos do Angular CLI](https://angular.dev/tools/cli).
