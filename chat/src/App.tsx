@@ -6,7 +6,7 @@ import './styles/index.css';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
-    baseUrl: 'http://localhost:5006',
+    baseUrl: 'http://localhost:5005',
     endpoint: '/execute',
     streamEndpoint: '/api/v1/stream-execute',
     apiKey: 'test-api-key-123',
