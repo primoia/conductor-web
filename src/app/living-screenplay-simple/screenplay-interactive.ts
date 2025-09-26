@@ -1,8 +1,10 @@
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
-import { ProposalModal } from '../modal/proposal-modal';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
+import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
+import { AgentControlModal } from './agent-control-modal/agent-control-modal';
+import { Subscription } from 'rxjs';
 
 interface AgentConfig {
   id: string;
@@ -29,8 +31,9 @@ interface AgentInstance {
   id: string; // UUID v4 - anchor in Markdown and key in "database"
   emoji: string;
   definition: { title: string; description: string; unicode: string; }; // Link to AGENT_DEFINITIONS
-  status: 'pending' | 'in_progress' | 'completed' | 'error';
+  status: 'pending' | 'queued' | 'running' | 'completed' | 'error';
   position: CirclePosition; // XY position on screen
+  executionState?: AgentExecutionState; // Link to execution service state
 }
 
 // Agent definitions mapping emoji to their properties
@@ -57,7 +60,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, ProposalModal, InteractiveEditor],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal],
   template: `
     <div class="screenplay-container">
       <div class="control-panel">
@@ -89,6 +92,27 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
           <button (click)="clearAllAgents()" class="control-btn" *ngIf="agents.length > 0">
             🗑️ Limpar Todos
           </button>
+
+          <!-- Agent execution status -->
+          <div class="execution-status" *ngIf="getRunningAgents().length > 0">
+            <small>Em execução:</small>
+            <div class="running-agents">
+              <div *ngFor="let agent of getRunningAgents()" class="running-agent">
+                {{ agent.emoji }} {{ agent.definition.title }}
+                <button (click)="cancelAgentExecution(agent.id)" class="cancel-btn" title="Cancelar">❌</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Queue status -->
+          <div class="queue-status" *ngIf="getQueuedAgents().length > 0">
+            <small>Na fila ({{ getQueuedAgents().length }}):</small>
+            <div class="queued-agents">
+              <div *ngFor="let agent of getQueuedAgents(); let i = index" class="queued-agent">
+                {{ agent.emoji }} {{ agent.definition.title }} ({{ i + 1 }})
+              </div>
+            </div>
+          </div>
           <div class="emoji-list" *ngIf="availableEmojis.length > 0">
             <small>Emojis encontrados:</small>
             <div class="emoji-buttons">
@@ -144,6 +168,11 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
             [position]="agent.position"
             [container]="canvas"
             [attr.data-status]="agent.status"
+            [class.agent-queued]="agent.status === 'queued'"
+            [class.agent-running]="agent.status === 'running'"
+            [class.agent-completed]="agent.status === 'completed'"
+            [class.agent-error]="agent.status === 'error'"
+            [title]="getAgentTooltip(agent)"
             (circleEvent)="onAgentInstanceCircleEvent($event, agent)"
             (positionChange)="onAgentInstancePositionChange($event, agent)">
           </draggable-circle>
@@ -160,8 +189,15 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       </div>
     </div>
 
-    <!-- Modal -->
-    <app-proposal-modal *ngIf="showModal" (closeModal)="closeModal()"></app-proposal-modal>
+    <!-- Agent Control Modal -->
+    <app-agent-control-modal
+      [agent]="selectedAgent"
+      [executionLogs]="selectedAgent ? getAgentExecutionLogs(selectedAgent.id) : []"
+      [isVisible]="showModal"
+      (execute)="onModalExecute($event)"
+      (cancel)="onModalCancel($event)"
+      (close)="closeModal()">
+    </app-agent-control-modal>
   `,
   styles: [`
     /* Força fontes de emoji em todo o componente */
@@ -323,6 +359,43 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       font-size: 9px;
     }
 
+    .execution-status, .queue-status {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(40, 167, 69, 0.1);
+      border-radius: 4px;
+      border-left: 3px solid #28a745;
+    }
+
+    .execution-status small, .queue-status small {
+      color: #28a745;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .running-agent, .queued-agent {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 11px;
+      color: #ffffff;
+    }
+
+    .cancel-btn {
+      background: none;
+      border: none;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .cancel-btn:hover {
+      opacity: 1;
+    }
+
     .screenplay-canvas {
       flex: 1;
       position: relative;
@@ -350,6 +423,80 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       pointer-events: auto;
     }
 
+    /* Agent status indicators */
+    .overlay-elements draggable-circle.agent-queued::after {
+      content: '⏳';
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 12px;
+      background: #ffc107;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s infinite;
+    }
+
+    .overlay-elements draggable-circle.agent-running::after {
+      content: '⚡';
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 12px;
+      background: #007bff;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: spin 1s linear infinite;
+    }
+
+    .overlay-elements draggable-circle.agent-completed::after {
+      content: '✅';
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 12px;
+      background: #28a745;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .overlay-elements draggable-circle.agent-error::after {
+      content: '❌';
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      font-size: 12px;
+      background: #dc3545;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     .action-popup {
       position: fixed;
       background: rgba(0, 0, 0, 0.8);
@@ -372,9 +519,10 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       border-right: 5px solid transparent;
       border-top: 5px solid rgba(0, 0, 0, 0.8);
     }
+
   `]
 })
-export class ScreenplayInteractive implements AfterViewInit {
+export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
 
@@ -401,6 +549,10 @@ export class ScreenplayInteractive implements AfterViewInit {
 
   // Simulates MongoDB 'agent_instances' collection
   private agentInstances = new Map<string, AgentInstance>();
+
+  // Agent execution service integration
+  private agentStateSubscription?: Subscription;
+  public selectedAgent: AgentInstance | null = null;
 
   // Conteúdo do editor (fonte da verdade)
   editorContent = `# 🎬 Roteiro Vivo Interativo
@@ -434,6 +586,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
 > 💡 **Dica**: Use "Roteiro Limpo" para ver apenas o texto!
 `;
 
+  constructor(private agentExecutionService: AgentExecutionService) {
+    // Subscribe to agent execution state changes
+    this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
+      (agentStates) => this.updateAgentInstancesWithExecutionState(agentStates)
+    );
+  }
+
   ngAfterViewInit(): void {
     this.loadStateFromLocalStorage();
 
@@ -441,6 +600,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
     setTimeout(() => {
       this.interactiveEditor.setContent(this.editorContent, true);
     }, 0);
+  }
+
+  ngOnDestroy(): void {
+    if (this.agentStateSubscription) {
+      this.agentStateSubscription.unsubscribe();
+    }
   }
 
   // === Operações de Arquivo ===
@@ -811,7 +976,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
   onAgentInstanceCircleEvent(event: CircleEvent, instance: AgentInstance): void {
     console.log('🎯 Agent instance circle event:', event.type, instance.emoji, instance.id);
     if (event.type === 'doubleClick') {
+      this.selectedAgent = instance;
       this.showModal = true;
+      console.log('💬 Opening modal for agent:', instance.definition.title);
     }
   }
 
@@ -869,5 +1036,117 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.agentInstances.clear();
       }
     }
+  }
+
+  // === Agent Execution Integration ===
+
+
+  /**
+   * Update agent instances with execution state from service
+   */
+  private updateAgentInstancesWithExecutionState(agentStates: Map<string, AgentExecutionState>): void {
+    for (const [agentId, executionState] of agentStates.entries()) {
+      const instance = this.agentInstances.get(agentId);
+      if (instance) {
+        instance.executionState = executionState;
+        instance.status = executionState.status;
+      }
+    }
+
+    // Update legacy agents array for UI compatibility
+    this.updateLegacyAgentsFromInstances();
+  }
+
+  /**
+   * Cancel agent execution
+   */
+  cancelAgentExecution(agentId: string): void {
+    this.agentExecutionService.cancelAgent(agentId);
+  }
+
+  /**
+   * Get execution logs for an agent
+   */
+  getAgentExecutionLogs(agentId: string): string[] {
+    const instance = this.agentInstances.get(agentId);
+    return instance?.executionState?.logs || [];
+  }
+
+  /**
+   * Check if agent is currently executing
+   */
+  isAgentExecuting(agentId: string): boolean {
+    const instance = this.agentInstances.get(agentId);
+    return instance?.status === 'running' || instance?.status === 'queued';
+  }
+
+  /**
+   * Get all running agents
+   */
+  getRunningAgents(): AgentInstance[] {
+    return Array.from(this.agentInstances.values()).filter(agent => agent.status === 'running');
+  }
+
+  /**
+   * Get all queued agents
+   */
+  getQueuedAgents(): AgentInstance[] {
+    return Array.from(this.agentInstances.values()).filter(agent => agent.status === 'queued');
+  }
+
+  /**
+   * Get tooltip text for an agent based on its current status
+   */
+  getAgentTooltip(agent: AgentInstance): string {
+    const baseText = `${agent.definition.title} - ${agent.definition.description}`;
+
+    switch (agent.status) {
+      case 'queued':
+        return `${baseText} (Na fila para execução)`;
+      case 'running':
+        return `${baseText} (Executando...)`;
+      case 'completed':
+        return `${baseText} (Concluído)`;
+      case 'error':
+        return `${baseText} (Erro na execução)`;
+      default:
+        return `${baseText} (Duplo clique para executar)`;
+    }
+  }
+
+  // === Modal Event Handlers ===
+
+  /**
+   * Handle execute event from modal
+   */
+  onModalExecute(event: { agent: AgentInstance; prompt: string }): void {
+    const { agent, prompt } = event;
+
+    // Create execution state with the user's prompt
+    const executionState: AgentExecutionState = {
+      id: agent.id,
+      emoji: agent.emoji,
+      title: agent.definition.title,
+      prompt: prompt,
+      status: 'pending',
+      logs: []
+    };
+
+    // Update the instance with execution state reference
+    agent.executionState = executionState;
+    agent.status = 'queued';
+
+    // Start execution via service
+    this.agentExecutionService.executeAgent(executionState);
+
+    console.log('🚀 Executing agent from modal:', agent.definition.title, 'with prompt:', prompt);
+  }
+
+  /**
+   * Handle cancel event from modal
+   */
+  onModalCancel(event: { agentId: string }): void {
+    this.cancelAgentExecution(event.agentId);
+    console.log('❌ Cancelling agent from modal:', event.agentId);
   }
 }
