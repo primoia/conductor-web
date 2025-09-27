@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Modal</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+        .test-btn { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .test-btn:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>Debug Modal Issue</h1>
+
+    <div class="debug">
+        <h3>Teste ngModel básico:</h3>
+        <input type="text" id="test-input" placeholder="Digite algo aqui...">
+        <p>Valor: <span id="value-display">-</span></p>
+        <p>Length: <span id="length-display">0</span></p>
+        <button id="test-btn" class="test-btn" disabled>Botão (Disabled)</button>
+    </div>
+
+    <div class="debug">
+        <h3>Instruções de Debug:</h3>
+        <ol>
+            <li>Abra o console do navegador (F12)</li>
+            <li>Acesse http://localhost:4200/screenplay</li>
+            <li>Duplo clique em um emoji de agente</li>
+            <li>Digite no campo de texto</li>
+            <li>Verifique os logs do console</li>
+        </ol>
+
+        <h4>Logs esperados:</h4>
+        <pre>
+🔄 Modal opened with new agent, prompt cleared for: [Agent Name]
+📝 Prompt changed: [text] Length: [number]
+        </pre>
+    </div>
+
+    <script>
+        const input = document.getElementById('test-input');
+        const valueDisplay = document.getElementById('value-display');
+        const lengthDisplay = document.getElementById('length-display');
+        const testBtn = document.getElementById('test-btn');
+
+        input.addEventListener('input', function() {
+            const value = input.value;
+            const length = value.trim().length;
+
+            valueDisplay.textContent = value || '-';
+            lengthDisplay.textContent = length;
+
+            if (length > 0) {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Botão (Enabled)';
+                testBtn.style.background = '#28a745';
+            } else {
+                testBtn.disabled = true;
+                testBtn.textContent = 'Botão (Disabled)';
+                testBtn.style.background = '#ccc';
+            }
+
+            console.log('Input changed:', value, 'Length:', length);
+        });
+    </script>
+</body>
+</html>

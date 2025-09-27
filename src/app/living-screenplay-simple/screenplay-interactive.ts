@@ -4,6 +4,7 @@ import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../exa
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
 import { AgentControlModal } from './agent-control-modal/agent-control-modal';
+import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
 import { Subscription } from 'rxjs';
 
 interface AgentConfig {
@@ -54,13 +55,14 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
   '🔮': { title: 'Prediction Agent', description: 'Predictions and trends', unicode: '\\u{1F52E}' },
   '💎': { title: 'Premium Agent', description: 'Premium resources', unicode: '\\u{1F48E}' },
   '⭐': { title: 'Star Agent', description: 'Reviews and favorites', unicode: '\\u{2B50}' },
-  '🌟': { title: 'Featured Agent', description: 'Special highlights', unicode: '\\u{1F31F}' }
+  '🌟': { title: 'Featured Agent', description: 'Special highlights', unicode: '\\u{1F31F}' },
+  '🧪': { title: 'Test Agent', description: 'Runs automated tests and validations', unicode: '\\u{1F9EA}' }
 };
 
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent],
   template: `
     <div class="screenplay-container">
       <div class="control-panel">
@@ -83,8 +85,11 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 
         <div class="agent-controls">
           <h4>🤖 Agentes ({{ agents.length }})</h4>
+          <button (click)="openAgentCreator()" class="control-btn create-agent-btn">
+            ✨ Criar Agente Personalizado
+          </button>
           <button (click)="addManualAgent()" class="control-btn add-agent-btn">
-            ➕ Adicionar Círculo
+            ➕ Adicionar Círculo Aleatório
           </button>
           <button (click)="resyncManually()" class="control-btn">
             🔄 Ressincronizar com Texto
@@ -198,6 +203,13 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       (cancel)="onModalCancel($event)"
       (close)="closeModal()">
     </app-agent-control-modal>
+
+    <!-- Agent Creator Modal -->
+    <app-agent-creator
+      [isVisible]="showAgentCreator"
+      (agentCreated)="onAgentCreated($event)"
+      (close)="closeAgentCreator()">
+    </app-agent-creator>
   `,
   styles: [`
     /* Força fontes de emoji em todo o componente */
@@ -278,6 +290,15 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     .control-btn.active {
       background: #007bff;
       border-color: #007bff;
+    }
+
+    .create-agent-btn {
+      background: #6f42c1 !important;
+      border-color: #6f42c1 !important;
+    }
+
+    .create-agent-btn:hover {
+      background: #5a2d8a !important;
     }
 
     .add-agent-btn {
@@ -540,6 +561,7 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
 
   // Estado do modal
   showModal = false;
+  showAgentCreator = false;
 
   // Persistência
   markdownAgentMap: MarkdownAgentMap = {};
@@ -731,7 +753,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const foundAgentIds = new Set<string>();
 
     // Regex simplificada para encontrar emojis de agente com ou sem âncoras
-    const anchorAndEmojiRegex = /(?:<!--\s*agent-id:\s*([a-f0-9-]{36})\s*-->\s*)?(🚀|🔐|📊|🛡️|⚡|🎯|🧠|💻|📱|🌐|🔍|🎪|🏆|🔮|💎|⭐|🌟)/gu;
+    const anchorAndEmojiRegex = /(?:<!--\s*agent-id:\s*([a-f0-9-]{36})\s*-->\s*)?(🚀|🔐|📊|🛡️|⚡|🎯|🧠|💻|📱|🌐|🔍|🎪|🏆|🔮|💎|⭐|🌟|🧪)/gu;
     const matches = [...sourceText.matchAll(anchorAndEmojiRegex)];
 
     for (const match of matches) {
@@ -820,7 +842,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   addManualAgent(): void {
     const canvas = this.canvas.nativeElement;
 
-    const emojis = ['🚀', '🔐', '📊', '🛡️', '⚡', '🎯', '🧠', '💻', '📱', '🌐', '🔍'];
+    const emojis = ['🚀', '🔐', '📊', '🛡️', '⚡', '🎯', '🧠', '💻', '📱', '🌐', '🔍', '🧪'];
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     const definition = AGENT_DEFINITIONS[randomEmoji];
     const agentId = `manual-${this.generateUUID()}`;
@@ -990,6 +1012,50 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   closeModal(): void {
     this.showModal = false;
+  }
+
+  openAgentCreator(): void {
+    this.showAgentCreator = true;
+  }
+
+  closeAgentCreator(): void {
+    this.showAgentCreator = false;
+  }
+
+  onAgentCreated(agentData: AgentCreationData): void {
+    const canvas = this.canvas.nativeElement;
+    const agentId = `custom-${this.generateUUID()}`;
+
+    // Add the new emoji to definitions if it doesn't exist
+    if (!AGENT_DEFINITIONS[agentData.emoji]) {
+      AGENT_DEFINITIONS[agentData.emoji] = {
+        title: agentData.title,
+        description: agentData.description,
+        unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
+      };
+    }
+
+    const newInstance: AgentInstance = {
+      id: agentId,
+      emoji: agentData.emoji,
+      definition: {
+        title: agentData.title,
+        description: agentData.description,
+        unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
+      },
+      status: 'pending',
+      position: agentData.position || {
+        x: Math.random() * (canvas.offsetWidth - 100) + 50,
+        y: Math.random() * (canvas.offsetHeight - 100) + 50
+      }
+    };
+
+    this.agentInstances.set(agentId, newInstance);
+    this.saveStateToLocalStorage();
+    this.updateLegacyAgentsFromInstances();
+    this.closeAgentCreator();
+
+    console.log('✨ Agente personalizado criado:', agentData.title, agentData.emoji);
   }
 
   // === Utilitários ===
