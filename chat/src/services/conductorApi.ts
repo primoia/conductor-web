@@ -1,7 +1,22 @@
 import { ApiConfig } from '../types';
 
 export class ConductorApiService {
-  constructor(private config: ApiConfig) {}
+  private baseUrl: string;
+
+  constructor(private config: ApiConfig) {
+    // Detecta automaticamente a URL base dependendo de como a aplicação foi acessada
+    const currentHost = window.location.hostname;
+
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // Acesso local - usa localhost
+      this.baseUrl = 'http://localhost:5006';
+    } else {
+      // Acesso via rede - usa o mesmo host que a aplicação
+      this.baseUrl = `http://${currentHost}:5006`;
+    }
+
+    console.log(`[ConductorApiService] Detectado host: ${currentHost}, usando API Base URL: ${this.baseUrl}`);
+  }
 
   async sendMessage(
     message: string,
@@ -14,7 +29,7 @@ export class ConductorApiService {
         throw new Error('streamEndpoint not configured');
       }
 
-      const startUrl = `${this.config.baseUrl}${this.config.streamEndpoint}`;
+      const startUrl = `${this.baseUrl}${this.config.streamEndpoint}`;
       console.log('Starting streaming execution:', startUrl);
 
       const startResponse = await fetch(startUrl, {
@@ -44,7 +59,7 @@ export class ConductorApiService {
       const { job_id } = await startResponse.json();
       console.log('Job started with ID:', job_id);
 
-      const streamUrl = `${this.config.baseUrl}/api/v1/stream/${job_id}`;
+      const streamUrl = `${this.baseUrl}/api/v1/stream/${job_id}`;
       console.log('Connecting to SSE stream:', streamUrl);
 
       const eventSource = new EventSource(streamUrl);
@@ -110,7 +125,7 @@ export class ConductorApiService {
 
   async checkConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/health`, {
+      const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
         headers: {
           'X-API-Key': this.config.apiKey,
