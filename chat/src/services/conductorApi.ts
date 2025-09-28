@@ -4,18 +4,24 @@ export class ConductorApiService {
   private baseUrl: string;
 
   constructor(private config: ApiConfig) {
-    // Detecta automaticamente a URL base dependendo de como a aplicação foi acessada
+    // Detecta automaticamente a URL base dependendo do ambiente
     const currentHost = window.location.hostname;
 
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      // Acesso local - usa localhost
-      this.baseUrl = 'http://localhost:5006';
+    // Verifica se existe uma variável de ambiente (Docker/produção)
+    const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+    if (envBaseUrl) {
+      // Usa URL configurada via variável de ambiente (Docker)
+      this.baseUrl = envBaseUrl;
+    } else if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // Desenvolvimento local - usa proxy
+      this.baseUrl = '';  // Proxy do Vite irá redirecionar /api para localhost:5006
     } else {
       // Acesso via rede - usa o mesmo host que a aplicação
       this.baseUrl = `http://${currentHost}:5006`;
     }
 
-    console.log(`[ConductorApiService] Detectado host: ${currentHost}, usando API Base URL: ${this.baseUrl}`);
+    console.log(`[ConductorApiService] Detectado host: ${currentHost}, usando API Base URL: ${this.baseUrl || 'proxy'}`);
   }
 
   async sendMessage(
