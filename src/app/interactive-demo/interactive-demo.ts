@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { ProposalBlock, ProposalData } from '../blocks/proposal-block/proposal-block';
@@ -12,6 +12,7 @@ import { ExecutionTrigger, ExecutionTriggerData } from '../blocks/execution-trig
   styleUrls: ['./interactive-demo.scss']
 })
 export class InteractiveDemo {
+  constructor(private cdr: ChangeDetectorRef) {}
   editorContent = `
     <h1>🚀 Editor de Blocos Interativos - Roteiro Vivo</h1>
 
@@ -115,20 +116,24 @@ export class AuthService {
 
   private simulateCommandExecution(trigger: ExecutionTriggerData): void {
     // Simulate command execution with realistic timing
-    trigger.status = 'running';
-    trigger.lastExecuted = new Date();
-
     setTimeout(() => {
-      // Randomly succeed or fail for demo purposes
-      const success = Math.random() > 0.3;
+      trigger.status = 'running';
+      trigger.lastExecuted = new Date();
+      this.cdr.detectChanges();
 
-      if (success) {
-        trigger.status = 'success';
-        trigger.output = `✅ Comando executado com sucesso!\n\n${trigger.command}\n\nSaída:\nTest Suites: 5 passed, 5 total\nTests: 42 passed, 42 total\nTime: ${(Math.random() * 5 + 1).toFixed(2)}s`;
-      } else {
-        trigger.status = 'failed';
-        trigger.error = `❌ Erro na execução do comando:\n\n${trigger.command}\n\nErro:\nTest suite failed to run\nModule not found: 'some-module'\nPlease install dependencies: npm install`;
-      }
-    }, 2000 + Math.random() * 3000); // 2-5 seconds
+      setTimeout(() => {
+        // Randomly succeed or fail for demo purposes
+        const success = Math.random() > 0.3;
+
+        if (success) {
+          trigger.status = 'success';
+          trigger.output = `✅ Comando executado com sucesso!\n\n${trigger.command}\n\nSaída:\nTest Suites: 5 passed, 5 total\nTests: 42 passed, 42 total\nTime: ${(Math.random() * 5 + 1).toFixed(2)}s`;
+        } else {
+          trigger.status = 'failed';
+          trigger.error = `❌ Erro na execução do comando:\n\n${trigger.command}\n\nErro:\nTest suite failed to run\nModule not found: 'some-module'\nPlease install dependencies: npm install`;
+        }
+        this.cdr.detectChanges();
+      }, 2000 + Math.random() * 3000); // 2-5 seconds
+    }, 0);
   }
 }

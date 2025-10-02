@@ -1,10 +1,12 @@
-import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
 import { AgentControlModal } from './agent-control-modal/agent-control-modal';
 import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
+import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.component';
+import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { Subscription } from 'rxjs';
 
 interface AgentConfig {
@@ -62,10 +64,11 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent, ConductorChatComponent],
   template: `
-    <div class="screenplay-container">
-      <div class="control-panel">
+    <div class="screenplay-layout">
+      <div class="screenplay-container" [style.width.%]="screenplayWidth">
+        <div class="control-panel">
         <h3>🎬 Roteiro Vivo</h3>
 
         <div class="file-controls">
@@ -192,24 +195,33 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         {{ popupText }}
         <div class="popup-arrow"></div>
       </div>
+
+      <!-- Agent Control Modal -->
+      <app-agent-control-modal
+        [agent]="selectedAgent"
+        [executionLogs]="selectedAgent ? getAgentExecutionLogs(selectedAgent.id) : []"
+        [isVisible]="showModal"
+        (execute)="onModalExecute($event)"
+        (cancel)="onModalCancel($event)"
+        (close)="closeModal()">
+      </app-agent-control-modal>
+
+      <!-- Agent Creator Modal -->
+      <app-agent-creator
+        [isVisible]="showAgentCreator"
+        (agentCreated)="onAgentCreated($event)"
+        (close)="closeAgentCreator()">
+      </app-agent-creator>
+      </div>
+
+      <!-- Resizable splitter -->
+      <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
+
+      <!-- Chat component -->
+      <div class="chat-panel" [style.width.%]="chatWidth">
+        <app-conductor-chat></app-conductor-chat>
+      </div>
     </div>
-
-    <!-- Agent Control Modal -->
-    <app-agent-control-modal
-      [agent]="selectedAgent"
-      [executionLogs]="selectedAgent ? getAgentExecutionLogs(selectedAgent.id) : []"
-      [isVisible]="showModal"
-      (execute)="onModalExecute($event)"
-      (cancel)="onModalCancel($event)"
-      (close)="closeModal()">
-    </app-agent-control-modal>
-
-    <!-- Agent Creator Modal -->
-    <app-agent-creator
-      [isVisible]="showAgentCreator"
-      (agentCreated)="onAgentCreated($event)"
-      (close)="closeAgentCreator()">
-    </app-agent-creator>
   `,
   styles: [`
     /* Força fontes de emoji em todo o componente */
@@ -217,11 +229,51 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
     }
 
+    .screenplay-layout {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+    }
+
     .screenplay-container {
       display: flex;
       height: 100vh;
       background: #f8f9fa;
       font-family: inherit !important;
+      transition: width 0.1s ease-out;
+    }
+
+    .splitter {
+      width: 6px;
+      background: #d0d0d0;
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background 0.2s;
+      position: relative;
+    }
+
+    .splitter:hover {
+      background: #667eea;
+    }
+
+    .splitter::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 2px;
+      height: 40px;
+      background: white;
+      border-radius: 2px;
+    }
+
+    .chat-panel {
+      height: 100vh;
+      overflow: hidden;
+      transition: width 0.1s ease-out;
+      flex-shrink: 0;
     }
 
     .control-panel {
@@ -547,6 +599,11 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
 
+  // Splitter state
+  screenplayWidth = 70;
+  chatWidth = 30;
+  private isDraggingSplitter = false;
+
   // Estado da aplicação
   agents: AgentConfig[] = [];
   availableEmojis: EmojiInfo[] = [];
@@ -608,7 +665,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
 > 💡 **Dica**: Use "Roteiro Limpo" para ver apenas o texto!
 `;
 
-  constructor(private agentExecutionService: AgentExecutionService) {
+  constructor(
+    private agentExecutionService: AgentExecutionService,
+    private screenplayService: ScreenplayService
+  ) {
     // Subscribe to agent execution state changes
     this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
       (agentStates) => this.updateAgentInstancesWithExecutionState(agentStates)
@@ -621,6 +681,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Define conteúdo inicial no editor, que disparará o evento de sincronização automaticamente
     setTimeout(() => {
       this.interactiveEditor.setContent(this.editorContent, true);
+      // Inicializa o ScreenplayService com a instância do editor TipTap
+      this.screenplayService.initialize(this.interactiveEditor.getEditor());
     }, 0);
   }
 
@@ -751,6 +813,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
   private syncAgentsWithMarkdown(sourceText: string): void {
     console.log('🔄 Sincronizando agentes...');
     const foundAgentIds = new Set<string>();
+
+    // Validação robusta: garante que sourceText é uma string antes de usar matchAll
+    if (!sourceText || typeof sourceText !== 'string') {
+      console.warn('⚠️ sourceText is not a valid string, skipping synchronization');
+      return;
+    }
 
     // Regex simplificada para encontrar emojis de agente com ou sem âncoras
     const anchorAndEmojiRegex = /(?:<!--\s*agent-id:\s*([a-f0-9-]{36})\s*-->\s*)?(🚀|🔐|📊|🛡️|⚡|🎯|🧠|💻|📱|🌐|🔍|🎪|🏆|🔮|💎|⭐|🌟|🧪)/gu;
@@ -1214,5 +1282,31 @@ Aqui temos alguns agentes distribuídos pelo documento:
   onModalCancel(event: { agentId: string }): void {
     this.cancelAgentExecution(event.agentId);
     console.log('❌ Cancelling agent from modal:', event.agentId);
+  }
+
+  // === Splitter methods ===
+
+  onSplitterMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    this.isDraggingSplitter = true;
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onDocumentMouseMove(event: MouseEvent): void {
+    if (!this.isDraggingSplitter) return;
+
+    const containerWidth = window.innerWidth;
+    const newScreenplayWidth = (event.clientX / containerWidth) * 100;
+
+    // Limitar entre 30% e 80%
+    if (newScreenplayWidth >= 30 && newScreenplayWidth <= 80) {
+      this.screenplayWidth = newScreenplayWidth;
+      this.chatWidth = 100 - newScreenplayWidth;
+    }
+  }
+
+  @HostListener('document:mouseup')
+  onDocumentMouseUp(): void {
+    this.isDraggingSplitter = false;
   }
 }

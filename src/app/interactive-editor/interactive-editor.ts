@@ -120,9 +120,13 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
       },
     });
 
-    // Set initial content if provided
+    // Set initial content if provided, defer to avoid ExpressionChangedAfterItHasBeenCheckedError
     if (this.content) {
-      this.editor.commands.setContent(this.content);
+      setTimeout(() => {
+        if (this.editor && !this.editor.isDestroyed) {
+          this.editor.commands.setContent(this.content);
+        }
+      }, 0);
     }
   }
 
@@ -387,6 +391,10 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
 
   public getEditorElement(): HTMLElement | null {
     return this.editorRef.nativeElement.querySelector('.ProseMirror');
+  }
+
+  public getEditor(): Editor {
+    return this.editor;
   }
 
   // Função pública para conversão de HTML arbitrário para Markdown - usada pelo componente pai
