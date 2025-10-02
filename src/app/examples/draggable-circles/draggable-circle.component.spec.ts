@@ -244,9 +244,9 @@ describe('DraggableCircle', () => {
 
       component['onMouseMove'](outsideMoveEvent);
 
-      // ASSERT: Posição limitada aos bounds
-      expect(component.position.x).toBeLessThanOrEqual(340); // 400 - 60 (circle size)
-      expect(component.position.y).toBeLessThanOrEqual(240); // 300 - 60 (circle size)
+      // ASSERT: Posição limitada aos bounds (emoji size = 30)
+      expect(component.position.x).toBeLessThanOrEqual(370); // 400 - 30 (emoji size)
+      expect(component.position.y).toBeLessThanOrEqual(270); // 300 - 30 (emoji size)
       expect(component.position.x).toBeGreaterThanOrEqual(0);
       expect(component.position.y).toBeGreaterThanOrEqual(0);
     });

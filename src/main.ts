@@ -9,6 +9,9 @@ import { LayeredEditor } from './app/layered-editor/layered-editor';
 import { MarkdownScreenplay } from './app/living-screenplay-simple/markdown-screenplay';
 import { ScreenplayInteractive } from './app/living-screenplay-simple/screenplay-interactive';
 import { DraggableCircles } from './app/examples/draggable-circles/draggable-circles';
+import { SCREENPLAY_BACKEND } from './app/services/screenplay/screenplay-backend.interface';
+import { DocumentCentricBackend } from './app/services/screenplay/document-centric.backend';
+import { EventSourcedBackend } from './app/services/screenplay/lsa/event-sourced.backend';
 
 bootstrapApplication(App, {
   providers: [
@@ -21,6 +24,22 @@ bootstrapApplication(App, {
       { path: 'screenplay', component: ScreenplayInteractive },
       { path: 'circles', component: DraggableCircles },
       { path: '**', redirectTo: '' }
-    ])
+    ]),
+    {
+      provide: SCREENPLAY_BACKEND,
+      useFactory: (docCentric: DocumentCentricBackend, eventSourced: EventSourcedBackend) => {
+        const params = new URLSearchParams(window.location.search);
+        const backendType = params.get('backend');
+
+        if (backendType === 'event_sourced') {
+          console.log('🚀 Usando EventSourcedBackend (LSA)');
+          return eventSourced;
+        }
+
+        console.log('🛸 Usando DocumentCentricBackend (Pragmático)');
+        return docCentric;
+      },
+      deps: [DocumentCentricBackend, EventSourcedBackend]
+    }
   ]
 }).catch(err => console.error(err));
