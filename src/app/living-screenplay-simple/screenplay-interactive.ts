@@ -5,6 +5,9 @@ import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
 import { AgentControlModal } from './agent-control-modal/agent-control-modal';
 import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
+import { AgentSelectorModalComponent, AgentSelectionData } from './agent-selector-modal/agent-selector-modal.component';
+import { AgentPreviewModalComponent, PreviewData, PreviewAction } from './agent-preview-modal/agent-preview-modal.component';
+import { AgentService } from '../services/agent.service';
 import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.component';
 import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { Subscription } from 'rxjs';
@@ -64,7 +67,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent, ConductorChatComponent],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent],
   template: `
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
@@ -91,8 +94,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
           <button (click)="openAgentCreator()" class="control-btn create-agent-btn">
             ✨ Criar Agente Personalizado
           </button>
-          <button (click)="addManualAgent()" class="control-btn add-agent-btn">
-            ➕ Adicionar Círculo Aleatório
+          <button (click)="openAgentSelector()" class="control-btn add-agent-btn">
+            ➕ Adicionar Agente
           </button>
           <button (click)="resyncManually()" class="control-btn">
             🔄 Ressincronizar com Texto
@@ -212,6 +215,24 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         (agentCreated)="onAgentCreated($event)"
         (close)="closeAgentCreator()">
       </app-agent-creator>
+
+      <!-- Agent Selector Modal -->
+      <app-agent-selector-modal
+        [isVisible]="showAgentSelector"
+        (agentSelected)="onAgentSelected($event)"
+        (close)="closeAgentSelector()">
+      </app-agent-selector-modal>
+
+      <!-- Agent Preview Modal -->
+      <app-agent-preview-modal
+        [isVisible]="showAgentPreview"
+        [previewData]="previewData"
+        [isLoading]="previewLoading"
+        [error]="previewError"
+        (accept)="onPreviewAccept($event)"
+        (reject)="onPreviewReject($event)"
+        (close)="closeAgentPreview()">
+      </app-agent-preview-modal>
       </div>
 
       <!-- Resizable splitter -->
@@ -619,6 +640,16 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   // Estado do modal
   showModal = false;
   showAgentCreator = false;
+  showAgentSelector = false;
+  showAgentPreview = false;
+  previewData: PreviewData | null = null;
+  previewLoading = false;
+  previewError: string | null = null;
+
+  // Text selection context for agent execution
+  private selectedText: string = '';
+  private selectedTextRange: { start: number; end: number } | null = null;
+  private activeAgentForExecution: AgentInstance | null = null;
 
   // Persistência
   markdownAgentMap: MarkdownAgentMap = {};
@@ -667,12 +698,36 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   constructor(
     private agentExecutionService: AgentExecutionService,
-    private screenplayService: ScreenplayService
+    private screenplayService: ScreenplayService,
+    private agentService: AgentService
   ) {
     // Subscribe to agent execution state changes
     this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
       (agentStates) => this.updateAgentInstancesWithExecutionState(agentStates)
     );
+
+    // Load agent definitions from MongoDB
+    this.loadAgentDefinitions();
+  }
+
+  private loadAgentDefinitions(): void {
+    this.agentService.getAgents().subscribe({
+      next: (agents) => {
+        agents.forEach(agent => {
+          if (!AGENT_DEFINITIONS[agent.emoji]) {
+            AGENT_DEFINITIONS[agent.emoji] = {
+              title: agent.name,
+              description: agent.description,
+              unicode: agent.emoji.codePointAt(0)?.toString(16) || ''
+            };
+          }
+        });
+        console.log(`✅ ${Object.keys(AGENT_DEFINITIONS).length} emojis carregados no AGENT_DEFINITIONS`);
+      },
+      error: (error) => {
+        console.error('❌ Erro ao carregar definições de agentes:', error);
+      }
+    });
   }
 
   ngAfterViewInit(): void {
@@ -748,34 +803,38 @@ Aqui temos alguns agentes distribuídos pelo documento:
       return '';
     }
 
-    // 1. Pega o conteúdo como HTML, que é a representação mais estruturada.
-    let htmlContent = this.interactiveEditor.getHTML();
+    // 1. Get current markdown content
+    let markdown = this.interactiveEditor.getMarkdown();
 
-    // 2. Itera sobre as instâncias para injetar as âncoras diretamente no HTML.
+    // 2. Group instances by emoji for ordered processing
+    const instancesByEmoji = new Map<string, AgentInstance[]>();
     this.agentInstances.forEach((instance) => {
-      const anchor = `<!-- agent-id: ${instance.id} -->`;
-
-      // Procura pelo emoji que NÃO seja imediatamente precedido por uma âncora.
-      // Evita adicionar âncoras duplicadas usando uma verificação simples
-      if (!htmlContent.includes(instance.id)) {
-        // Escape do emoji para regex (alguns emojis têm caracteres especiais)
-        const escapedEmoji = instance.emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-        // Injeta a âncora antes da primeira ocorrência "órfã" encontrada.
-        // Esta é uma abordagem mais segura do que o replace simples no Markdown.
-        const regex = new RegExp(escapedEmoji);
-        htmlContent = htmlContent.replace(regex, `${anchor}${instance.emoji}`);
-      }
+      const list = instancesByEmoji.get(instance.emoji) || [];
+      list.push(instance);
+      instancesByEmoji.set(instance.emoji, list);
     });
 
-    // 3. AGORA, com o HTML enriquecido, fazemos a conversão final para Markdown.
-    // Delega a responsabilidade de preservar a formatação para a função do editor.
-    const finalMarkdown = this.interactiveEditor.convertHtmlToMarkdown(htmlContent);
+    // 3. For each emoji type, find occurrences and add anchors in order
+    instancesByEmoji.forEach((instances, emoji) => {
+      const escapedEmoji = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let processedCount = 0;
 
-    console.log('📄 Markdown Final para Salvar:', finalMarkdown);
-    console.log('💾 Number of agent instances:', this.agentInstances.size);
+      // Replace each occurrence with anchor + emoji
+      markdown = markdown.replace(new RegExp(escapedEmoji, 'g'), (match, offset) => {
+        if (processedCount < instances.length) {
+          const instance = instances[processedCount];
+          processedCount++;
+          // SAGA-003 format: anchor on previous line
+          return `<!-- agent-instance: ${instance.id}, agent-id: ${instance.definition.title.toLowerCase().replace(/\s+/g, '-')} -->\n${emoji}`;
+        }
+        return match; // No instance for this occurrence, keep as-is
+      });
+    });
 
-    return finalMarkdown;
+    console.log('📄 Markdown com âncoras:', markdown);
+    console.log('💾 Instâncias salvas:', this.agentInstances.size);
+
+    return markdown;
   }
 
   generateMarkdownBlob(): Blob {
@@ -820,36 +879,95 @@ Aqui temos alguns agentes distribuídos pelo documento:
       return;
     }
 
-    // Regex simplificada para encontrar emojis de agente com ou sem âncoras
-    const anchorAndEmojiRegex = /(?:<!--\s*agent-id:\s*([a-f0-9-]{36})\s*-->\s*)?(🚀|🔐|📊|🛡️|⚡|🎯|🧠|💻|📱|🌐|🔍|🎪|🏆|🔮|💎|⭐|🌟|🧪)/gu;
-    const matches = [...sourceText.matchAll(anchorAndEmojiRegex)];
+    // Suportar dois formatos:
+    // 1. SAGA-003: <!-- agent-instance: uuid-123, agent-id: resume-formatter -->
+    //              📄
+    // 2. Formato antigo: 🚀 (sem âncora)
 
-    for (const match of matches) {
-      let agentId = match[1];
-      const emoji = match[2];
+    // Primeiro, processar âncoras SAGA-003
+    const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n(.)/gu;
+    const anchoredMatches = [...sourceText.matchAll(anchorRegex)];
+
+    console.log(`📋 Encontradas ${anchoredMatches.length} âncoras SAGA-003 no markdown`);
+
+    for (const match of anchoredMatches) {
+      const instanceId = match[1].trim();
+      const agentId = match[2].trim();
+      const emoji = match[3];
       const definition = AGENT_DEFINITIONS[emoji];
 
-      if (!definition) continue;
+      foundAgentIds.add(instanceId);
 
-      if (agentId && this.agentInstances.has(agentId)) {
-        foundAgentIds.add(agentId);
-      } else {
-        // APENAS ATUALIZE O MAP, NUNCA O EDITOR
-        if (!agentId) {
-          agentId = this.generateUUID();
-        }
+      if (!this.agentInstances.has(instanceId)) {
+        console.log(`✨ Criando instância ${instanceId} do agente ${agentId} (${emoji})`);
 
         const newInstance: AgentInstance = {
-          id: agentId,
+          id: instanceId,
           emoji: emoji,
-          definition: definition,
+          definition: definition || {
+            title: `Agent ${agentId}`,
+            description: 'Imported from markdown',
+            unicode: emoji.codePointAt(0)?.toString(16) || ''
+          },
           status: 'pending',
-          position: { x: Math.random() * 200, y: Math.random() * 200 },
+          position: this.calculateEmojiPosition(match.index || 0)
         };
-        this.agentInstances.set(agentId, newInstance);
-        foundAgentIds.add(agentId);
+
+        this.agentInstances.set(instanceId, newInstance);
       }
     }
+
+    // Segundo, processar emojis sem âncora (standalone)
+    // Construir regex dinamicamente com todos os emojis de AGENT_DEFINITIONS
+    const allEmojis = Object.keys(AGENT_DEFINITIONS).map(e => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    const standaloneEmojiRegex = new RegExp(`(?<!<!--[^>]*>[\\s\\n]*)(${allEmojis})`, 'gu');
+    const standaloneMatches = [...sourceText.matchAll(standaloneEmojiRegex)];
+
+    console.log(`📋 Encontrados ${standaloneMatches.length} emojis standalone de ${Object.keys(AGENT_DEFINITIONS).length} possíveis`);
+
+    // Group standalone matches by emoji
+    const matchesByEmoji = new Map<string, Array<{ match: RegExpMatchArray; index: number }>>();
+    standaloneMatches.forEach(match => {
+      const emoji = match[1];
+      const list = matchesByEmoji.get(emoji) || [];
+      list.push({ match, index: match.index || 0 });
+      matchesByEmoji.set(emoji, list);
+    });
+
+    // Process each emoji type
+    matchesByEmoji.forEach((matches, emoji) => {
+      const definition = AGENT_DEFINITIONS[emoji];
+      if (!definition) return;
+
+      // Get existing instances for this emoji (not already found by anchors)
+      const existingInstances = Array.from(this.agentInstances.entries())
+        .filter(([id, instance]) => instance.emoji === emoji && !foundAgentIds.has(id))
+        .map(([id, instance]) => ({ id, instance }));
+
+      // Map existing instances to matches (first-to-first, second-to-second, etc.)
+      for (let i = 0; i < matches.length; i++) {
+        if (i < existingInstances.length) {
+          // Reuse existing instance
+          const { id } = existingInstances[i];
+          foundAgentIds.add(id);
+          console.log(`♻️  Reutilizando instância ${id} para ${emoji} #${i}`);
+        } else {
+          // Create new instance for extra emoji
+          const instanceId = this.generateUUID();
+          const newInstance: AgentInstance = {
+            id: instanceId,
+            emoji: emoji,
+            definition: definition,
+            status: 'pending',
+            position: this.calculateEmojiPosition(matches[i].index)
+          };
+
+          this.agentInstances.set(instanceId, newInstance);
+          foundAgentIds.add(instanceId);
+          console.log(`✨ Nova instância ${instanceId} para ${emoji} #${i}`);
+        }
+      }
+    });
 
     // Limpeza de órfãos
     for (const id of this.agentInstances.keys()) {
@@ -941,10 +1059,35 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   resyncManually(): void {
-    console.log('🔄 Executing manual resynchronization...');
+    console.log('🔄 Executando resincronização manual...');
     const currentContent = this.interactiveEditor.getMarkdown();
     this.syncAgentsWithMarkdown(currentContent);
-    console.log('🔄 Manual resynchronization complete');
+    console.log('🔄 Resincronização manual completa');
+  }
+
+  /**
+   * Calculate position for emoji based on its index in the markdown
+   * Following SAGA-003 specification
+   */
+  private calculateEmojiPosition(index: number): CirclePosition {
+    const canvas = this.canvas.nativeElement;
+    if (!canvas) {
+      return { x: 100, y: 100 };
+    }
+
+    // Distribute positions in a grid-like pattern based on index
+    const gridCols = 5;
+    const spacing = 120;
+    const offsetX = 100;
+    const offsetY = 100;
+
+    const col = index % gridCols;
+    const row = Math.floor(index / gridCols);
+
+    return {
+      x: offsetX + (col * spacing),
+      y: offsetY + (row * spacing)
+    };
   }
 
   private positionAgentsOverEmojis(): void {
@@ -1126,6 +1269,231 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('✨ Agente personalizado criado:', agentData.title, agentData.emoji);
   }
 
+  openAgentSelector(): void {
+    this.showAgentSelector = true;
+  }
+
+  closeAgentSelector(): void {
+    this.showAgentSelector = false;
+  }
+
+  onAgentSelected(selectionData: AgentSelectionData): void {
+    const canvas = this.canvas.nativeElement;
+    const { agent, instanceId } = selectionData;
+
+    // Add the agent emoji to definitions if it doesn't exist
+    if (!AGENT_DEFINITIONS[agent.emoji]) {
+      AGENT_DEFINITIONS[agent.emoji] = {
+        title: agent.name,
+        description: agent.description,
+        unicode: agent.emoji.codePointAt(0)?.toString(16) || ''
+      };
+    }
+
+    // Create a new agent instance
+    const newInstance: AgentInstance = {
+      id: instanceId,
+      emoji: agent.emoji,
+      definition: {
+        title: agent.name,
+        description: agent.description,
+        unicode: agent.emoji.codePointAt(0)?.toString(16) || ''
+      },
+      status: 'pending',
+      position: {
+        x: 100, // Temporary position, will be updated after DOM renders
+        y: 100
+      }
+    };
+
+    // Insert ONLY the emoji at cursor position (no anchor, no line breaks)
+    // The anchor will be added automatically during save in generateMarkdownForSave()
+    this.interactiveEditor.insertContent(agent.emoji);
+
+    // Add to instances map BEFORE positioning
+    this.agentInstances.set(instanceId, newInstance);
+
+    // Initialize conversation history in localStorage
+    const historyKey = `agent-history-${instanceId}`;
+    localStorage.setItem(historyKey, JSON.stringify([]));
+
+    this.saveStateToLocalStorage();
+    this.updateLegacyAgentsFromInstances();
+
+    // CRITICAL: Position the agent circle over the emoji in the text
+    // Wait longer for TipTap to update the DOM completely
+    setTimeout(() => {
+      this.updateAgentPositionsFromText();
+      console.log('📍 Agent positioned over emoji in text');
+    }, 500);
+
+    this.closeAgentSelector();
+
+    console.log('✅ Agente inserido:', agent.name, agent.emoji, 'ID:', instanceId);
+  }
+
+  // === Agent Execution with Preview ===
+
+  /**
+   * Keyboard shortcut handler (Ctrl+K or Cmd+K)
+   */
+  @HostListener('document:keydown.control.k', ['$event'])
+  @HostListener('document:keydown.meta.k', ['$event'])
+  handleExecuteShortcut(event: Event): void {
+    event.preventDefault();
+    this.captureSelectionAndExecute();
+  }
+
+  /**
+   * Capture text selection and trigger agent execution
+   */
+  captureSelectionAndExecute(): void {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      console.warn('No text selected');
+      return;
+    }
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+      console.warn('Empty selection');
+      return;
+    }
+
+    // Find which agent instance is active (could be based on proximity, last clicked, etc.)
+    const activeAgent = this.findActiveAgent();
+    if (!activeAgent) {
+      alert('Nenhum agente ativo. Clique em um agente primeiro.');
+      return;
+    }
+
+    // Store selection context
+    this.selectedText = selectedText;
+    this.activeAgentForExecution = activeAgent;
+
+    // Get text range for later replacement
+    const range = selection.getRangeAt(0);
+    const fullText = this.interactiveEditor.getMarkdown();
+    const startOffset = this.getTextOffset(range.startContainer, range.startOffset, fullText);
+    const endOffset = this.getTextOffset(range.endContainer, range.endOffset, fullText);
+
+    this.selectedTextRange = { start: startOffset, end: endOffset };
+
+    // Execute agent with selected text
+    this.executeAgentWithPreview(activeAgent, selectedText);
+  }
+
+  /**
+   * Find the active agent instance (for now, just pick the first one)
+   * TODO: Improve this to use last clicked agent or proximity to selection
+   */
+  private findActiveAgent(): AgentInstance | null {
+    if (this.selectedAgent) {
+      return this.selectedAgent;
+    }
+
+    const instances = Array.from(this.agentInstances.values());
+    if (instances.length > 0) {
+      return instances[0];
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate text offset in the full markdown
+   */
+  private getTextOffset(node: Node, offset: number, fullText: string): number {
+    // Simplified implementation - in production, you'd need more robust offset calculation
+    const selection = window.getSelection();
+    if (!selection) return 0;
+
+    const range = selection.getRangeAt(0);
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(document.body);
+    preRange.setEnd(range.startContainer, range.startOffset);
+
+    return preRange.toString().length;
+  }
+
+  /**
+   * Execute agent and show preview modal
+   */
+  private executeAgentWithPreview(agent: AgentInstance, inputText: string): void {
+    this.showAgentPreview = true;
+    this.previewLoading = true;
+    this.previewError = null;
+    this.previewData = {
+      originalText: inputText,
+      proposedText: '',
+      agentName: agent.definition.title,
+      agentEmoji: agent.emoji
+    };
+
+    // Find the agent ID from the agent definition
+    // For now, we'll use the emoji as the agent identifier
+    const agentId = agent.id;
+
+    this.agentService.executeAgent(agentId, inputText, agent.id).subscribe({
+      next: (result) => {
+        this.previewLoading = false;
+        if (result.success && result.result) {
+          this.previewData = {
+            originalText: inputText,
+            proposedText: result.result,
+            agentName: agent.definition.title,
+            agentEmoji: agent.emoji
+          };
+        } else {
+          this.previewError = result.error || 'Falha na execução do agente';
+        }
+      },
+      error: (error) => {
+        this.previewLoading = false;
+        this.previewError = 'Erro ao executar agente: ' + (error.message || 'Erro desconhecido');
+        console.error('Agent execution error:', error);
+      }
+    });
+  }
+
+  /**
+   * Handle preview accept - replace text in editor
+   */
+  onPreviewAccept(action: PreviewAction): void {
+    if (action.proposedText && this.selectedTextRange) {
+      const currentMarkdown = this.interactiveEditor.getMarkdown();
+      const newMarkdown =
+        currentMarkdown.substring(0, this.selectedTextRange.start) +
+        action.proposedText +
+        currentMarkdown.substring(this.selectedTextRange.end);
+
+      this.interactiveEditor.setContent(newMarkdown, true);
+      console.log('✅ Preview accepted, text replaced');
+    }
+
+    this.closeAgentPreview();
+  }
+
+  /**
+   * Handle preview reject - close modal without changes
+   */
+  onPreviewReject(action: PreviewAction): void {
+    console.log('❌ Preview rejected');
+    this.closeAgentPreview();
+  }
+
+  /**
+   * Close preview modal and reset state
+   */
+  closeAgentPreview(): void {
+    this.showAgentPreview = false;
+    this.previewData = null;
+    this.previewLoading = false;
+    this.previewError = null;
+    this.selectedText = '';
+    this.selectedTextRange = null;
+  }
+
   // === Utilitários ===
 
   getAgentInstancesAsArray(): AgentInstance[] {
@@ -1273,7 +1641,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Start execution via service
     this.agentExecutionService.executeAgent(executionState);
 
-    console.log('🚀 Executing agent from modal:', agent.definition.title, 'with prompt:', prompt);
+    console.log('🚀 Executando agente do modal:', agent.definition.title, 'com prompt:', prompt);
   }
 
   /**
@@ -1281,7 +1649,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    */
   onModalCancel(event: { agentId: string }): void {
     this.cancelAgentExecution(event.agentId);
-    console.log('❌ Cancelling agent from modal:', event.agentId);
+    console.log('❌ Cancelando agente do modal:', event.agentId);
   }
 
   // === Splitter methods ===
