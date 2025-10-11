@@ -89,7 +89,7 @@ export class AgentService {
       map((agents: any[]) => {
         // Transform API response to Agent model
         return agents.map(agent => ({
-          id: agent.id || agent._id || agent.name,
+          id: agent.agent_id || agent.name,  // Use agent_id (name) not _id (ObjectId)
           name: agent.name,
           emoji: agent.emoji || '🤖',
           description: agent.description || agent.prompt || '',

@@ -671,6 +671,7 @@ Este é um ambiente onde você pode:
 
 Clique no agente abaixo para carregar o contexto e depois digite uma mensagem no chat:
 
+<!-- agent-instance: 8ea9e2b4-3458-48dd-9b90-382974c8d43e, agent-id: ReadmeResume_Agent -->
 📄 **README Resume Agent** - Analisa e resume arquivos README de projetos
 
 ### Exemplo de Agentes
@@ -726,6 +727,39 @@ Aqui temos alguns agentes distribuídos pelo documento:
         console.error('❌ Erro ao carregar definições de agentes:', error);
       }
     });
+  }
+
+  private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition): void {
+    console.log('💾 [SCREENPLAY] Criando instância no MongoDB:');
+    console.log('   - instance_id:', instanceId);
+    console.log('   - agent_id:', agentId);
+    console.log('   - position:', position);
+
+    // Call gateway to create instance record
+    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+
+    fetch(`${baseUrl}/api/agents/instances`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        instance_id: instanceId,
+        agent_id: agentId,
+        position: position,
+        created_at: new Date().toISOString()
+      })
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [SCREENPLAY] Instância criada no MongoDB com sucesso');
+        } else {
+          console.warn('⚠️ [SCREENPLAY] Falha ao criar instância no MongoDB:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [SCREENPLAY] Erro ao criar instância no MongoDB:', error);
+      });
   }
 
   ngAfterViewInit(): void {
@@ -823,7 +857,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
           const instance = instances[processedCount];
           processedCount++;
           // SAGA-003 format: anchor on previous line
-          return `<!-- agent-instance: ${instance.id}, agent-id: ${instance.definition.title.toLowerCase().replace(/\s+/g, '-')} -->\n${emoji}`;
+          // Use agent_id if available, otherwise fallback to slug from title
+          const agentIdValue = instance.agent_id || instance.definition.title.toLowerCase().replace(/\s+/g, '-');
+          return `<!-- agent-instance: ${instance.id}, agent-id: ${agentIdValue} -->\n${emoji}`;
         }
         return match; // No instance for this occurrence, keep as-is
       });
@@ -861,7 +897,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   // === Gerenciamento de Agentes ===
 
   private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
     });
@@ -883,31 +919,50 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // 2. Formato antigo: 🚀 (sem âncora)
 
     // Primeiro, processar âncoras SAGA-003
-    const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n(.)/gu;
+    // Aceita tanto com quebra de linha quanto sem: -->📄 ou -->\n📄
+    const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n?(.)/gu;
     const anchoredMatches = [...sourceText.matchAll(anchorRegex)];
 
     console.log(`📋 Encontradas ${anchoredMatches.length} âncoras SAGA-003 no markdown`);
 
+    if (anchoredMatches.length === 0) {
+      console.warn('⚠️ Nenhuma âncora encontrada! Verificando se há âncoras no texto...');
+      const hasAnchor = sourceText.includes('agent-instance');
+      console.warn(`   - Texto contém "agent-instance": ${hasAnchor}`);
+      if (hasAnchor) {
+        console.warn('   - Âncora existe mas regex não está encontrando!');
+        console.warn('   - Trecho do texto:', sourceText.substring(sourceText.indexOf('agent-instance') - 20, sourceText.indexOf('agent-instance') + 100));
+      }
+    }
+
     for (const match of anchoredMatches) {
+      console.log('🔍 [SYNC] Match encontrado:', match);
+      console.log('   - match[0] (full):', match[0]);
+      console.log('   - match[1] (instance_id):', match[1]);
+      console.log('   - match[2] (agent_id):', match[2]);
+      console.log('   - match[3] (emoji):', match[3]);
+
       const instanceId = match[1].trim();
-      const agentId = match[2].trim();
+      const agentIdOrSlug = match[2].trim();
       const emoji = match[3];
       const definition = AGENT_DEFINITIONS[emoji];
 
       foundAgentIds.add(instanceId);
 
       if (!this.agentInstances.has(instanceId)) {
-        console.log(`✨ Criando instância ${instanceId} do agente ${agentId} (${emoji})`);
+        console.log(`✨ Criando instância ${instanceId} do agente ${agentIdOrSlug} (${emoji})`);
         console.log(`   - instance_id: ${instanceId}`);
-        console.log(`   - agent_id (do markdown): ${agentId}`);
+        console.log(`   - agent_id/slug (do markdown): ${agentIdOrSlug}`);
         console.log(`   - emoji: ${emoji}`);
 
+        // Usar o agent_id da âncora diretamente
+        // O gateway vai resolver se for nome ou MongoDB ID
         const newInstance: AgentInstance = {
           id: instanceId,
-          agent_id: agentId,  // 🔥 FIX: Adicionar agent_id extraído da âncora
+          agent_id: agentIdOrSlug,  // Pode ser MongoDB ID ou nome do agente
           emoji: emoji,
           definition: definition || {
-            title: `Agent ${agentId}`,
+            title: `Agent ${agentIdOrSlug}`,
             description: 'Imported from markdown',
             unicode: emoji.codePointAt(0)?.toString(16) || ''
           },
@@ -1153,9 +1208,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
           const rect = range.getBoundingClientRect();
 
           if (rect.width === 0 && rect.height === 0) {
-              console.warn(`⚠️ Posição do emoji "${emoji}" #${emojiInstanceIndex} não pôde ser calculada (rect is zero).`);
-              emojiInstanceIndex++;
-              continue;
+            console.warn(`⚠️ Posição do emoji "${emoji}" #${emojiInstanceIndex} não pôde ser calculada (rect is zero).`);
+            emojiInstanceIndex++;
+            continue;
           }
 
           // --- INÍCIO DA CORREÇÃO ---
@@ -1190,6 +1245,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Debounce to avoid too many updates while typing
     clearTimeout(this.updateTimeout);
     this.updateTimeout = setTimeout(() => {
+      console.log('📝 handleContentUpdate recebeu conteúdo:', newContent.substring(0, 200));
+      console.log('   - Contém agent-instance?', newContent.includes('agent-instance'));
+
       // Passa o conteúdo mais recente para a lógica de sincronização
       this.syncAgentsWithMarkdown(newContent);
     }, 1000);
@@ -1213,16 +1271,26 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('🎯 Agent instance circle event:', event.type, instance.emoji, instance.id);
     if (event.type === 'click') {
       this.selectedAgent = instance;
+      console.log('================================================================================');
       console.log('📍 [SCREENPLAY] Agente clicado:');
       console.log('   - instance_id:', instance.id);
       console.log('   - agent_id (MongoDB):', instance.agent_id);
+      console.log('   - agent_id type:', typeof instance.agent_id);
+      console.log('   - agent_id is undefined?', instance.agent_id === undefined);
+      console.log('   - agent_id is null?', instance.agent_id === null);
       console.log('   - Nome:', instance.definition.title);
       console.log('   - Emoji:', instance.emoji);
+      console.log('   - Instância completa:', JSON.stringify(instance, null, 2));
+      console.log('================================================================================');
 
       if (!instance.agent_id) {
-        console.warn('⚠️ [SCREENPLAY] ATENÇÃO: agent_id está undefined/null!');
-        console.warn('   Isso significa que o agente não poderá ser executado corretamente.');
-        console.warn('   Verifique se a instância foi criada corretamente.');
+        console.error('================================================================================');
+        console.error('❌ [SCREENPLAY] ERRO CRÍTICO: agent_id está undefined/null!');
+        console.error('   A instância foi criada mas agent_id não foi definido.');
+        console.error('   Verifique se a âncora no markdown tem agent-id correto.');
+        console.error('   Formato esperado: <!-- agent-instance: uuid, agent-id: nome-do-agente -->');
+        console.error('   Verifique os logs de sincronização acima para ver o que foi extraído.');
+        console.error('================================================================================');
       }
 
       this.conductorChat.loadContextForAgent(
@@ -1311,7 +1379,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Create a new agent instance
     const newInstance: AgentInstance = {
       id: instanceId,
-      agent_id: agent.id, // MongoDB agent_id (e.g., "68cb59b9f16ed81e1b4dd930")
+      agent_id: agent.id, // Agent name/identifier (e.g., "ReadmeResume_Agent")
       emoji: agent.emoji,
       definition: {
         title: agent.name,
@@ -1331,6 +1399,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
     // Add to instances map BEFORE positioning
     this.agentInstances.set(instanceId, newInstance);
+
+    // Create instance record in MongoDB via gateway
+    this.createAgentInstanceInMongoDB(instanceId, agent.id, newInstance.position);
 
     // Initialize conversation history in localStorage
     const historyKey = `agent-history-${instanceId}`;
@@ -1551,6 +1622,15 @@ Aqui temos alguns agentes distribuídos pelo documento:
         const parsedState = JSON.parse(storedState);
         this.agentInstances = new Map<string, AgentInstance>(parsedState);
         console.log(`🔄 ${this.agentInstances.size} agent instances loaded from LocalStorage.`);
+
+        // Verificar se as instâncias têm agent_id
+        this.agentInstances.forEach((instance, id) => {
+          if (!instance.agent_id) {
+            console.warn(`⚠️ Instância ${id} carregada do localStorage SEM agent_id!`);
+            console.warn(`   Isso pode causar problemas na execução.`);
+            console.warn(`   Considere limpar o localStorage: localStorage.clear()`);
+          }
+        });
       } catch (e) {
         console.error('Error loading state from LocalStorage:', e);
         this.agentInstances.clear();
