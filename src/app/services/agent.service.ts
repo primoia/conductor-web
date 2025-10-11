@@ -48,6 +48,7 @@ export interface AgentContext {
 interface ExecutionRequest {
   input_text: string;
   instance_id: string;
+  cwd?: string;
 }
 
 @Injectable({
@@ -109,17 +110,24 @@ export class AgentService {
    * @param agentId - The ID of the agent to execute
    * @param inputText - The text to process
    * @param instanceId - The instance ID for context isolation
+   * @param cwd - Optional working directory path
    */
-  executeAgent(agentId: string, inputText: string, instanceId: string): Observable<ExecutionResult> {
+  executeAgent(agentId: string, inputText: string, instanceId: string, cwd?: string): Observable<ExecutionResult> {
     const requestBody: ExecutionRequest = {
       input_text: inputText,
       instance_id: instanceId
     };
 
+    // Add cwd to request body if provided
+    if (cwd) {
+      requestBody.cwd = cwd;
+    }
+
     console.log('🚀 [AGENT SERVICE] executeAgent chamado:');
     console.log('   - agentId (agent_id):', agentId);
     console.log('   - inputText:', inputText);
     console.log('   - instanceId (instance_id):', instanceId);
+    console.log('   - cwd:', cwd || 'não fornecido');
     console.log('   - Request Body:', JSON.stringify(requestBody, null, 2));
     console.log('   - URL:', `${this.baseUrl}/api/agents/${agentId}/execute`);
     
