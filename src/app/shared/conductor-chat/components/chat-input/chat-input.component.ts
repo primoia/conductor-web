@@ -62,7 +62,7 @@ import { ChatMode } from '../../models/chat.models';
   `,
   styles: [`
     .chat-input-wrapper {
-      border-top: 1px solid #e0e0e0;
+      border-top: 1px solid #e1e4e8;
       background: white;
     }
 
@@ -71,20 +71,20 @@ import { ChatMode } from '../../models/chat.models';
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #e0e0e0;
+      background: #fafbfc;
+      border-bottom: 1px solid #e1e4e8;
     }
 
     .mode-selector label {
       font-weight: 600;
       font-size: 14px;
-      color: #333;
+      color: #4a5568;
     }
 
     .mode-selector select {
       padding: 6px 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      border: 1px solid #cbd5e0;
+      border-radius: 6px;
       font-size: 14px;
       background: white;
       cursor: pointer;
@@ -93,7 +93,7 @@ import { ChatMode } from '../../models/chat.models';
     }
 
     .mode-selector select:hover:not(:disabled) {
-      border-color: #667eea;
+      border-color: #a8b9ff;
     }
 
     .mode-selector select:disabled {
@@ -103,7 +103,7 @@ import { ChatMode } from '../../models/chat.models';
 
     .mode-info {
       font-size: 13px;
-      color: #666;
+      color: #6b7280;
       font-weight: 500;
     }
 
@@ -120,7 +120,7 @@ import { ChatMode } from '../../models/chat.models';
     .input-group input {
       flex: 1;
       padding: 12px 16px;
-      border: 2px solid #e0e0e0;
+      border: 2px solid #e1e4e8;
       border-radius: 24px;
       font-size: 14px;
       outline: none;
@@ -128,11 +128,11 @@ import { ChatMode } from '../../models/chat.models';
     }
 
     .input-group input:focus {
-      border-color: #667eea;
+      border-color: #a8b9ff;
     }
 
     .input-group input:disabled {
-      background: #f5f5f5;
+      background: #f7fafc;
       cursor: not-allowed;
     }
 

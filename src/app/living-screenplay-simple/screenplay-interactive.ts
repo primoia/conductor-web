@@ -251,14 +251,14 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     .screenplay-container {
       display: flex;
       height: 100vh;
-      background: #f8f9fa;
+      background: #fafbfc;
       font-family: inherit !important;
       transition: width 0.1s ease-out;
     }
 
     .splitter {
       width: 6px;
-      background: #d0d0d0;
+      background: #e1e4e8;
       cursor: col-resize;
       flex-shrink: 0;
       transition: background 0.2s;
@@ -266,7 +266,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     }
 
     .splitter:hover {
-      background: #667eea;
+      background: #a8b9ff;
     }
 
     .splitter::before {
@@ -290,11 +290,12 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 
     .control-panel {
       width: 280px;
-      background: #343a40;
-      color: white;
+      background: #f0f3f7;
+      color: #2c3e50;
       padding: 20px;
       overflow-y: auto;
       flex-shrink: 0;
+      border-right: 1px solid #e1e4e8;
 
       /* Força fontes de emoji em todo o painel */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
@@ -302,25 +303,27 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 
     .control-panel h3 {
       margin: 0 0 20px 0;
-      color: #ffc107;
+      color: #5a67d8;
       font-size: 18px;
+      font-weight: 600;
     }
 
     .control-panel h4 {
       margin: 20px 0 10px 0;
-      color: #28a745;
+      color: #48bb78;
       font-size: 14px;
+      font-weight: 600;
     }
 
     .file-controls {
       margin-bottom: 20px;
-      border-bottom: 1px solid #495057;
+      border-bottom: 1px solid #d1d5db;
       padding-bottom: 15px;
     }
 
     .agent-controls {
       margin-bottom: 20px;
-      border-bottom: 1px solid #495057;
+      border-bottom: 1px solid #d1d5db;
       padding-bottom: 15px;
     }
 
@@ -333,54 +336,62 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       width: 100%;
       padding: 10px 12px;
       margin-bottom: 8px;
-      border: 1px solid #495057;
-      border-radius: 6px;
-      background: #495057;
-      color: white;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #4a5568;
       cursor: pointer;
       font-size: 12px;
       text-align: left;
       transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
       /* Força fontes de emoji nos botões */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
     }
 
     .control-btn:hover {
-      background: #5a6268;
-      border-color: #6c757d;
+      background: #f7fafc;
+      border-color: #a0aec0;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     }
 
     .control-btn.active {
-      background: #007bff;
-      border-color: #007bff;
+      background: #ebf4ff;
+      border-color: #7c9ff6;
+      color: #2d3748;
     }
 
     .create-agent-btn {
-      background: #6f42c1 !important;
-      border-color: #6f42c1 !important;
+      background: #e9d8fd !important;
+      border-color: #b794f4 !important;
+      color: #553c9a !important;
     }
 
     .create-agent-btn:hover {
-      background: #5a2d8a !important;
+      background: #d6bcfa !important;
+      border-color: #9f7aea !important;
     }
 
     .add-agent-btn {
-      background: #28a745 !important;
-      border-color: #28a745 !important;
+      background: #c6f6d5 !important;
+      border-color: #68d391 !important;
+      color: #276749 !important;
     }
 
     .add-agent-btn:hover {
-      background: #218838 !important;
+      background: #9ae6b4 !important;
+      border-color: #48bb78 !important;
     }
 
     .current-file {
       margin-top: 10px;
       padding: 8px;
-      background: rgba(255, 193, 7, 0.1);
-      border-radius: 4px;
+      background: #fef3c7;
+      border-radius: 6px;
       font-size: 11px;
-      color: #ffc107;
+      color: #92400e;
+      border: 1px solid #fcd34d;
     }
 
     .emoji-list {
@@ -388,7 +399,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     }
 
     .emoji-list small {
-      color: #adb5bd;
+      color: #6b7280;
       font-size: 10px;
       display: block;
       margin-bottom: 8px;
@@ -410,51 +421,53 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     .emoji-btn {
       width: 35px;
       height: 35px;
-      border: 1px solid #6c757d;
+      border: 1px solid #cbd5e0;
       border-radius: 50%;
-      background: #495057;
+      background: #ffffff;
       cursor: pointer;
       font-size: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
       /* Força fontes de emoji para renderização correta */
       font-family: 'emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important;
     }
 
     .emoji-btn:hover {
-      background: #5a6268;
+      background: #f7fafc;
       transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .emoji-btn.has-some-agents {
-      border-color: #ffc107;
-      background: rgba(255, 193, 7, 0.2);
+      border-color: #fbbf24;
+      background: #fef3c7;
     }
 
     .emoji-btn.has-all-agents {
-      border-color: #28a745;
-      background: rgba(40, 167, 69, 0.2);
+      border-color: #68d391;
+      background: #c6f6d5;
     }
 
     .emoji-count {
-      color: #adb5bd;
+      color: #6b7280;
       font-size: 9px;
     }
 
     .execution-status, .queue-status {
       margin-top: 15px;
       padding: 10px;
-      background: rgba(40, 167, 69, 0.1);
-      border-radius: 4px;
-      border-left: 3px solid #28a745;
+      background: #d1fae5;
+      border-radius: 6px;
+      border-left: 3px solid #48bb78;
     }
 
     .execution-status small, .queue-status small {
-      color: #28a745;
-      font-weight: bold;
+      color: #065f46;
+      font-weight: 600;
       display: block;
       margin-bottom: 5px;
     }
@@ -465,7 +478,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       justify-content: space-between;
       padding: 4px 0;
       font-size: 11px;
-      color: #ffffff;
+      color: #1f2937;
     }
 
     .cancel-btn {
@@ -515,7 +528,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       top: -5px;
       right: -5px;
       font-size: 12px;
-      background: #ffc107;
+      background: #fef3c7;
+      border: 2px solid #fbbf24;
       border-radius: 50%;
       width: 18px;
       height: 18px;
@@ -531,7 +545,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       top: -5px;
       right: -5px;
       font-size: 12px;
-      background: #007bff;
+      background: #dbeafe;
+      border: 2px solid #60a5fa;
       border-radius: 50%;
       width: 18px;
       height: 18px;
@@ -547,7 +562,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       top: -5px;
       right: -5px;
       font-size: 12px;
-      background: #28a745;
+      background: #d1fae5;
+      border: 2px solid #68d391;
       border-radius: 50%;
       width: 18px;
       height: 18px;
@@ -562,7 +578,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       top: -5px;
       right: -5px;
       font-size: 12px;
-      background: #dc3545;
+      background: #fee2e2;
+      border: 2px solid #f87171;
       border-radius: 50%;
       width: 18px;
       height: 18px;
@@ -584,13 +601,14 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 
     .action-popup {
       position: fixed;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
+      background: #1f2937;
+      color: #f9fafb;
       padding: 8px 12px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 12px;
       z-index: 1000;
       pointer-events: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
     .popup-arrow {
@@ -602,7 +620,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       height: 0;
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 5px solid rgba(0, 0, 0, 0.8);
+      border-top: 5px solid #1f2937;
     }
 
   `]
