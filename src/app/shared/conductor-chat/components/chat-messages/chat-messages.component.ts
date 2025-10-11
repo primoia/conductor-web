@@ -14,9 +14,10 @@ import { Message } from '../../models/chat.models';
         class="message"
         [class.user-message]="message.type === 'user'"
         [class.bot-message]="message.type === 'bot'"
+        [class.system-message]="message.type === 'system'"
       >
         <div class="message-content">
-          <strong>{{ message.type === 'user' ? 'Você:' : 'Conductor:' }}</strong>
+          <strong *ngIf="message.type !== 'system'">{{ message.type === 'user' ? 'Você:' : 'Conductor:' }}</strong>
           <span
             *ngIf="shouldFormatAsHtml(message.content)"
             [innerHTML]="formatMessage(message.content)"
@@ -94,6 +95,20 @@ import { Message } from '../../models/chat.models';
       color: #333;
       align-self: flex-start;
       border: 1px solid #e0e0e0;
+    }
+
+    .system-message {
+      background: #f0f0f0;
+      color: #666;
+      align-self: center;
+      border: 1px dashed #ccc;
+      font-size: 13px;
+      text-align: center;
+      max-width: 70%;
+    }
+
+    .system-message .message-content {
+      font-style: italic;
     }
 
     .progress-message {

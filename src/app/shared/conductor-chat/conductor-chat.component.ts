@@ -7,6 +7,7 @@ import { StatusIndicatorComponent } from './components/status-indicator/status-i
 import { ConductorApiService } from './services/conductor-api.service';
 import { Message, ChatState, ChatMode, ApiConfig, ConductorConfig } from './models/chat.models';
 import { ScreenplayService } from '../../services/screenplay/screenplay.service';
+import { AgentService, AgentContext, ChatMessage } from '../../services/agent.service';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -35,11 +36,29 @@ const DEFAULT_CONFIG: ConductorConfig = {
   template: `
     <div class="conductor-chat">
       <div class="chat-header">
-        <h3>🤖 Conductor</h3>
+        <div class="header-content">
+          <h3>🤖 Conductor Chat</h3>
+          <div class="selected-agent" *ngIf="selectedAgentName">
+            <span class="agent-emoji">{{ selectedAgentEmoji }}</span>
+            <span class="agent-name">{{ selectedAgentName }}</span>
+          </div>
+        </div>
         <app-status-indicator
           [isConnected]="chatState.isConnected"
           [isLoading]="chatState.isLoading"
         />
+      </div>
+
+      <!-- Agent Context Section -->
+      <div class="agent-context" *ngIf="activeAgentContext">
+        <div class="context-item">
+          <div class="context-label">👤 Persona</div>
+          <div class="context-content">{{ activeAgentContext.persona }}</div>
+        </div>
+        <div class="context-item">
+          <div class="context-label">📜 Procedimento</div>
+          <div class="context-content">{{ activeAgentContext.operating_procedure }}</div>
+        </div>
       </div>
 
       <app-chat-messages
@@ -67,8 +86,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
       display: flex;
       flex-direction: column;
       height: 100%;
-      background: white;
-      border-left: 1px solid #e0e0e0;
+      background: #343a40;
+      border-left: 1px solid #495057;
     }
 
     .chat-header {
@@ -76,28 +95,83 @@ const DEFAULT_CONFIG: ConductorConfig = {
       justify-content: space-between;
       align-items: center;
       padding: 16px 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #343a40;
       color: white;
-      border-bottom: 2px solid #5568d3;
+      border-bottom: 1px solid #495057;
+    }
+
+    .header-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
     .chat-header h3 {
       margin: 0;
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
+      color: #ffc107;
+    }
+
+    .selected-agent {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #28a745;
+      font-weight: 500;
+    }
+
+    .agent-emoji {
+      font-size: 16px;
+    }
+
+    .agent-name {
+      color: #28a745;
+    }
+
+    .agent-context {
+      background: #495057;
+      border-bottom: 1px solid #5a6268;
+      padding: 12px 16px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .context-item {
+      margin-bottom: 12px;
+    }
+
+    .context-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .context-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffc107;
+      margin-bottom: 4px;
+    }
+
+    .context-content {
+      font-size: 13px;
+      color: #f8f9fa;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .chat-footer {
       padding: 12px 20px;
-      background: #f5f5f5;
-      border-top: 1px solid #e0e0e0;
+      background: #495057;
+      border-top: 1px solid #5a6268;
       text-align: center;
     }
 
     .chat-footer p {
       margin: 0;
       font-size: 12px;
-      color: #666;
+      color: #adb5bd;
     }
   `]
 })
@@ -113,12 +187,20 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   currentMode: ChatMode = 'ask';
   config: ConductorConfig = DEFAULT_CONFIG;
 
+  // Agent context state
+  activeAgentContext: AgentContext | null = null;
+  activeAgentId: string | null = null; // instance_id
+  selectedAgentDbId: string | null = null; // MongoDB agent_id
+  selectedAgentName: string | null = null;
+  selectedAgentEmoji: string | null = null;
+
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
 
   constructor(
     private apiService: ConductorApiService,
-    private screenplayService: ScreenplayService
+    private screenplayService: ScreenplayService,
+    private agentService: AgentService
   ) {}
 
   ngOnInit(): void {
@@ -193,6 +275,50 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.progressMessage = null;
     this.streamingMessage = null;
 
+    // Check if we have an active agent selected
+    if (this.activeAgentId && this.selectedAgentDbId) {
+      // Execute the specific agent directly
+      console.log('🎯 [CHAT] Executando agente diretamente:');
+      console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
+      console.log('   - instance_id:', this.activeAgentId);
+      console.log('   - input_text:', content.trim());
+      console.log('   - Chamando agentService.executeAgent()...');
+      console.log('   - Parâmetros que serão enviados:');
+      console.log('     1. agentId:', this.selectedAgentDbId);
+      console.log('     2. inputText:', content.trim());
+      console.log('     3. instanceId:', this.activeAgentId);
+
+      this.addProgressMessage('🚀 Executando agente...');
+
+      this.subscriptions.add(
+        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId).subscribe({
+          next: (result) => {
+            console.log('✅ Agent execution result:', result);
+            this.progressMessage = null;
+
+            const responseMessage: Message = {
+              id: `response-${Date.now()}`,
+              content: result.result || result.data?.result || 'Execução concluída',
+              type: 'bot',
+              timestamp: new Date()
+            };
+            this.chatState.messages = [...this.chatState.messages, responseMessage];
+            this.chatState.isLoading = false;
+
+            // Reload context to get updated history
+            this.loadContextForAgent(this.activeAgentId!, this.selectedAgentName!, this.selectedAgentEmoji!, this.selectedAgentDbId!);
+          },
+          error: (error) => {
+            console.error('❌ Agent execution error:', error);
+            this.progressMessage = null;
+            this.handleError(error.error || error.message || 'Erro ao executar agente');
+          }
+        })
+      );
+      return;
+    }
+
+    // No active agent: use MCP tools system
     // Add mode context to message if in agent mode
     const messageWithContext = this.currentMode === 'agent'
       ? `[AGENT MODE - Can modify screenplay] ${content.trim()}`
@@ -342,5 +468,102 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
     this.chatState.messages = [...this.chatState.messages, modeMessage];
+  }
+
+  /**
+   * Load agent context (persona, procedure, history) and display in chat
+   * @param instanceId - The agent instance ID to load context for
+   * @param agentName - Optional agent name to display in header
+   * @param agentEmoji - Optional agent emoji to display in header
+   * @param agentDbId - Optional MongoDB agent_id for direct execution
+   */
+  loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string): void {
+    console.log('📥 [CHAT] loadContextForAgent chamado:');
+    console.log('   - instanceId (instance_id):', instanceId);
+    console.log('   - agentDbId (agent_id MongoDB):', agentDbId);
+    console.log('   - agentName:', agentName);
+    console.log('   - agentEmoji:', agentEmoji);
+
+    if (!agentDbId) {
+      console.error('❌ [CHAT] ERRO CRÍTICO: agentDbId (agent_id) está undefined/null!');
+      console.error('   O agente não poderá ser executado sem um agent_id válido do MongoDB.');
+      console.error('   Verifique se a instância do agente tem a propriedade agent_id definida.');
+    }
+
+    this.activeAgentId = instanceId;
+    this.selectedAgentDbId = agentDbId || null;
+    this.selectedAgentName = agentName || null;
+    this.selectedAgentEmoji = agentEmoji || null;
+    this.chatState.isLoading = true;
+
+    console.log('✅ [CHAT] Variáveis de estado atualizadas:');
+    console.log('   - this.activeAgentId (instance_id):', this.activeAgentId);
+    console.log('   - this.selectedAgentDbId (agent_id):', this.selectedAgentDbId);
+    console.log('   - this.selectedAgentName:', this.selectedAgentName);
+    console.log('   - this.selectedAgentEmoji:', this.selectedAgentEmoji);
+
+    this.subscriptions.add(
+      this.agentService.getAgentContext(instanceId).subscribe({
+        next: (context: AgentContext) => {
+          console.log('✅ Agent context loaded:', context);
+          this.activeAgentContext = context;
+
+          // Clear existing messages and load context
+          this.chatState.messages = [];
+
+          // Map history messages from backend format to UI format
+          const historyMessages: Message[] = context.history.map((msg, index) => ({
+            id: `history-${index}`,
+            content: msg.content,
+            type: msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'bot',
+            timestamp: new Date()
+          }));
+
+          // If history is empty, show a placeholder message
+          if (historyMessages.length === 0) {
+            historyMessages.push({
+              id: `empty-history-${Date.now()}`,
+              content: 'Nenhuma interação ainda. Inicie a conversa abaixo.',
+              type: 'system',
+              timestamp: new Date()
+            });
+          }
+
+          this.chatState.messages = historyMessages;
+          this.chatState.isLoading = false;
+        },
+        error: (error) => {
+          console.error('❌ Error loading agent context:', error);
+          this.chatState.isLoading = false;
+
+          // Treat 404 as "no context yet" instead of an error
+          const isNotFound = error.status === 404;
+
+          const message: Message = {
+            id: `info-${Date.now()}`,
+            content: isNotFound
+              ? `ℹ️ Este agente ainda não foi executado. Nenhum contexto disponível.\n\nClique duas vezes no agente no roteiro para executá-lo.`
+              : `❌ Erro ao carregar contexto: ${error.message}`,
+            type: 'system',
+            timestamp: new Date()
+          };
+          this.chatState.messages = [message];
+        }
+      })
+    );
+  }
+
+  /**
+   * Clear agent context and return to welcome state
+   */
+  clear(): void {
+    console.log('🧹 Clearing agent context');
+    this.activeAgentContext = null;
+    this.activeAgentId = null;
+    this.selectedAgentDbId = null;
+    this.selectedAgentName = null;
+    this.selectedAgentEmoji = null;
+    this.chatState.messages = [];
+    this.initializeChat();
   }
 }

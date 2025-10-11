@@ -10,7 +10,7 @@ export interface ApiConfig {
 export interface Message {
   id: string;
   content: string;
-  type: 'user' | 'bot';
+  type: 'user' | 'bot' | 'system';
   timestamp: Date;
   isStreaming?: boolean;
 }

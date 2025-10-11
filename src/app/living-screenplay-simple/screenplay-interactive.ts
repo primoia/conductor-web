@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
-import { AgentControlModal } from './agent-control-modal/agent-control-modal';
 import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
 import { AgentSelectorModalComponent, AgentSelectionData } from './agent-selector-modal/agent-selector-modal.component';
 import { AgentPreviewModalComponent, PreviewData, PreviewAction } from './agent-preview-modal/agent-preview-modal.component';
@@ -35,6 +34,7 @@ interface EmojiInfo {
 // Represents a unique agent instance linked to an emoji in the text
 interface AgentInstance {
   id: string; // UUID v4 - anchor in Markdown and key in "database"
+  agent_id?: string; // Agent ID from MongoDB (e.g., "ReadmeResume_Agent")
   emoji: string;
   definition: { title: string; description: string; unicode: string; }; // Link to AGENT_DEFINITIONS
   status: 'pending' | 'queued' | 'running' | 'completed' | 'error';
@@ -61,13 +61,14 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
   '💎': { title: 'Premium Agent', description: 'Premium resources', unicode: '\\u{1F48E}' },
   '⭐': { title: 'Star Agent', description: 'Reviews and favorites', unicode: '\\u{2B50}' },
   '🌟': { title: 'Featured Agent', description: 'Special highlights', unicode: '\\u{1F31F}' },
-  '🧪': { title: 'Test Agent', description: 'Runs automated tests and validations', unicode: '\\u{1F9EA}' }
+  '🧪': { title: 'Test Agent', description: 'Runs automated tests and validations', unicode: '\\u{1F9EA}' },
+  '📄': { title: 'README Resume Agent', description: 'Analyzes and summarizes README files', unicode: '\\u{1F4C4}' }
 };
 
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentControlModal, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent],
   template: `
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
@@ -199,16 +200,6 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         <div class="popup-arrow"></div>
       </div>
 
-      <!-- Agent Control Modal -->
-      <app-agent-control-modal
-        [agent]="selectedAgent"
-        [executionLogs]="selectedAgent ? getAgentExecutionLogs(selectedAgent.id) : []"
-        [isVisible]="showModal"
-        (execute)="onModalExecute($event)"
-        (cancel)="onModalCancel($event)"
-        (close)="closeModal()">
-      </app-agent-control-modal>
-
       <!-- Agent Creator Modal -->
       <app-agent-creator
         [isVisible]="showAgentCreator"
@@ -240,7 +231,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 
       <!-- Chat component -->
       <div class="chat-panel" [style.width.%]="chatWidth">
-        <app-conductor-chat></app-conductor-chat>
+        <app-conductor-chat #conductorChat></app-conductor-chat>
       </div>
     </div>
   `,
@@ -619,6 +610,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
+  @ViewChild(ConductorChatComponent) conductorChat!: ConductorChatComponent;
 
   // Splitter state
   screenplayWidth = 70;
@@ -638,7 +630,6 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   popupText = '';
 
   // Estado do modal
-  showModal = false;
   showAgentCreator = false;
   showAgentSelector = false;
   showAgentPreview = false;
@@ -676,6 +667,12 @@ Este é um ambiente onde você pode:
 - 📦 Incluir sub-roteiros
 - 🎯 Gerenciar agentes visuais
 
+### Demo com README Resume Agent
+
+Clique no agente abaixo para carregar o contexto e depois digite uma mensagem no chat:
+
+📄 **README Resume Agent** - Analisa e resume arquivos README de projetos
+
 ### Exemplo de Agentes
 
 Aqui temos alguns agentes distribuídos pelo documento:
@@ -688,10 +685,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
 ### Como usar
 
-1. Duplo-clique nos emojis para abrir modais
-2. Arraste os agentes para reposicionar
-3. Use o painel lateral para controlar visualizações
-4. Salve e carregue diferentes arquivos markdown
+1. **Clique** em um emoji para selecionar o agente e carregar seu contexto no chat
+2. **Digite** sua mensagem no chat para executar o agente diretamente
+3. **Arraste** os círculos dos agentes para reposicionar
+4. Use "➕ Adicionar Agente" no painel lateral para inserir novos agentes
+5. Salve e carregue diferentes arquivos markdown
 
 > 💡 **Dica**: Use "Roteiro Limpo" para ver apenas o texto!
 `;
@@ -900,9 +898,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
       if (!this.agentInstances.has(instanceId)) {
         console.log(`✨ Criando instância ${instanceId} do agente ${agentId} (${emoji})`);
+        console.log(`   - instance_id: ${instanceId}`);
+        console.log(`   - agent_id (do markdown): ${agentId}`);
+        console.log(`   - emoji: ${emoji}`);
 
         const newInstance: AgentInstance = {
           id: instanceId,
+          agent_id: agentId,  // 🔥 FIX: Adicionar agent_id extraído da âncora
           emoji: emoji,
           definition: definition || {
             title: `Agent ${agentId}`,
@@ -913,7 +915,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
           position: this.calculateEmojiPosition(match.index || 0)
         };
 
+        console.log(`✅ Instância criada com agent_id: ${newInstance.agent_id}`);
         this.agentInstances.set(instanceId, newInstance);
+      } else {
+        console.log(`ℹ️ Instância ${instanceId} já existe, pulando...`);
       }
     }
 
@@ -1196,9 +1201,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   onAgentCircleEvent(event: CircleEvent, agent: AgentConfig): void {
     console.log('🎯 Evento do círculo:', event.type, agent.emoji);
-    if (event.type === 'doubleClick') {
-      this.showModal = true;
-    }
+    // Legacy method - no longer in use, agent instances use onAgentInstanceCircleEvent instead
   }
 
   onAgentPositionChange(position: CirclePosition, agent: AgentConfig): void {
@@ -1208,10 +1211,29 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   onAgentInstanceCircleEvent(event: CircleEvent, instance: AgentInstance): void {
     console.log('🎯 Agent instance circle event:', event.type, instance.emoji, instance.id);
-    if (event.type === 'doubleClick') {
+    if (event.type === 'click') {
       this.selectedAgent = instance;
-      this.showModal = true;
-      console.log('💬 Opening modal for agent:', instance.definition.title);
+      console.log('📍 [SCREENPLAY] Agente clicado:');
+      console.log('   - instance_id:', instance.id);
+      console.log('   - agent_id (MongoDB):', instance.agent_id);
+      console.log('   - Nome:', instance.definition.title);
+      console.log('   - Emoji:', instance.emoji);
+
+      if (!instance.agent_id) {
+        console.warn('⚠️ [SCREENPLAY] ATENÇÃO: agent_id está undefined/null!');
+        console.warn('   Isso significa que o agente não poderá ser executado corretamente.');
+        console.warn('   Verifique se a instância foi criada corretamente.');
+      }
+
+      this.conductorChat.loadContextForAgent(
+        instance.id,
+        instance.definition.title,
+        instance.emoji,
+        instance.agent_id  // Pass MongoDB agent_id for direct execution
+      );
+      console.log('💬 Carregando contexto no chat:');
+      console.log('   - instance_id passado:', instance.id);
+      console.log('   - agent_id passado:', instance.agent_id);
     }
   }
 
@@ -1219,10 +1241,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     instance.position = position;
     this.saveStateToLocalStorage();
     console.log(`📍 Agent instance ${instance.id} moved to (${position.x}, ${position.y})`);
-  }
-
-  closeModal(): void {
-    this.showModal = false;
   }
 
   openAgentCreator(): void {
@@ -1293,6 +1311,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Create a new agent instance
     const newInstance: AgentInstance = {
       id: instanceId,
+      agent_id: agent.id, // MongoDB agent_id (e.g., "68cb59b9f16ed81e1b4dd930")
       emoji: agent.emoji,
       definition: {
         title: agent.name,
@@ -1430,9 +1449,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
       agentEmoji: agent.emoji
     };
 
-    // Find the agent ID from the agent definition
-    // For now, we'll use the emoji as the agent identifier
-    const agentId = agent.id;
+    // Use the MongoDB agent_id if available, fallback to instance id
+    const agentId = agent.agent_id || agent.id;
 
     this.agentService.executeAgent(agentId, inputText, agent.id).subscribe({
       next: (result) => {
@@ -1616,42 +1634,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     }
   }
 
-  // === Modal Event Handlers ===
-
-  /**
-   * Handle execute event from modal
-   */
-  onModalExecute(event: { agent: AgentInstance; prompt: string }): void {
-    const { agent, prompt } = event;
-
-    // Create execution state with the user's prompt
-    const executionState: AgentExecutionState = {
-      id: agent.id,
-      emoji: agent.emoji,
-      title: agent.definition.title,
-      prompt: prompt,
-      status: 'pending',
-      logs: []
-    };
-
-    // Update the instance with execution state reference
-    agent.executionState = executionState;
-    agent.status = 'queued';
-
-    // Start execution via service
-    this.agentExecutionService.executeAgent(executionState);
-
-    console.log('🚀 Executando agente do modal:', agent.definition.title, 'com prompt:', prompt);
-  }
-
-  /**
-   * Handle cancel event from modal
-   */
-  onModalCancel(event: { agentId: string }): void {
-    this.cancelAgentExecution(event.agentId);
-    console.log('❌ Cancelando agente do modal:', event.agentId);
-  }
-
   // === Splitter methods ===
 
   onSplitterMouseDown(event: MouseEvent): void {
@@ -1676,5 +1658,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
   @HostListener('document:mouseup')
   onDocumentMouseUp(): void {
     this.isDraggingSplitter = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.selectedAgent) {
+      this.selectedAgent = null;
+      this.conductorChat.clear();
+      console.log('⎋ Agent deselected, chat cleared');
+    }
   }
 }
