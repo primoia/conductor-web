@@ -65,14 +65,23 @@ import { Message } from '../../models/chat.models';
     </div>
   `,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .chat-messages {
-      height: 100%;
+      flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 20px;
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: #f9f9f9;
+      background: #fafbfc;
     }
 
     .message {
@@ -84,7 +93,7 @@ import { Message } from '../../models/chat.models';
     }
 
     .user-message {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #7c9ff6 0%, #9f7aea 100%);
       color: white;
       align-self: flex-end;
       margin-left: auto;
@@ -92,16 +101,16 @@ import { Message } from '../../models/chat.models';
 
     .bot-message {
       background: white;
-      color: #333;
+      color: #2c3e50;
       align-self: flex-start;
-      border: 1px solid #e0e0e0;
+      border: 1px solid #e1e4e8;
     }
 
     .system-message {
-      background: #f0f0f0;
-      color: #666;
+      background: #f0f3f7;
+      color: #6b7280;
       align-self: center;
-      border: 1px dashed #ccc;
+      border: 1px dashed #cbd5e0;
       font-size: 13px;
       text-align: center;
       max-width: 70%;
@@ -113,8 +122,8 @@ import { Message } from '../../models/chat.models';
 
     .progress-message {
       font-style: italic;
-      background: #f0f0f0;
-      border: 1px dashed #ccc;
+      background: #fef3c7;
+      border: 1px dashed #fbbf24;
     }
 
     .message-content {
@@ -136,7 +145,7 @@ import { Message } from '../../models/chat.models';
     .typing-indicator span {
       width: 8px;
       height: 8px;
-      background: #667eea;
+      background: #7c9ff6;
       border-radius: 50%;
       animation: typing 1.4s infinite;
     }
@@ -175,17 +184,17 @@ import { Message } from '../../models/chat.models';
     }
 
     .chat-messages::-webkit-scrollbar-track {
-      background: #f1f1f1;
+      background: #f0f3f7;
       border-radius: 4px;
     }
 
     .chat-messages::-webkit-scrollbar-thumb {
-      background: #888;
+      background: #cbd5e0;
       border-radius: 4px;
     }
 
     .chat-messages::-webkit-scrollbar-thumb:hover {
-      background: #555;
+      background: #a0aec0;
     }
   `]
 })

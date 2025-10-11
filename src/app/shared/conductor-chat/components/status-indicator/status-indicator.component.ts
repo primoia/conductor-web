@@ -48,7 +48,7 @@ import { CommonModule } from '@angular/common';
     }
 
     .status-text {
-      color: rgba(255, 255, 255, 0.9);
+      color: #4a5568;
       font-weight: 500;
     }
 

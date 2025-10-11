@@ -26,10 +26,14 @@ export interface ExecutionResult {
 
 /**
  * Chat message from agent context history
+ * Backend returns: { user_input: string, ai_response: string, ... }
+ * Frontend expects: { role: string, content: string }
  */
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
+  role?: 'user' | 'assistant' | 'system';
+  content?: string;
+  user_input?: string;  // Backend format
+  ai_response?: string; // Backend format
   [key: string]: any; // For other fields like timestamp, _id
 }
 
@@ -163,14 +167,65 @@ export class AgentService {
     ).pipe(
       map((response: any) => {
         console.log('✅ [AGENT SERVICE] Resposta JSON do gateway:', JSON.stringify(response, null, 2));
-        // Transform API response to ExecutionResult
+        console.log('   - response.result type:', typeof response.result);
+        console.log('   - response.result value:', response.result);
+        console.log('   - response.data:', response.data);
+        console.log('   - response.message:', response.message);
+
+        // Extract the actual AI response text
+        let resultText = '';
+
+        // Try different possible response formats from backend
+        if (typeof response.result === 'string' && response.result.trim().length > 0) {
+          resultText = response.result;
+        } else if (typeof response === 'string' && response.trim().length > 0) {
+          resultText = response;
+        } else if (response.ai_response && typeof response.ai_response === 'string') {
+          resultText = response.ai_response;
+        } else if (response.data?.ai_response && typeof response.data.ai_response === 'string') {
+          resultText = response.data.ai_response;
+        } else if (response.data?.result && typeof response.data.result === 'string') {
+          resultText = response.data.result;
+        } else if (response.message && typeof response.message === 'string') {
+          resultText = response.message;
+        } else if (response.output && typeof response.output === 'string') {
+          resultText = response.output;
+        } else if (response.response && typeof response.response === 'string') {
+          resultText = response.response;
+        } else if (response.result && typeof response.result === 'object') {
+          // If result is an object, try to extract text from it
+          if (response.result.result && typeof response.result.result === 'string') {
+            // Nested result.result
+            resultText = response.result.result;
+          } else if (response.result.ai_response) {
+            resultText = response.result.ai_response;
+          } else if (response.result.output) {
+            resultText = response.result.output;
+          } else if (response.result.text) {
+            resultText = response.result.text;
+          } else {
+            console.error('❌ Could not extract text from result object:', response.result);
+            resultText = 'Erro: Resposta em formato não reconhecido. Verifique os logs do console.';
+          }
+        } else {
+          // Last resort - show error message
+          console.error('❌ Could not extract text from response:', response);
+          resultText = 'Erro: Resposta em formato não reconhecido. Verifique os logs do console.';
+        }
+
+        // Ensure we have some content
+        if (!resultText || resultText.trim().length === 0) {
+          resultText = 'Resposta vazia do agente';
+        }
+
         const result = {
           success: response.success !== false,
-          result: response.result || response.data?.result || response.message,
+          result: resultText,
           error: response.error,
-          data: response.data || response
+          data: response
         } as ExecutionResult;
-        console.log('✅ [AGENT SERVICE] ExecutionResult final:', JSON.stringify(result, null, 2));
+
+        console.log('✅ [AGENT SERVICE] ExecutionResult final - result text:', resultText.substring(0, 100));
         return result;
       }),
       catchError(error => {

@@ -43,21 +43,38 @@ const DEFAULT_CONFIG: ConductorConfig = {
             <span class="agent-name">{{ selectedAgentName }}</span>
           </div>
         </div>
-        <app-status-indicator
-          [isConnected]="chatState.isConnected"
-          [isLoading]="chatState.isLoading"
-        />
+        <div class="header-actions">
+          <button
+            *ngIf="activeAgentContext"
+            class="settings-btn"
+            (click)="togglePersonaModal()"
+            title="Ver contexto do agente">
+            ⚙️
+          </button>
+          <app-status-indicator
+            [isConnected]="chatState.isConnected"
+            [isLoading]="chatState.isLoading"
+          />
+        </div>
       </div>
 
-      <!-- Agent Context Section -->
-      <div class="agent-context" *ngIf="activeAgentContext">
-        <div class="context-item">
-          <div class="context-label">👤 Persona</div>
-          <div class="context-content">{{ activeAgentContext.persona }}</div>
-        </div>
-        <div class="context-item">
-          <div class="context-label">📜 Procedimento</div>
-          <div class="context-content">{{ activeAgentContext.operating_procedure }}</div>
+      <!-- Persona Modal -->
+      <div class="modal-backdrop" *ngIf="showPersonaModal" (click)="togglePersonaModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h4>📋 Contexto do Agente</h4>
+            <button class="close-btn" (click)="togglePersonaModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="context-item">
+              <div class="context-label">👤 Persona</div>
+              <div class="context-content">{{ activeAgentContext?.persona }}</div>
+            </div>
+            <div class="context-item">
+              <div class="context-label">📜 Procedimento</div>
+              <div class="context-content">{{ activeAgentContext?.operating_procedure }}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -78,7 +95,6 @@ const DEFAULT_CONFIG: ConductorConfig = {
           (messageSent)="handleSendMessage($event)"
           (modeChanged)="handleModeChange($event)"
         />
-        <p class="version-info">Conductor Gateway v3.1.0 | Powered by FastAPI + MCP</p>
       </div>
     </div>
   `,
@@ -86,17 +102,19 @@ const DEFAULT_CONFIG: ConductorConfig = {
     .conductor-chat {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      background: #343a40;
-      border-left: 1px solid #495057;
+      height: 100vh;
+      background: #fafbfc;
+      border-left: 1px solid #e1e4e8;
     }
 
     .chat-body {
-      flex: 1;
+      flex: 1 1 auto;
       min-height: 0;
+      height: 0;
       display: flex;
       flex-direction: column;
-      background: #f9f9f9;
+      background: #ffffff;
+      overflow: hidden;
     }
 
     .chat-header {
@@ -104,9 +122,9 @@ const DEFAULT_CONFIG: ConductorConfig = {
       justify-content: space-between;
       align-items: center;
       padding: 16px 20px;
-      background: #343a40;
-      color: white;
-      border-bottom: 1px solid #495057;
+      background: #f0f3f7;
+      color: #2c3e50;
+      border-bottom: 1px solid #e1e4e8;
     }
 
     .header-content {
@@ -115,11 +133,33 @@ const DEFAULT_CONFIG: ConductorConfig = {
       gap: 4px;
     }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .settings-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: all 0.2s;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .settings-btn:hover {
+      opacity: 1;
+      background: rgba(0, 0, 0, 0.05);
+    }
+
     .chat-header h3 {
       margin: 0;
       font-size: 18px;
       font-weight: 700;
-      color: #ffc107;
+      color: #5a67d8;
     }
 
     .selected-agent {
@@ -127,7 +167,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       align-items: center;
       gap: 6px;
       font-size: 13px;
-      color: #28a745;
+      color: #48bb78;
       font-weight: 500;
     }
 
@@ -136,19 +176,75 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .agent-name {
-      color: #28a745;
+      color: #48bb78;
     }
 
-    .agent-context {
-      background: #495057;
-      border-bottom: 1px solid #5a6268;
-      padding: 12px 16px;
-      max-height: 200px;
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e1e4e8;
+    }
+
+    .modal-header h4 {
+      margin: 0;
+      font-size: 18px;
+      color: #2c3e50;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #6b7280;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .close-btn:hover {
+      background: #f3f4f6;
+    }
+
+    .modal-body {
+      padding: 20px;
       overflow-y: auto;
     }
 
     .context-item {
-      margin-bottom: 12px;
+      margin-bottom: 20px;
     }
 
     .context-item:last-child {
@@ -156,32 +252,28 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .context-label {
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
-      color: #ffc107;
-      margin-bottom: 4px;
+      color: #5a67d8;
+      margin-bottom: 8px;
     }
 
     .context-content {
       font-size: 13px;
-      color: #f8f9fa;
-      line-height: 1.5;
+      color: #4a5568;
+      line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
+      background: #f7fafc;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #e1e4e8;
     }
 
     .chat-footer {
-      background: #495057;
-      border-top: 1px solid #5a6268;
+      background: #f0f3f7;
+      border-top: 1px solid #e1e4e8;
       flex-shrink: 0;
-    }
-
-    .version-info {
-      margin: 0;
-      padding: 8px 20px;
-      font-size: 11px;
-      text-align: center;
-      color: #adb5bd;
     }
   `]
 })
@@ -203,6 +295,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   selectedAgentDbId: string | null = null; // MongoDB agent_id
   selectedAgentName: string | null = null;
   selectedAgentEmoji: string | null = null;
+  showPersonaModal = false;
 
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
@@ -258,7 +351,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
 
-    this.chatState.messages = [...this.chatState.messages, userMessage];
+    // Remove placeholder messages before adding real user message
+    const filteredMessages = this.chatState.messages.filter(msg =>
+      !msg.id.startsWith('empty-history-') &&
+      msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
+    );
+
+    this.chatState.messages = [...filteredMessages, userMessage];
 
     // Verificar se é um comando @agent (MVP)
     if (this.currentMode === 'agent' && content.startsWith('@agent')) {
@@ -315,17 +414,27 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
             console.log('✅ Agent execution result:', result);
             this.progressMessage = null;
 
+            // Extract response content and ensure it's a string
+            let responseContent = result.result || result.data?.result || 'Execução concluída';
+            if (typeof responseContent === 'object') {
+              console.warn('⚠️ Response is an object, converting to string:', responseContent);
+              responseContent = JSON.stringify(responseContent, null, 2);
+            }
+
             const responseMessage: Message = {
               id: `response-${Date.now()}`,
-              content: result.result || result.data?.result || 'Execução concluída',
+              content: responseContent,
               type: 'bot',
               timestamp: new Date()
             };
             this.chatState.messages = [...this.chatState.messages, responseMessage];
             this.chatState.isLoading = false;
 
-            // Reload context to get updated history
-            this.loadContextForAgent(this.activeAgentId!, this.selectedAgentName!, this.selectedAgentEmoji!, this.selectedAgentDbId!);
+            console.log('✅ [CHAT] Mensagem de resposta adicionada ao histórico local');
+            console.log('   - Total de mensagens no chat:', this.chatState.messages.length);
+
+            // DON'T reload context - keep local chat history
+            // The backend will persist the history to MongoDB for next session
           },
           error: (error) => {
             console.error('❌ Agent execution error:', error);
@@ -531,26 +640,60 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         next: (context: AgentContext) => {
           console.log('✅ Agent context loaded:', context);
           console.log('   - History count:', context.history?.length || 0);
+          console.log('   - Raw history:', JSON.stringify(context.history, null, 2));
           this.activeAgentContext = context;
 
           // Clear existing messages and load context
           this.chatState.messages = [];
 
           // Map history messages from backend format to UI format
-          const historyMessages: Message[] = context.history.map((msg, index) => ({
-            id: `history-${index}`,
-            content: msg.content || '[Mensagem vazia]',
-            type: msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'bot',
-            timestamp: new Date()
-          }));
+          // Backend format: { user_input: "...", ai_response: "..." }
+          // Frontend format: { role: "user", content: "..." }
+          const historyMessages: Message[] = [];
+
+          context.history.forEach((record: any, index: number) => {
+            // Add user message if present
+            if (record.user_input && record.user_input.trim().length > 0) {
+              historyMessages.push({
+                id: `history-user-${index}`,
+                content: record.user_input,
+                type: 'user',
+                timestamp: new Date(record.timestamp * 1000 || record.createdAt)
+              });
+            }
+
+            // Add AI response if present
+            if (record.ai_response) {
+              let aiContent = record.ai_response;
+              // Ensure content is a string
+              if (typeof aiContent === 'object') {
+                aiContent = JSON.stringify(aiContent, null, 2);
+              }
+              if (aiContent.trim().length > 0) {
+                historyMessages.push({
+                  id: `history-bot-${index}`,
+                  content: aiContent,
+                  type: 'bot',
+                  timestamp: new Date(record.timestamp * 1000 || record.createdAt)
+                });
+              }
+            }
+          });
 
           // If history is empty, show a placeholder message
           if (historyMessages.length === 0) {
+            console.log('ℹ️ [CHAT] Histórico vazio do MongoDB, mostrando placeholder');
             historyMessages.push({
               id: `empty-history-${Date.now()}`,
               content: 'Nenhuma interação ainda. Inicie a conversa abaixo.',
               type: 'system',
               timestamp: new Date()
+            });
+          } else {
+            console.log('✅ [CHAT] Histórico carregado do MongoDB com sucesso');
+            console.log('   - Mensagens carregadas:', historyMessages.length);
+            historyMessages.forEach((msg, i) => {
+              console.log(`   - [${i}] ${msg.type}: ${msg.content.substring(0, 50)}...`);
             });
           }
 
@@ -558,6 +701,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           this.chatState.isLoading = false;
           console.log('✅ [CHAT] isLoading definido como FALSE após carregar contexto');
           console.log('   - chatState.isLoading:', this.chatState.isLoading);
+          console.log('   - Total de mensagens no chat:', this.chatState.messages.length);
         },
         error: (error) => {
           console.error('❌ Error loading agent context:', error);
@@ -593,6 +737,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentName = null;
     this.selectedAgentEmoji = null;
     this.chatState.messages = [];
+    this.showPersonaModal = false;
     this.initializeChat();
+  }
+
+  /**
+   * Toggle persona modal visibility
+   */
+  togglePersonaModal(): void {
+    this.showPersonaModal = !this.showPersonaModal;
   }
 }
