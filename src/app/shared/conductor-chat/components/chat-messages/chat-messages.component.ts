@@ -66,7 +66,7 @@ import { Message } from '../../models/chat.models';
   `,
   styles: [`
     .chat-messages {
-      flex: 1;
+      height: 100%;
       overflow-y: auto;
       padding: 20px;
       display: flex;
@@ -221,6 +221,9 @@ export class ChatMessagesComponent implements AfterViewChecked {
   }
 
   shouldFormatAsHtml(content: string): boolean {
+    if (!content || typeof content !== 'string') {
+      return false;
+    }
     return content.includes('<ul>') ||
            content.includes('<li>') ||
            content.includes('<code>') ||

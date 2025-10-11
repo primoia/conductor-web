@@ -61,23 +61,24 @@ const DEFAULT_CONFIG: ConductorConfig = {
         </div>
       </div>
 
-      <app-chat-messages
-        [messages]="chatState.messages"
-        [isLoading]="chatState.isLoading"
-        [progressMessage]="progressMessage"
-        [streamingMessage]="streamingMessage"
-        [autoScroll]="config.autoScroll"
-      />
-
-      <app-chat-input
-        [isLoading]="chatState.isLoading"
-        [mode]="currentMode"
-        (messageSent)="handleSendMessage($event)"
-        (modeChanged)="handleModeChange($event)"
-      />
+      <div class="chat-body">
+        <app-chat-messages
+          [messages]="chatState.messages"
+          [isLoading]="chatState.isLoading"
+          [progressMessage]="progressMessage"
+          [streamingMessage]="streamingMessage"
+          [autoScroll]="config.autoScroll"
+        />
+      </div>
 
       <div class="chat-footer">
-        <p>Conductor Gateway v3.1.0 | Powered by FastAPI + MCP</p>
+        <app-chat-input
+          [isLoading]="chatState.isLoading"
+          [mode]="currentMode"
+          (messageSent)="handleSendMessage($event)"
+          (modeChanged)="handleModeChange($event)"
+        />
+        <p class="version-info">Conductor Gateway v3.1.0 | Powered by FastAPI + MCP</p>
       </div>
     </div>
   `,
@@ -88,6 +89,14 @@ const DEFAULT_CONFIG: ConductorConfig = {
       height: 100%;
       background: #343a40;
       border-left: 1px solid #495057;
+    }
+
+    .chat-body {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: #f9f9f9;
     }
 
     .chat-header {
@@ -162,15 +171,16 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .chat-footer {
-      padding: 12px 20px;
       background: #495057;
       border-top: 1px solid #5a6268;
-      text-align: center;
+      flex-shrink: 0;
     }
 
-    .chat-footer p {
+    .version-info {
       margin: 0;
-      font-size: 12px;
+      padding: 8px 20px;
+      font-size: 11px;
+      text-align: center;
       color: #adb5bd;
     }
   `]
@@ -201,7 +211,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private apiService: ConductorApiService,
     private screenplayService: ScreenplayService,
     private agentService: AgentService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.initializeChat();
@@ -276,17 +286,19 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.streamingMessage = null;
 
     // Check if we have an active agent selected
-    if (this.activeAgentId && this.selectedAgentDbId) {
-      // Execute the specific agent directly
+    if (this.activeAgentId) {
+      if (!this.selectedAgentDbId) {
+        console.error('❌ [CHAT] Não é possível executar: agent_id está undefined!');
+        console.error('   - instance_id:', this.activeAgentId);
+        console.error('   - agent_id:', this.selectedAgentDbId);
+        this.handleError('Agente não tem agent_id definido. Verifique a âncora no markdown.');
+        return;
+      }
+
       console.log('🎯 [CHAT] Executando agente diretamente:');
       console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
       console.log('   - instance_id:', this.activeAgentId);
       console.log('   - input_text:', content.trim());
-      console.log('   - Chamando agentService.executeAgent()...');
-      console.log('   - Parâmetros que serão enviados:');
-      console.log('     1. agentId:', this.selectedAgentDbId);
-      console.log('     2. inputText:', content.trim());
-      console.log('     3. instanceId:', this.activeAgentId);
 
       this.addProgressMessage('🚀 Executando agente...');
 
@@ -478,16 +490,21 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * @param agentDbId - Optional MongoDB agent_id for direct execution
    */
   loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string): void {
+    console.log('================================================================================');
     console.log('📥 [CHAT] loadContextForAgent chamado:');
     console.log('   - instanceId (instance_id):', instanceId);
     console.log('   - agentDbId (agent_id MongoDB):', agentDbId);
     console.log('   - agentName:', agentName);
     console.log('   - agentEmoji:', agentEmoji);
+    console.log('================================================================================');
 
     if (!agentDbId) {
+      console.error('================================================================================');
       console.error('❌ [CHAT] ERRO CRÍTICO: agentDbId (agent_id) está undefined/null!');
       console.error('   O agente não poderá ser executado sem um agent_id válido do MongoDB.');
       console.error('   Verifique se a instância do agente tem a propriedade agent_id definida.');
+      console.error('   Verifique a âncora no markdown: <!-- agent-instance: uuid, agent-id: NOME_DO_AGENTE -->');
+      console.error('================================================================================');
     }
 
     this.activeAgentId = instanceId;
@@ -506,6 +523,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.agentService.getAgentContext(instanceId).subscribe({
         next: (context: AgentContext) => {
           console.log('✅ Agent context loaded:', context);
+          console.log('   - History count:', context.history?.length || 0);
           this.activeAgentContext = context;
 
           // Clear existing messages and load context
@@ -514,7 +532,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           // Map history messages from backend format to UI format
           const historyMessages: Message[] = context.history.map((msg, index) => ({
             id: `history-${index}`,
-            content: msg.content,
+            content: msg.content || '[Mensagem vazia]',
             type: msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'bot',
             timestamp: new Date()
           }));
@@ -531,10 +549,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
           this.chatState.messages = historyMessages;
           this.chatState.isLoading = false;
+          console.log('✅ [CHAT] isLoading definido como FALSE após carregar contexto');
+          console.log('   - chatState.isLoading:', this.chatState.isLoading);
         },
         error: (error) => {
           console.error('❌ Error loading agent context:', error);
           this.chatState.isLoading = false;
+          console.log('✅ [CHAT] isLoading definido como FALSE após erro');
+          console.log('   - chatState.isLoading:', this.chatState.isLoading);
 
           // Treat 404 as "no context yet" instead of an error
           const isNotFound = error.status === 404;

@@ -411,9 +411,14 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
       bulletListMarker: '-',
     });
 
-    // Adiciona uma regra para garantir que comentários (nossas âncoras) sejam preservados
-    turndownService.keep(function(node: any) {
-      return node.nodeName === '#comment';
+    // Adiciona uma regra para garantir que comentários HTML (nossas âncoras) sejam preservados
+    turndownService.addRule('preserveComments', {
+      filter: function (node: any) {
+        return node.nodeType === 8; // Node.COMMENT_NODE
+      },
+      replacement: function (content: string, node: any) {
+        return `<!--${node.nodeValue}-->`;
+      }
     });
 
     // Remove escapes desnecessários de caracteres que não precisam ser escapados
@@ -458,6 +463,11 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   getMarkdown(): string {
     if (!this.editor) return '';
     const html = this.editor.getHTML();
-    return this.convertHtmlToMarkdown(html);
+    console.log('🔍 [InteractiveEditor] HTML do editor:', html.substring(0, 300));
+    console.log('   - Contém comentário?', html.includes('<!--'));
+    const markdown = this.convertHtmlToMarkdown(html);
+    console.log('🔍 [InteractiveEditor] Markdown convertido:', markdown.substring(0, 300));
+    console.log('   - Contém agent-instance?', markdown.includes('agent-instance'));
+    return markdown;
   }
 }
