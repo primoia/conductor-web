@@ -295,15 +295,22 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // Extract cwd from message if present
+      // Matches any absolute path (starts with /) with at least 2 segments
+      // Examples: /mnt/ramdisk/foo, /home/user/project, /app/conductor
+      const cwdMatch = content.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
+      const cwd = cwdMatch ? cwdMatch[0] : undefined;
+
       console.log('🎯 [CHAT] Executando agente diretamente:');
       console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
       console.log('   - instance_id:', this.activeAgentId);
       console.log('   - input_text:', content.trim());
+      console.log('   - cwd extraído:', cwd || 'não encontrado na mensagem');
 
       this.addProgressMessage('🚀 Executando agente...');
 
       this.subscriptions.add(
-        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId).subscribe({
+        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId, cwd).subscribe({
           next: (result) => {
             console.log('✅ Agent execution result:', result);
             this.progressMessage = null;
