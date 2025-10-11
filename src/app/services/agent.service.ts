@@ -25,6 +25,24 @@ export interface ExecutionResult {
 }
 
 /**
+ * Chat message from agent context history
+ */
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  [key: string]: any; // For other fields like timestamp, _id
+}
+
+/**
+ * Agent context including persona, procedure, and history
+ */
+export interface AgentContext {
+  persona: string;
+  operating_procedure: string;
+  history: ChatMessage[];
+}
+
+/**
  * Request payload for agent execution
  */
 interface ExecutionRequest {
@@ -98,6 +116,25 @@ export class AgentService {
       instance_id: instanceId
     };
 
+    console.log('🚀 [AGENT SERVICE] executeAgent chamado:');
+    console.log('   - agentId (agent_id):', agentId);
+    console.log('   - inputText:', inputText);
+    console.log('   - instanceId (instance_id):', instanceId);
+    console.log('   - Request Body:', JSON.stringify(requestBody, null, 2));
+    console.log('   - URL:', `${this.baseUrl}/api/agents/${agentId}/execute`);
+    
+    if (!agentId) {
+      console.error('❌ [AGENT SERVICE] ERRO: agentId está undefined/null!');
+      console.error('   O agente não pode ser executado sem um agent_id válido.');
+    }
+    
+    if (!instanceId) {
+      console.warn('⚠️ [AGENT SERVICE] AVISO: instanceId está undefined/null!');
+      console.warn('   O histórico não será isolado por instância.');
+    }
+    
+    console.log('   - Enviando requisição POST para o gateway...');
+
     return from(
       fetch(`${this.baseUrl}/api/agents/${agentId}/execute`, {
         method: 'POST',
@@ -106,6 +143,9 @@ export class AgentService {
         },
         body: JSON.stringify(requestBody)
       }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta recebida do gateway:');
+        console.log('   - Status:', response.status, response.statusText);
+        console.log('   - Headers:', Object.fromEntries(response.headers.entries()));
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Agent execution failed: ${response.status} ${errorText}`);
@@ -114,13 +154,16 @@ export class AgentService {
       })
     ).pipe(
       map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Resposta JSON do gateway:', JSON.stringify(response, null, 2));
         // Transform API response to ExecutionResult
-        return {
+        const result = {
           success: response.success !== false,
           result: response.result || response.data?.result || response.message,
           error: response.error,
           data: response.data || response
         } as ExecutionResult;
+        console.log('✅ [AGENT SERVICE] ExecutionResult final:', JSON.stringify(result, null, 2));
+        return result;
       }),
       catchError(error => {
         console.error('[AgentService] Error executing agent:', error);
@@ -128,6 +171,41 @@ export class AgentService {
           success: false,
           error: error.message || 'Agent execution failed'
         } as ExecutionResult));
+      })
+    );
+  }
+
+  /**
+   * Get agent context (persona, operating_procedure, history) for a specific instance
+   * @param instanceId - The instance ID to fetch context for
+   */
+  getAgentContext(instanceId: string): Observable<AgentContext> {
+    console.log('📖 [AGENT SERVICE] getAgentContext chamado:');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - URL:', `${this.baseUrl}/api/agents/context/${instanceId}`);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/context/${instanceId}`)
+        .then(async response => {
+          console.log('📥 [AGENT SERVICE] Resposta de getAgentContext:');
+          console.log('   - Status:', response.status, response.statusText);
+          if (!response.ok) {
+            // Create error with status information for better handling
+            const error: any = new Error(`Failed to fetch context for agent ${instanceId}`);
+            error.status = response.status;
+            error.statusText = response.statusText;
+            throw error;
+          }
+          return response.json();
+        })
+    ).pipe(
+      catchError(error => {
+        console.error(`[AgentService] Error fetching context for ${instanceId}:`, error);
+        // Preserve status information in the error
+        const wrappedError: any = new Error('Failed to fetch agent context');
+        wrappedError.status = error.status || 500;
+        wrappedError.originalError = error;
+        return throwError(() => wrappedError);
       })
     );
   }
