@@ -38,12 +38,13 @@ export interface ChatMessage {
 }
 
 /**
- * Agent context including persona, procedure, and history
+ * Agent context including persona, procedure, history, and configuration
  */
 export interface AgentContext {
   persona: string;
   operating_procedure: string;
   history: ChatMessage[];
+  cwd?: string; // Working directory from agent instance
 }
 
 /**
@@ -269,6 +270,188 @@ export class AgentService {
         wrappedError.status = error.status || 500;
         wrappedError.originalError = error;
         return throwError(() => wrappedError);
+      })
+    );
+  }
+
+  /**
+   * Update the working directory (cwd) for an agent instance
+   * @param instanceId - The instance ID to update
+   * @param cwd - The new working directory path
+   */
+  updateInstanceCwd(instanceId: string, cwd: string): Observable<any> {
+    console.log('📁 [AGENT SERVICE] updateInstanceCwd chamado:');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - cwd:', cwd);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/instances/${instanceId}/cwd`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cwd })
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de updateInstanceCwd:');
+        console.log('   - Status:', response.status, response.statusText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update instance cwd: ${response.status} ${errorText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      catchError(error => {
+        console.error('[AgentService] Error updating instance cwd:', error);
+        return throwError(() => new Error('Failed to update instance cwd'));
+      })
+    );
+  }
+
+  /**
+   * Load all agent instances from MongoDB
+   * @param filters Optional filters (agent_id, status)
+   */
+  loadAllInstances(filters?: { agent_id?: string; status?: string }): Observable<any[]> {
+    console.log('📥 [AGENT SERVICE] loadAllInstances chamado');
+    console.log('   - Filters:', filters);
+
+    let url = `${this.baseUrl}/api/agents/instances`;
+
+    // Add query parameters
+    const params = new URLSearchParams();
+    if (filters?.agent_id) params.append('agent_id', filters.agent_id);
+    if (filters?.status) params.append('status', filters.status);
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    return from(
+      fetch(url)
+        .then(async response => {
+          console.log('📥 [AGENT SERVICE] Resposta de loadAllInstances:');
+          console.log('   - Status:', response.status, response.statusText);
+          if (!response.ok) {
+            throw new Error(`Failed to load instances: ${response.status}`);
+          }
+          return response.json();
+        })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Instâncias carregadas:', response.count);
+        return response.instances || [];
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error loading instances:', error);
+        return throwError(() => new Error('Failed to load instances'));
+      })
+    );
+  }
+
+  /**
+   * Get a specific agent instance from MongoDB
+   * @param instanceId - The instance ID to fetch
+   */
+  getInstanceById(instanceId: string): Observable<any> {
+    console.log('📥 [AGENT SERVICE] getInstanceById chamado:', instanceId);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/instances/${instanceId}`)
+        .then(async response => {
+          console.log('📥 [AGENT SERVICE] Resposta de getInstanceById:');
+          console.log('   - Status:', response.status, response.statusText);
+          if (!response.ok) {
+            const error: any = new Error(`Failed to get instance: ${response.status}`);
+            error.status = response.status;
+            throw error;
+          }
+          return response.json();
+        })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Instância obtida:', response.instance);
+        return response.instance;
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error getting instance:', error);
+        const wrappedError: any = new Error('Failed to get instance');
+        wrappedError.status = error.status || 500;
+        return throwError(() => wrappedError);
+      })
+    );
+  }
+
+  /**
+   * Update an agent instance in MongoDB
+   * @param instanceId - The instance ID to update
+   * @param updates - Fields to update (position, status, config, etc.)
+   */
+  updateInstance(instanceId: string, updates: any): Observable<any> {
+    console.log('📝 [AGENT SERVICE] updateInstance chamado:');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - updates:', updates);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/instances/${instanceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates)
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de updateInstance:');
+        console.log('   - Status:', response.status, response.statusText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update instance: ${response.status} ${errorText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Instância atualizada:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error updating instance:', error);
+        return throwError(() => new Error('Failed to update instance'));
+      })
+    );
+  }
+
+  /**
+   * Delete an agent instance from MongoDB
+   * @param instanceId - The instance ID to delete
+   * @param cascade - If true, also delete related data (history, logs)
+   */
+  deleteInstance(instanceId: string, cascade: boolean = false): Observable<any> {
+    console.log('🗑️ [AGENT SERVICE] deleteInstance chamado:');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - cascade:', cascade);
+
+    const url = `${this.baseUrl}/api/agents/instances/${instanceId}${cascade ? '?cascade=true' : ''}`;
+
+    return from(
+      fetch(url, {
+        method: 'DELETE'
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de deleteInstance:');
+        console.log('   - Status:', response.status, response.statusText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to delete instance: ${response.status} ${errorText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Instância deletada:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error deleting instance:', error);
+        return throwError(() => new Error('Failed to delete instance'));
       })
     );
   }

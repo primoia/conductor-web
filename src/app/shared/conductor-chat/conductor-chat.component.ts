@@ -1,5 +1,6 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ChatMessagesComponent } from './components/chat-messages/chat-messages.component';
 import { ChatInputComponent } from './components/chat-input/chat-input.component';
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ChatMessagesComponent,
     ChatInputComponent,
     StatusIndicatorComponent
@@ -49,12 +51,31 @@ const DEFAULT_CONFIG: ConductorConfig = {
             class="settings-btn"
             (click)="togglePersonaModal()"
             title="Ver contexto do agente">
+            📋
+          </button>
+          <button
+            *ngIf="activeAgentId"
+            class="settings-btn"
+            (click)="toggleAgentOptionsMenu()"
+            title="Opções do agente">
             ⚙️
           </button>
           <app-status-indicator
             [isConnected]="chatState.isConnected"
             [isLoading]="chatState.isLoading"
           />
+        </div>
+
+        <!-- Agent Options Menu -->
+        <div
+          *ngIf="showAgentOptionsMenu"
+          class="agent-options-menu">
+          <button class="menu-item" (click)="editAgentCwd()">
+            ✏️ Editar diretório
+          </button>
+          <button class="menu-item" (click)="viewAgentDetails()">
+            ℹ️ Ver detalhes
+          </button>
         </div>
       </div>
 
@@ -78,7 +99,42 @@ const DEFAULT_CONFIG: ConductorConfig = {
         </div>
       </div>
 
+      <!-- CWD Definition Modal -->
+      <div class="modal-backdrop" *ngIf="showCwdModal" (click)="closeCwdModal()">
+        <div class="modal-content cwd-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h4>📁 Definir Diretório de Trabalho</h4>
+            <button class="close-btn" (click)="closeCwdModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-description">
+              Configure o diretório onde o agente executará os comandos.
+            </p>
+            <div class="cwd-input-group">
+              <input
+                type="text"
+                class="cwd-input"
+                [(ngModel)]="tempCwd"
+                placeholder="/mnt/ramdisk/meu-projeto"
+                (keydown.enter)="saveCwd()">
+              <button class="save-btn" (click)="saveCwd()">Salvar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="chat-body">
+        <!-- CWD Warning Banner -->
+        <div class="cwd-warning-banner" *ngIf="showCwdWarning()">
+          <div class="warning-content">
+            <span class="warning-icon">⚠️</span>
+            <span class="warning-text">Diretório de trabalho não definido.</span>
+            <button class="define-cwd-btn" (click)="openCwdDefinitionModal()">
+              Definir agora
+            </button>
+          </div>
+        </div>
+
         <app-chat-messages
           [messages]="chatState.messages"
           [isLoading]="chatState.isLoading"
@@ -89,6 +145,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </div>
 
       <div class="chat-footer">
+        <!-- Block input if agent is selected but no cwd is defined -->
+        <div class="input-blocked-overlay" *ngIf="isInputBlocked()">
+          <div class="blocked-message">
+            <span class="blocked-icon">🔒</span>
+            <span>Chat bloqueado. Defina o diretório de trabalho primeiro.</span>
+            <button class="blocked-btn" (click)="openCwdDefinitionModal()">
+              Definir agora
+            </button>
+          </div>
+        </div>
+
         <app-chat-input
           [isLoading]="chatState.isLoading"
           [mode]="currentMode"
@@ -274,6 +341,195 @@ const DEFAULT_CONFIG: ConductorConfig = {
       background: #f0f3f7;
       border-top: 1px solid #e1e4e8;
       flex-shrink: 0;
+      position: relative;
+    }
+
+    /* CWD Warning Banner */
+    .cwd-warning-banner {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-bottom: 2px solid #f59e0b;
+      padding: 12px 20px;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .warning-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .warning-icon {
+      font-size: 18px;
+    }
+
+    .warning-text {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #92400e;
+    }
+
+    .define-cwd-btn {
+      background: #f59e0b;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .define-cwd-btn:hover {
+      background: #d97706;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* CWD Modal Styles */
+    .cwd-modal {
+      max-width: 500px;
+    }
+
+    .modal-description {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .cwd-input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .cwd-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #e1e4e8;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .cwd-input:focus {
+      border-color: #007bff;
+    }
+
+    .save-btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .save-btn:hover {
+      background: #0056b3;
+    }
+
+    /* Agent Options Menu */
+    .agent-options-menu {
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      background: white;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 1001;
+      min-width: 200px;
+      overflow: hidden;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .agent-options-menu .menu-item {
+      display: block;
+      width: 100%;
+      padding: 12px 16px;
+      background: white;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      color: #2c3e50;
+      transition: background 0.2s;
+      border-bottom: 1px solid #f0f3f7;
+    }
+
+    .agent-options-menu .menu-item:last-child {
+      border-bottom: none;
+    }
+
+    .agent-options-menu .menu-item:hover {
+      background: #f7fafc;
+    }
+
+    /* Input Blocked Overlay */
+    .input-blocked-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      border-top: 3px solid #f59e0b;
+    }
+
+    .blocked-message {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .blocked-icon {
+      font-size: 20px;
+    }
+
+    .blocked-btn {
+      background: #f59e0b;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .blocked-btn:hover {
+      background: #d97706;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
   `]
 })
@@ -296,6 +552,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   selectedAgentName: string | null = null;
   selectedAgentEmoji: string | null = null;
   showPersonaModal = false;
+
+  // CWD management
+  showCwdModal = false;
+  tempCwd: string = '';
+  activeAgentCwd: string | null = null;
+
+  // Agent options menu
+  showAgentOptionsMenu = false;
 
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
@@ -343,6 +607,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   handleSendMessage(content: string): void {
     if (!content.trim() || this.chatState.isLoading) return;
+
+    // Block sending if agent is selected but no cwd is defined
+    if (this.isInputBlocked()) {
+      console.warn('⚠️ [CHAT] Bloqueado: defina o diretório de trabalho primeiro');
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -394,11 +664,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Extract cwd from message if present
+      // Extract cwd from message if present, or use saved cwd
       // Matches any absolute path (starts with /) with at least 2 segments
       // Examples: /mnt/ramdisk/foo, /home/user/project, /app/conductor
       const cwdMatch = content.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
-      const cwd = cwdMatch ? cwdMatch[0] : undefined;
+      const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
 
       console.log('🎯 [CHAT] Executando agente diretamente:');
       console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
@@ -604,8 +874,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * @param agentName - Optional agent name to display in header
    * @param agentEmoji - Optional agent emoji to display in header
    * @param agentDbId - Optional MongoDB agent_id for direct execution
+   * @param cwd - Optional working directory for the agent
    */
-  loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string): void {
+  loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string, cwd?: string): void {
     console.log('================================================================================');
     console.log('📥 [CHAT] loadContextForAgent chamado:');
     console.log('   - instanceId (instance_id):', instanceId);
@@ -627,6 +898,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentDbId = agentDbId || null;
     this.selectedAgentName = agentName || null;
     this.selectedAgentEmoji = agentEmoji || null;
+    // Don't set activeAgentCwd here - it will be loaded from MongoDB in getAgentContext
     this.chatState.isLoading = true;
 
     console.log('✅ [CHAT] Variáveis de estado atualizadas:');
@@ -640,8 +912,28 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         next: (context: AgentContext) => {
           console.log('✅ Agent context loaded:', context);
           console.log('   - History count:', context.history?.length || 0);
+          console.log('   - CWD from MongoDB:', context.cwd);
           console.log('   - Raw history:', JSON.stringify(context.history, null, 2));
           this.activeAgentContext = context;
+
+          // Load cwd from context (MongoDB) if available, otherwise use parameter or localStorage
+          if (context.cwd) {
+            this.activeAgentCwd = context.cwd;
+            console.log('✅ [CHAT] CWD loaded from MongoDB:', this.activeAgentCwd);
+          } else if (cwd) {
+            this.activeAgentCwd = cwd;
+            console.log('✅ [CHAT] CWD loaded from parameter:', this.activeAgentCwd);
+          } else {
+            // Fallback to localStorage
+            const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
+            if (storedCwd) {
+              this.activeAgentCwd = storedCwd;
+              console.log('✅ [CHAT] CWD loaded from localStorage:', this.activeAgentCwd);
+            } else {
+              this.activeAgentCwd = null;
+              console.log('⚠️ [CHAT] No CWD found for this instance');
+            }
+          }
 
           // Clear existing messages and load context
           this.chatState.messages = [];
@@ -746,5 +1038,129 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   togglePersonaModal(): void {
     this.showPersonaModal = !this.showPersonaModal;
+  }
+
+  /**
+   * Check if CWD warning banner should be shown
+   */
+  showCwdWarning(): boolean {
+    // Show warning if agent is selected but no cwd is defined
+    return this.activeAgentId !== null && !this.activeAgentCwd;
+  }
+
+  /**
+   * Check if chat input should be blocked
+   */
+  isInputBlocked(): boolean {
+    // Block input if agent is selected but no cwd is defined
+    return this.activeAgentId !== null && !this.activeAgentCwd;
+  }
+
+  /**
+   * Open CWD definition modal
+   */
+  openCwdDefinitionModal(): void {
+    this.tempCwd = this.activeAgentCwd || '';
+    this.showCwdModal = true;
+  }
+
+  /**
+   * Close CWD definition modal
+   */
+  closeCwdModal(): void {
+    this.showCwdModal = false;
+    this.tempCwd = '';
+  }
+
+  /**
+   * Save CWD for the active agent
+   */
+  saveCwd(): void {
+    if (this.tempCwd.trim() && this.activeAgentId) {
+      const newCwd = this.tempCwd.trim();
+
+      console.log('💾 [CHAT] Saving CWD:');
+      console.log('   - Instance ID:', this.activeAgentId);
+      console.log('   - CWD:', newCwd);
+
+      // Save to MongoDB via AgentService
+      this.subscriptions.add(
+        this.agentService.updateInstanceCwd(this.activeAgentId, newCwd).subscribe({
+          next: (result) => {
+            console.log('✅ [CHAT] CWD saved to MongoDB:', result);
+
+            // Update local state
+            this.activeAgentCwd = newCwd;
+
+            // Also store in localStorage as backup
+            localStorage.setItem(`agent-cwd-${this.activeAgentId}`, newCwd);
+
+            this.closeCwdModal();
+          },
+          error: (error) => {
+            console.error('❌ [CHAT] MongoDB save failed:', error);
+
+            // Fallback: use localStorage if MongoDB fails
+            console.warn('⚠️ [CHAT] Usando localStorage como fallback');
+
+            // Update local state
+            this.activeAgentCwd = newCwd;
+
+            // Store in localStorage
+            localStorage.setItem(`agent-cwd-${this.activeAgentId}`, newCwd);
+
+            console.log('✅ [CHAT] CWD saved to localStorage (fallback)');
+
+            // Close modal - localStorage worked fine
+            this.closeCwdModal();
+          }
+        })
+      );
+    }
+  }
+
+  /**
+   * Toggle agent options menu
+   */
+  toggleAgentOptionsMenu(): void {
+    this.showAgentOptionsMenu = !this.showAgentOptionsMenu;
+  }
+
+  /**
+   * Edit agent CWD from menu
+   */
+  editAgentCwd(): void {
+    this.showAgentOptionsMenu = false;
+    this.openCwdDefinitionModal();
+  }
+
+  /**
+   * View agent details from menu
+   */
+  viewAgentDetails(): void {
+    this.showAgentOptionsMenu = false;
+
+    const details = `
+📋 Detalhes do Agente
+
+🆔 Instance ID: ${this.activeAgentId || 'não definido'}
+🤖 Agent ID: ${this.selectedAgentDbId || 'não definido'}
+${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhecido'}
+📁 Diretório: ${this.activeAgentCwd || 'não definido'}
+    `.trim();
+
+    alert(details);
+  }
+
+  /**
+   * Close options menu when clicking outside
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    // Close options menu if clicking outside
+    if (!target.closest('.agent-options-menu') && !target.closest('.settings-btn')) {
+      this.showAgentOptionsMenu = false;
+    }
   }
 }

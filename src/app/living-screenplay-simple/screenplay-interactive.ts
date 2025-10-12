@@ -9,6 +9,8 @@ import { AgentPreviewModalComponent, PreviewData, PreviewAction } from './agent-
 import { AgentService } from '../services/agent.service';
 import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.component';
 import { ScreenplayService } from '../services/screenplay/screenplay.service';
+import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
+import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
 import { Subscription } from 'rxjs';
 
 interface AgentConfig {
@@ -40,6 +42,11 @@ interface AgentInstance {
   status: 'pending' | 'queued' | 'running' | 'completed' | 'error';
   position: CirclePosition; // XY position on screen
   executionState?: AgentExecutionState; // Link to execution service state
+  config?: {
+    cwd?: string; // Working directory for agent execution
+    createdAt?: Date;
+    updatedAt?: Date;
+  };
 }
 
 // Agent definitions mapping emoji to their properties
@@ -68,7 +75,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent],
+  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager],
   template: `
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
@@ -76,17 +83,16 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         <h3>🎬 Roteiro Vivo</h3>
 
         <div class="file-controls">
-          <button (click)="loadMarkdownFile()" class="control-btn">
-            📁 Carregar Markdown
+          <button (click)="openScreenplayManager()" class="control-btn">
+            📚 Gerenciar Roteiros
           </button>
-          <button (click)="saveMarkdownFile()" class="control-btn">
-            💾 Salvar Markdown
+          <button (click)="saveCurrentScreenplay()" class="control-btn save-btn" *ngIf="currentScreenplay && isDirty">
+            💾 Salvar
           </button>
-          <button (click)="newMarkdownFile()" class="control-btn">
-            📄 Novo Arquivo
-          </button>
-          <div class="current-file" *ngIf="currentFileName">
-            📄 {{ currentFileName }}
+          <div class="current-file" *ngIf="currentScreenplay">
+            📄 {{ currentScreenplay.name }}
+            <span class="dirty-indicator" *ngIf="isDirty">●</span>
+            <span class="save-status" *ngIf="isSaving">Salvando...</span>
           </div>
         </div>
 
@@ -188,6 +194,17 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
             (circleEvent)="onAgentInstanceCircleEvent($event, agent)"
             (positionChange)="onAgentInstancePositionChange($event, agent)">
           </draggable-circle>
+
+          <!-- Agent info badges (cwd only, no context menu button) -->
+          <div
+            *ngFor="let agent of getAgentInstancesAsArray()"
+            class="agent-badge"
+            [style.left.px]="agent.position.x + 50"
+            [style.top.px]="agent.position.y - 10">
+            <div class="cwd-badge" *ngIf="agent.config?.cwd" [title]="agent.config?.cwd || ''">
+              📁 {{ getAgentCwdDisplay(agent) }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -224,6 +241,13 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         (reject)="onPreviewReject($event)"
         (close)="closeAgentPreview()">
       </app-agent-preview-modal>
+
+      <!-- Screenplay Manager Modal -->
+      <app-screenplay-manager
+        [isVisible]="showScreenplayManager"
+        (close)="closeScreenplayManager()"
+        (action)="onScreenplayManagerAction($event)">
+      </app-screenplay-manager>
       </div>
 
       <!-- Resizable splitter -->
@@ -392,6 +416,32 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       font-size: 11px;
       color: #92400e;
       border: 1px solid #fcd34d;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dirty-indicator {
+      color: #f59e0b;
+      font-size: 16px;
+      animation: pulse 2s infinite;
+    }
+
+    .save-status {
+      color: #10b981;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .save-btn {
+      background: #10b981 !important;
+      border-color: #059669 !important;
+      color: white !important;
+    }
+
+    .save-btn:hover {
+      background: #059669 !important;
+      border-color: #047857 !important;
     }
 
     .emoji-list {
@@ -623,6 +673,29 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       border-top: 5px solid #1f2937;
     }
 
+    /* Agent badges */
+    .agent-badge {
+      position: absolute;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    .cwd-badge {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      white-space: nowrap;
+      font-family: 'Courier New', monospace;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: auto;
+    }
+
   `]
 })
 export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
@@ -640,6 +713,12 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   availableEmojis: EmojiInfo[] = [];
   currentView: 'clean' | 'agents' | 'full' = 'full';
   currentFileName = '';
+
+  // Screenplay state (MongoDB integration)
+  currentScreenplay: Screenplay | null = null;
+  isDirty = false;
+  isSaving = false;
+  showScreenplayManager = false;
 
   // Estado do popup
   popupVisible = false;
@@ -665,6 +744,7 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
 
   // Timeout para debounce
   private updateTimeout: any;
+  private autoSaveTimeout: any;
 
   // Simulates MongoDB 'agent_instances' collection
   private agentInstances = new Map<string, AgentInstance>();
@@ -716,7 +796,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
   constructor(
     private agentExecutionService: AgentExecutionService,
     private screenplayService: ScreenplayService,
-    private agentService: AgentService
+    private agentService: AgentService,
+    private screenplayStorage: ScreenplayStorage
   ) {
     // Subscribe to agent execution state changes
     this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
@@ -747,26 +828,34 @@ Aqui temos alguns agentes distribuídos pelo documento:
     });
   }
 
-  private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition): void {
+  private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
     console.log('💾 [SCREENPLAY] Criando instância no MongoDB:');
     console.log('   - instance_id:', instanceId);
     console.log('   - agent_id:', agentId);
     console.log('   - position:', position);
+    console.log('   - cwd:', cwd || 'não definido');
 
     // Call gateway to create instance record
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+
+    const payload: any = {
+      instance_id: instanceId,
+      agent_id: agentId,
+      position: position,
+      created_at: new Date().toISOString()
+    };
+
+    // Add cwd if provided
+    if (cwd) {
+      payload.cwd = cwd;
+    }
 
     fetch(`${baseUrl}/api/agents/instances`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        instance_id: instanceId,
-        agent_id: agentId,
-        position: position,
-        created_at: new Date().toISOString()
-      })
+      body: JSON.stringify(payload)
     })
       .then(response => {
         if (response.ok) {
@@ -781,7 +870,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   ngAfterViewInit(): void {
-    this.loadStateFromLocalStorage();
+    // Load instances from MongoDB (primary source) with localStorage fallback
+    this.loadInstancesFromMongoDB();
 
     // Define conteúdo inicial no editor, que disparará o evento de sincronização automaticamente
     setTimeout(() => {
@@ -797,54 +887,74 @@ Aqui temos alguns agentes distribuídos pelo documento:
     }
   }
 
-  // === Operações de Arquivo ===
-  loadMarkdownFile(): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.md,.txt';
-    input.onchange = (event: any) => this.handleFileLoad(event);
-    input.click();
+  // === Screenplay Management (MongoDB Integration) ===
+
+  openScreenplayManager(): void {
+    this.showScreenplayManager = true;
   }
 
-  handleFileLoad(event: any): void {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.processNewMarkdownContent(e.target?.result as string, file.name);
-      };
-      reader.readAsText(file);
+  closeScreenplayManager(): void {
+    this.showScreenplayManager = false;
+  }
+
+  onScreenplayManagerAction(event: ScreenplayManagerEvent): void {
+    console.log('📝 Screenplay manager action:', event.action);
+
+    switch (event.action) {
+      case 'open':
+        if (event.screenplay) {
+          this.loadScreenplayIntoEditor(event.screenplay);
+        }
+        break;
+      case 'create':
+        if (event.screenplay) {
+          this.loadScreenplayIntoEditor(event.screenplay);
+        }
+        break;
     }
   }
 
-  private processNewMarkdownContent(content: string, filename: string): void {
+  private loadScreenplayIntoEditor(screenplay: Screenplay): void {
+    // Clear previous state
     this.agentInstances.clear();
     this.agents = [];
-    console.log('🧹 Previous agent state cleared.');
 
-    this.currentFileName = filename;
+    // Set current screenplay
+    this.currentScreenplay = screenplay;
+    this.isDirty = false;
 
-    // Dê um comando explícito para o editor se atualizar.
-    // O editor então emitirá 'contentChange', que acionará a primeira sincronização.
-    this.interactiveEditor.setContent(content, true);
+    // Load content into editor
+    this.interactiveEditor.setContent(screenplay.content, true);
 
-    console.log('📁 File loaded:', filename);
+    console.log(`📖 Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`);
   }
 
-  saveMarkdownFile(): void {
-    if (!this.currentFileName) {
-      this.currentFileName = 'roteiro-vivo.md';
+  saveCurrentScreenplay(): void {
+    if (!this.currentScreenplay || !this.isDirty) {
+      console.log('⏭️ No changes to save');
+      return;
     }
 
-    const blob = this.generateMarkdownBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = this.currentFileName;
-    a.click();
-    URL.revokeObjectURL(url);
+    this.isSaving = true;
 
-    console.log(`💾 Markdown file saved: ${this.currentFileName}`);
+    // Get current content from editor
+    const currentContent = this.generateMarkdownForSave();
+
+    this.screenplayStorage.updateScreenplay(this.currentScreenplay.id, {
+      content: currentContent
+    }).subscribe({
+      next: (updatedScreenplay) => {
+        this.currentScreenplay = updatedScreenplay;
+        this.isDirty = false;
+        this.isSaving = false;
+        console.log(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`);
+      },
+      error: (error) => {
+        this.isSaving = false;
+        console.error('❌ Failed to save screenplay:', error);
+        alert('Falha ao salvar o roteiro. Tente novamente.');
+      }
+    });
   }
 
   generateMarkdownForSave(): string {
@@ -883,27 +993,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       });
     });
 
-    console.log('📄 Markdown com âncoras:', markdown);
-    console.log('💾 Instâncias salvas:', this.agentInstances.size);
-
     return markdown;
-  }
-
-  generateMarkdownBlob(): Blob {
-    const markdownContent = this.generateMarkdownForSave();
-    return new Blob([markdownContent], { type: 'text/markdown' });
-  }
-
-  newMarkdownFile(): void {
-    this.agentInstances.clear();
-    this.agents = [];
-    this.currentFileName = '';
-
-    // Use comando direto para definir conteúdo inicial
-    this.interactiveEditor.setContent('# Novo Roteiro\n\nDigite seu conteúdo aqui...', true);
-
-    this.saveStateToLocalStorage();
-    console.log('📄 New file created, all agent state cleared');
   }
 
   // === Controle de Views ===
@@ -1130,10 +1220,30 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   clearAllAgents(): void {
+    console.log('🗑️ [SCREENPLAY] Removendo todos os agentes...');
+
+    // Get all instance IDs before clearing
+    const instanceIds = Array.from(this.agentInstances.keys());
+
+    // Clear memory first for immediate UI update
     this.agents = [];
     this.agentInstances.clear();
     this.saveStateToLocalStorage();
-    console.log('🗑️ Todos os agentes removidos');
+
+    // Delete all instances from MongoDB (cascade to remove history and logs)
+    instanceIds.forEach(instanceId => {
+      this.agentService.deleteInstance(instanceId, true).subscribe({
+        next: () => {
+          console.log(`✅ [SCREENPLAY] Instância ${instanceId} deletada do MongoDB`);
+        },
+        error: (error) => {
+          console.error(`❌ [SCREENPLAY] Falha ao deletar ${instanceId} do MongoDB:`, error);
+          // Continue with other deletions even if one fails
+        }
+      });
+    });
+
+    console.log(`🗑️ Todos os agentes removidos (${instanceIds.length} instâncias)`);
   }
 
   resyncManually(): void {
@@ -1260,6 +1370,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   // === Event Handlers ===
   handleContentUpdate(newContent: string): void {
+    // Mark content as dirty (has unsaved changes)
+    if (this.currentScreenplay) {
+      this.isDirty = true;
+    }
+
     // Debounce to avoid too many updates while typing
     clearTimeout(this.updateTimeout);
     this.updateTimeout = setTimeout(() => {
@@ -1268,6 +1383,15 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
       // Passa o conteúdo mais recente para a lógica de sincronização
       this.syncAgentsWithMarkdown(newContent);
+
+      // Auto-save: save 3 seconds after user stops typing
+      if (this.currentScreenplay && this.isDirty) {
+        clearTimeout(this.autoSaveTimeout);
+        this.autoSaveTimeout = setTimeout(() => {
+          console.log('💾 Auto-saving screenplay...');
+          this.saveCurrentScreenplay();
+        }, 3000);
+      }
     }, 1000);
   }
 
@@ -1315,7 +1439,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
         instance.id,
         instance.definition.title,
         instance.emoji,
-        instance.agent_id  // Pass MongoDB agent_id for direct execution
+        instance.agent_id,  // Pass MongoDB agent_id for direct execution
+        instance.config?.cwd  // Pass working directory if defined
       );
       console.log('💬 Carregando contexto no chat:');
       console.log('   - instance_id passado:', instance.id);
@@ -1325,7 +1450,20 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   onAgentInstancePositionChange(position: CirclePosition, instance: AgentInstance): void {
     instance.position = position;
-    this.saveStateToLocalStorage();
+
+    // Update MongoDB first, fallback to localStorage
+    this.agentService.updateInstance(instance.id, { position }).subscribe({
+      next: () => {
+        console.log(`✅ [SCREENPLAY] Posição atualizada no MongoDB: ${instance.id}`);
+        this.saveStateToLocalStorage(); // Update cache
+      },
+      error: (error) => {
+        console.error('❌ [SCREENPLAY] Falha ao atualizar posição no MongoDB:', error);
+        console.warn('⚠️ [SCREENPLAY] Salvando apenas no localStorage');
+        this.saveStateToLocalStorage(); // Fallback to localStorage only
+      }
+    });
+
     console.log(`📍 Agent instance ${instance.id} moved to (${position.x}, ${position.y})`);
   }
 
@@ -1383,7 +1521,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   onAgentSelected(selectionData: AgentSelectionData): void {
     const canvas = this.canvas.nativeElement;
-    const { agent, instanceId } = selectionData;
+    const { agent, instanceId, cwd } = selectionData;
 
     // Add the agent emoji to definitions if it doesn't exist
     if (!AGENT_DEFINITIONS[agent.emoji]) {
@@ -1408,6 +1546,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
       position: {
         x: 100, // Temporary position, will be updated after DOM renders
         y: 100
+      },
+      config: {
+        cwd: cwd,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     };
 
@@ -1419,11 +1562,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.agentInstances.set(instanceId, newInstance);
 
     // Create instance record in MongoDB via gateway
-    this.createAgentInstanceInMongoDB(instanceId, agent.id, newInstance.position);
+    this.createAgentInstanceInMongoDB(instanceId, agent.id, newInstance.position, cwd);
 
-    // Initialize conversation history in localStorage
-    const historyKey = `agent-history-${instanceId}`;
-    localStorage.setItem(historyKey, JSON.stringify([]));
+    // Note: Conversation history is now stored in MongoDB, no localStorage init needed
 
     this.saveStateToLocalStorage();
     this.updateLegacyAgentsFromInstances();
@@ -1627,6 +1768,59 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   // === Persistência ===
+
+  /**
+   * Load agent instances from MongoDB (primary source)
+   * Falls back to localStorage if MongoDB fails
+   */
+  loadInstancesFromMongoDB(): void {
+    console.log('📥 [SCREENPLAY] Carregando instâncias do MongoDB...');
+
+    this.agentService.loadAllInstances().subscribe({
+      next: (instances: any[]) => {
+        console.log(`✅ [SCREENPLAY] ${instances.length} instâncias carregadas do MongoDB`);
+
+        // Convert array to Map
+        this.agentInstances.clear();
+
+        instances.forEach((doc: any) => {
+          const instance: AgentInstance = {
+            id: doc.instance_id,
+            agent_id: doc.agent_id,
+            emoji: doc.emoji,
+            definition: doc.definition || {
+              title: doc.agent_id,
+              description: '',
+              unicode: ''
+            },
+            status: doc.status || 'pending',
+            position: doc.position,
+            config: doc.config,
+            executionState: doc.execution_state
+          };
+
+          this.agentInstances.set(instance.id, instance);
+        });
+
+        console.log(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória`);
+
+        // Update legacy structures for UI
+        this.updateLegacyAgentsFromInstances();
+        this.updateAvailableEmojis();
+
+        // Update localStorage as cache
+        this.saveStateToLocalStorage();
+      },
+      error: (error) => {
+        console.error('❌ [SCREENPLAY] Falha ao carregar do MongoDB:', error);
+        console.warn('⚠️ [SCREENPLAY] Usando localStorage como fallback');
+
+        // Fallback to localStorage
+        this.loadStateFromLocalStorage();
+      }
+    });
+  }
+
   saveStateToLocalStorage(): void {
     const serializableInstances = Array.from(this.agentInstances.entries());
     localStorage.setItem('screenplay-agent-instances', JSON.stringify(serializableInstances));
@@ -1649,6 +1843,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
             console.warn(`   Considere limpar o localStorage: localStorage.clear()`);
           }
         });
+
+        // Update legacy structures for UI
+        this.updateLegacyAgentsFromInstances();
+        this.updateAvailableEmojis();
       } catch (e) {
         console.error('Error loading state from LocalStorage:', e);
         this.agentInstances.clear();
@@ -1732,6 +1930,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     }
   }
 
+  getAgentCwdDisplay(agent: AgentInstance): string {
+    const cwd = agent.config?.cwd || '';
+    if (cwd.length > 20) {
+      return cwd.slice(0, 20) + '...';
+    }
+    return cwd;
+  }
+
   // === Splitter methods ===
 
   onSplitterMouseDown(event: MouseEvent): void {
@@ -1760,10 +1966,29 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
-    if (this.selectedAgent) {
-      this.selectedAgent = null;
-      this.conductorChat.clear();
-      console.log('⎋ Agent deselected, chat cleared');
+    // ESC não desseleciona o agente para manter configurações e tarja amarela visíveis
+    // O usuário pode clicar em outro agente ou fechar manualmente se desejar
+    console.log('⎋ ESC pressed - agent remains selected');
+  }
+
+  // === Keyboard Shortcuts for Screenplay Management ===
+
+  @HostListener('document:keydown.control.s', ['$event'])
+  @HostListener('document:keydown.meta.s', ['$event'])
+  handleSaveShortcut(event: Event): void {
+    event.preventDefault();
+    if (this.currentScreenplay && this.isDirty) {
+      console.log('💾 Ctrl/Cmd+S pressed - Saving screenplay');
+      this.saveCurrentScreenplay();
     }
   }
+
+  @HostListener('document:keydown.control.o', ['$event'])
+  @HostListener('document:keydown.meta.o', ['$event'])
+  handleOpenShortcut(event: Event): void {
+    event.preventDefault();
+    console.log('📚 Ctrl/Cmd+O pressed - Opening screenplay manager');
+    this.openScreenplayManager();
+  }
+
 }

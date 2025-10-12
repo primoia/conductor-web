@@ -1,22 +1,36 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AgentService, Agent } from '../../services/agent.service';
 
 export interface AgentSelectionData {
   agent: Agent;
   instanceId: string;
+  cwd?: string; // Working directory for agent execution
 }
 
 @Component({
   selector: 'app-agent-selector-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick()">
       <div class="modal-content" (click)="onContentClick($event)">
         <div class="modal-header">
           <h3>🤖 Selecionar Agente</h3>
           <button class="close-btn" (click)="onClose()">×</button>
+        </div>
+
+        <!-- Search bar -->
+        <div class="search-container" *ngIf="!isLoading && !error">
+          <input
+            type="text"
+            class="search-input"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearchChange()"
+            placeholder="🔍 Buscar agente por nome..."
+            autofocus>
+          <button *ngIf="searchQuery" class="clear-search" (click)="clearSearch()">×</button>
         </div>
 
         <div class="modal-body">
@@ -35,6 +49,12 @@ export interface AgentSelectionData {
 
           <!-- Agents list -->
           <div *ngIf="!isLoading && !error" class="agents-list">
+            <div *ngIf="filteredAgents.length === 0 && agents.length > 0" class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <p>Nenhum agente encontrado</p>
+              <small>Tente outra busca</small>
+            </div>
+
             <div *ngIf="agents.length === 0" class="empty-state">
               <div class="empty-icon">🤷</div>
               <p>Nenhum agente disponível</p>
@@ -42,7 +62,7 @@ export interface AgentSelectionData {
             </div>
 
             <div
-              *ngFor="let agent of agents"
+              *ngFor="let agent of filteredAgents"
               class="agent-item"
               (click)="selectAgent(agent)"
               [title]="agent.description">
@@ -52,6 +72,44 @@ export interface AgentSelectionData {
                 <div class="agent-description">{{ agent.description }}</div>
               </div>
               <div class="select-indicator">→</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Settings (collapsible) -->
+        <div class="advanced-settings" *ngIf="!isLoading && !error">
+          <button
+            class="advanced-toggle"
+            (click)="toggleAdvancedSettings()"
+            type="button">
+            <span class="toggle-icon">{{ showAdvancedSettings ? '▼' : '▶' }}</span>
+            ⚙️ Configurações avançadas
+          </button>
+
+          <div class="advanced-content" *ngIf="showAdvancedSettings">
+            <div class="form-group">
+              <label for="cwdInput">📁 Diretório de trabalho (opcional)</label>
+              <input
+                id="cwdInput"
+                type="text"
+                class="cwd-input"
+                [(ngModel)]="workingDirectory"
+                placeholder="/mnt/ramdisk/projeto-exemplo"
+                (keydown.enter)="$event.preventDefault()">
+              <small class="help-text">Define onde o agente executará os comandos</small>
+            </div>
+
+            <div class="recent-dirs" *ngIf="recentDirectories.length > 0">
+              <small class="recent-label">Diretórios recentes:</small>
+              <div class="dir-chips">
+                <button
+                  *ngFor="let dir of recentDirectories"
+                  class="dir-chip"
+                  (click)="selectDirectory(dir)"
+                  type="button">
+                  📂 {{ dir }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -114,6 +172,50 @@ export interface AgentSelectionData {
       border-bottom: 1px solid #eee;
       background: #f8f9fa;
       border-radius: 12px 12px 0 0;
+    }
+
+    .search-container {
+      padding: 16px 20px;
+      border-bottom: 1px solid #eee;
+      background: white;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 40px 10px 12px;
+      border: 2px solid #dee2e6;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: #007bff;
+    }
+
+    .clear-search {
+      position: absolute;
+      right: 28px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background 0.2s;
+    }
+
+    .clear-search:hover {
+      background: #545b62;
     }
 
     .modal-header h3 {
@@ -298,6 +400,123 @@ export interface AgentSelectionData {
     .btn-secondary:hover {
       background: #545b62;
     }
+
+    /* Advanced Settings */
+    .advanced-settings {
+      border-top: 1px solid #eee;
+      margin-top: 0;
+    }
+
+    .advanced-toggle {
+      width: 100%;
+      padding: 12px 20px;
+      background: #f8f9fa;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: #495057;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .advanced-toggle:hover {
+      background: #e9ecef;
+    }
+
+    .toggle-icon {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .advanced-content {
+      padding: 16px 20px;
+      background: #fafbfc;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        max-height: 0;
+      }
+      to {
+        opacity: 1;
+        max-height: 300px;
+      }
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .cwd-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid #dee2e6;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .cwd-input:focus {
+      border-color: #007bff;
+    }
+
+    .help-text {
+      display: block;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #6c757d;
+    }
+
+    .recent-dirs {
+      margin-top: 12px;
+    }
+
+    .recent-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: #6c757d;
+      font-weight: 600;
+    }
+
+    .dir-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .dir-chip {
+      padding: 4px 10px;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Courier New', monospace;
+    }
+
+    .dir-chip:hover {
+      background: #e7f3ff;
+      border-color: #007bff;
+      transform: translateY(-1px);
+    }
   `]
 })
 export class AgentSelectorModalComponent implements OnInit {
@@ -306,10 +525,26 @@ export class AgentSelectorModalComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
   agents: Agent[] = [];
+  filteredAgents: Agent[] = [];
+  searchQuery: string = '';
   isLoading: boolean = false;
   error: string | null = null;
 
-  constructor(private agentService: AgentService) {}
+  // Advanced settings
+  showAdvancedSettings: boolean = false;
+  workingDirectory: string = '';
+  recentDirectories: string[] = [];
+
+  constructor(private agentService: AgentService) {
+    this.loadRecentDirectories();
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEscapeKey(): void {
+    if (this.isVisible) {
+      this.onClose();
+    }
+  }
 
   ngOnInit(): void {
     if (this.isVisible) {
@@ -318,7 +553,8 @@ export class AgentSelectorModalComponent implements OnInit {
   }
 
   ngOnChanges(): void {
-    if (this.isVisible && this.agents.length === 0 && !this.isLoading) {
+    // Always reload agents when modal becomes visible
+    if (this.isVisible && !this.isLoading) {
       this.loadAgents();
     }
   }
@@ -330,6 +566,7 @@ export class AgentSelectorModalComponent implements OnInit {
     this.agentService.getAgents().subscribe({
       next: (agents) => {
         this.agents = agents;
+        this.filteredAgents = agents; // Initialize filtered list
         this.isLoading = false;
         console.log('[AgentSelectorModal] Loaded agents:', agents);
       },
@@ -341,19 +578,76 @@ export class AgentSelectorModalComponent implements OnInit {
     });
   }
 
+  onSearchChange(): void {
+    if (!this.searchQuery || this.searchQuery.trim() === '') {
+      this.filteredAgents = this.agents;
+    } else {
+      const query = this.searchQuery.toLowerCase().trim();
+      this.filteredAgents = this.agents.filter(agent =>
+        agent.name.toLowerCase().includes(query) ||
+        agent.description?.toLowerCase().includes(query) ||
+        agent.emoji.includes(query)
+      );
+    }
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.onSearchChange();
+  }
+
   selectAgent(agent: Agent): void {
     const instanceId = this.agentService.generateInstanceId();
     const selectionData: AgentSelectionData = {
       agent,
-      instanceId
+      instanceId,
+      cwd: this.workingDirectory.trim() || undefined
     };
+
+    // Save cwd to recent directories if provided
+    if (this.workingDirectory.trim()) {
+      this.saveToRecentDirectories(this.workingDirectory.trim());
+    }
 
     console.log('[AgentSelectorModal] Agent selected:', selectionData);
     this.agentSelected.emit(selectionData);
     this.onClose();
   }
 
+  toggleAdvancedSettings(): void {
+    this.showAdvancedSettings = !this.showAdvancedSettings;
+  }
+
+  selectDirectory(dir: string): void {
+    this.workingDirectory = dir;
+  }
+
+  loadRecentDirectories(): void {
+    const stored = localStorage.getItem('agent-recent-directories');
+    if (stored) {
+      try {
+        this.recentDirectories = JSON.parse(stored);
+      } catch (e) {
+        console.error('Error loading recent directories:', e);
+        this.recentDirectories = [];
+      }
+    }
+  }
+
+  saveToRecentDirectories(dir: string): void {
+    // Remove if already exists
+    this.recentDirectories = this.recentDirectories.filter(d => d !== dir);
+    // Add to beginning
+    this.recentDirectories.unshift(dir);
+    // Keep only last 5
+    this.recentDirectories = this.recentDirectories.slice(0, 5);
+    // Save to localStorage
+    localStorage.setItem('agent-recent-directories', JSON.stringify(this.recentDirectories));
+  }
+
   onClose(): void {
+    this.searchQuery = '';
+    this.filteredAgents = this.agents;
     this.close.emit();
   }
 

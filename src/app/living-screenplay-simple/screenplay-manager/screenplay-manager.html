@@ -1,0 +1,132 @@
+<div class="modal-backdrop" *ngIf="isVisible" (click)="closeModal()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <h2>Gerenciar Roteiros</h2>
+      <button class="close-btn" (click)="closeModal()" title="Fechar">✕</button>
+    </div>
+
+    <!-- Search -->
+    <div class="search-section">
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Buscar roteiros..."
+        [value]="searchQuery"
+        (input)="onSearchInput($any($event.target).value)"
+      />
+    </div>
+
+    <!-- Error message -->
+    <div class="error-message" *ngIf="error">
+      {{ error }}
+    </div>
+
+    <!-- Screenplay list -->
+    <div class="screenplay-list">
+      <div *ngIf="loading && screenplays.length === 0" class="loading-message">
+        Carregando roteiros...
+      </div>
+
+      <div *ngIf="!loading && screenplays.length === 0" class="empty-message">
+        Nenhum roteiro encontrado.
+      </div>
+
+      <div
+        *ngFor="let screenplay of screenplays"
+        class="screenplay-item"
+        (click)="openScreenplay(screenplay)"
+      >
+        <div class="screenplay-info">
+          <div class="screenplay-name">{{ screenplay.name }}</div>
+          <div class="screenplay-meta">
+            <span class="screenplay-date">{{ formatDate(screenplay.updatedAt) }}</span>
+            <span class="screenplay-version">v{{ screenplay.version }}</span>
+          </div>
+        </div>
+        <div class="screenplay-actions">
+          <button
+            class="action-btn rename-btn"
+            (click)="showRenameScreen(screenplay, $event)"
+            title="Renomear"
+          >
+            ✏️
+          </button>
+          <button
+            class="action-btn delete-btn"
+            (click)="showDeleteConfirmation(screenplay, $event)"
+            title="Deletar"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
+
+      <!-- Load more trigger -->
+      <div *ngIf="hasMore" class="load-more">
+        <button
+          class="load-more-btn"
+          (click)="loadMore()"
+          [disabled]="loading"
+        >
+          {{ loading ? 'Carregando...' : 'Carregar Mais' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-primary" (click)="showCreateScreen()">
+        ➕ Criar Novo Roteiro
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Dialog -->
+<div class="dialog-backdrop" *ngIf="showCreateDialog" (click)="cancelDialog()">
+  <div class="dialog-container" (click)="$event.stopPropagation()">
+    <h3>Criar Novo Roteiro</h3>
+    <input
+      type="text"
+      class="dialog-input"
+      placeholder="Nome do roteiro"
+      [(ngModel)]="newScreenplayName"
+      (keyup.enter)="createScreenplay()"
+    />
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar</button>
+      <button class="btn btn-primary" (click)="createScreenplay()">Criar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Dialog -->
+<div class="dialog-backdrop" *ngIf="showRenameDialog" (click)="cancelDialog()">
+  <div class="dialog-container" (click)="$event.stopPropagation()">
+    <h3>Renomear Roteiro</h3>
+    <input
+      type="text"
+      class="dialog-input"
+      [(ngModel)]="renameScreenplayName"
+      (keyup.enter)="renameScreenplay()"
+    />
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar</button>
+      <button class="btn btn-primary" (click)="renameScreenplay()">Renomear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation -->
+<div class="dialog-backdrop" *ngIf="showDeleteConfirm" (click)="cancelDialog()">
+  <div class="dialog-container" (click)="$event.stopPropagation()">
+    <h3>Confirmar Exclusão</h3>
+    <p>Tem certeza que deseja deletar o roteiro "{{ selectedScreenplay?.name }}"?</p>
+    <p class="warning-text">Esta ação não pode ser desfeita.</p>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar</button>
+      <button class="btn btn-danger" (click)="deleteScreenplay()">Deletar</button>
+    </div>
+  </div>
+</div>

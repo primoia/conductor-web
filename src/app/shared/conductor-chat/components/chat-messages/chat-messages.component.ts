@@ -90,6 +90,7 @@ import { Message } from '../../models/chat.models';
       max-width: 85%;
       word-wrap: break-word;
       animation: fadeIn 0.3s ease;
+      font-size: 13px;
     }
 
     .user-message {
