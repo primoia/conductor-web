@@ -83,16 +83,33 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
         <h3>🎬 Roteiro Vivo</h3>
 
         <div class="file-controls">
-          <button (click)="openScreenplayManager()" class="control-btn">
-            📚 Gerenciar Roteiros
-          </button>
-          <button (click)="saveCurrentScreenplay()" class="control-btn save-btn" *ngIf="currentScreenplay && isDirty">
-            💾 Salvar
-          </button>
-          <div class="current-file" *ngIf="currentScreenplay">
-            📄 {{ currentScreenplay.name }}
+          <details class="file-controls-menu">
+            <summary>Arquivo</summary>
+            <menu>
+              <button (click)="newScreenplay()">Novo Roteiro</button>
+              <button (click)="openScreenplayManager()">Abrir do Banco...</button>
+              <button (click)="importFromDisk()">Importar do Disco...</button>
+              <hr>
+              <button (click)="save()" [disabled]="!isDirty">Salvar</button>
+              <hr>
+              <button (click)="exportToDisk()">Exportar para Disco...</button>
+            </menu>
+          </details>
+          <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
+
+          <!-- SAGA-005 v2: Simplified file indicator - only database and new -->
+          <div class="current-file" *ngIf="sourceOrigin === 'database' && currentScreenplay">
+            💾 {{ currentScreenplay.name }}
+            <span class="db-indicator" title="Vinculado ao MongoDB">🔗</span>
             <span class="dirty-indicator" *ngIf="isDirty">●</span>
             <span class="save-status" *ngIf="isSaving">Salvando...</span>
+          </div>
+
+          <!-- New file indicator -->
+          <div class="current-file new-file" *ngIf="sourceOrigin === 'new'">
+            📝 {{ sourceIdentifier || 'Novo Roteiro' }}
+            <span class="new-indicator" title="Roteiro novo - não salvo">✨</span>
+            <small class="new-hint">Não salvo</small>
           </div>
         </div>
 
@@ -345,6 +362,95 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       padding-bottom: 15px;
     }
 
+    .file-controls-menu {
+      margin-bottom: 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .file-controls-menu summary {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      list-style: none;
+      user-select: none;
+      transition: all 0.2s;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+    }
+
+    .file-controls-menu summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .file-controls-menu summary::after {
+      content: ' ▼';
+      font-size: 10px;
+      float: right;
+      transition: transform 0.2s;
+    }
+
+    .file-controls-menu[open] summary::after {
+      transform: rotate(180deg);
+    }
+
+    .file-controls-menu summary:hover {
+      background: #f7fafc;
+    }
+
+    .file-controls-menu menu {
+      padding: 8px 0;
+      border-top: 1px solid #e2e8f0;
+      animation: menuFadeIn 0.15s ease-out;
+      margin: 0;
+      list-style: none;
+    }
+
+    @keyframes menuFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .file-controls-menu menu button {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      color: #4a5568;
+      cursor: pointer;
+      font-size: 11px;
+      text-align: left;
+      transition: all 0.15s;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+    }
+
+    .file-controls-menu menu button:hover:not(:disabled) {
+      background: #ebf4ff;
+      color: #2d3748;
+    }
+
+    .file-controls-menu menu button:disabled {
+      color: #9ca3af;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .menu-divider {
+      margin: 6px 0;
+      border: none;
+      border-top: 1px solid #e2e8f0;
+    }
+
     .agent-controls {
       margin-bottom: 20px;
       border-bottom: 1px solid #d1d5db;
@@ -419,6 +525,31 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .current-file.new-file {
+      background: #fef3c7;
+      border-color: #fcd34d;
+      color: #92400e;
+    }
+
+    .db-indicator {
+      color: #10b981;
+      font-size: 12px;
+    }
+
+
+    .new-indicator {
+      color: #f59e0b;
+      font-size: 12px;
+    }
+
+    .new-hint {
+      width: 100%;
+      color: #92400e;
+      font-size: 9px;
+      font-style: italic;
     }
 
     .dirty-indicator {
@@ -442,6 +573,19 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     .save-btn:hover {
       background: #059669 !important;
       border-color: #047857 !important;
+    }
+
+    .save-btn:disabled {
+      background: #9ca3af !important;
+      border-color: #6b7280 !important;
+      color: #6b7280 !important;
+      cursor: not-allowed !important;
+      opacity: 0.6;
+    }
+
+    .save-btn:disabled:hover {
+      background: #9ca3af !important;
+      border-color: #6b7280 !important;
     }
 
     .emoji-list {
@@ -702,6 +846,7 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
   @ViewChild(ConductorChatComponent) conductorChat!: ConductorChatComponent;
+  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   // Splitter state
   screenplayWidth = 70;
@@ -719,6 +864,10 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   isDirty = false;
   isSaving = false;
   showScreenplayManager = false;
+
+  // SAGA-005: New state management for file synchronization
+  sourceOrigin: 'database' | 'disk' | 'new' = 'new';
+  sourceIdentifier: string | null = null;
 
   // Estado do popup
   popupVisible = false;
@@ -889,6 +1038,52 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   // === Screenplay Management (MongoDB Integration) ===
 
+  /**
+   * SAGA-005 v2: Clear chat state when loading new screenplay
+   */
+  private clearChatState(): void {
+    console.log('🧹 [CHAT] Clearing chat state for new screenplay');
+    
+    // Clear selected agent
+    this.selectedAgent = null;
+    
+    // Clear chat context if conductorChat is available
+    if (this.conductorChat) {
+      this.conductorChat.clear();
+    }
+    
+    console.log('✅ [CHAT] Chat state cleared');
+  }
+
+  /**
+   * SAGA-005: Create a new screenplay - clears editor and resets state
+   */
+  newScreenplay(): void {
+    console.log('📝 [NEW] Creating new screenplay');
+    
+    // Clear editor content
+    this.editorContent = '';
+    this.interactiveEditor.setContent('', true);
+    
+    // Reset state
+    this.sourceOrigin = 'new';
+    this.sourceIdentifier = null;
+    this.isDirty = false;
+    this.currentScreenplay = null;
+    this.currentFileName = '';
+    
+    // Clear agents
+    this.agentInstances.clear();
+    this.agents = [];
+    this.updateLegacyAgentsFromInstances();
+    this.updateAvailableEmojis();
+    
+    // SAGA-005 v2: Clear chat when creating new screenplay
+    this.clearChatState();
+    
+    console.log('✅ [NEW] New screenplay created');
+  }
+
   openScreenplayManager(): void {
     this.showScreenplayManager = true;
   }
@@ -914,23 +1109,626 @@ Aqui temos alguns agentes distribuídos pelo documento:
     }
   }
 
+  // === Disk File Operations ===
+
+  /**
+   * SAGA-005 v2: Import markdown file from disk with automatic MongoDB creation
+   * Files are automatically saved to MongoDB unless there's a conflict
+   */
+  importFromDisk(): void {
+    this.fileInput.nativeElement.click();
+  }
+
+  /**
+   * Handle file selection from disk
+   * SAGA-005 v2: Implements automatic MongoDB creation with conflict detection
+   */
+  handleFileSelect(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        const filename = file.name.replace(/\.md$/, ''); // Remove .md extension
+
+        console.log('📂 [DISK] Arquivo lido do disco:');
+        console.log('   - Nome:', file.name);
+        console.log('   - Tamanho:', content.length, 'caracteres');
+        console.log('   - Primeiros 100 chars:', content.substring(0, 100));
+
+        // Check if screenplay with same name exists in MongoDB
+        // First, try to get all screenplays to see what's really there
+        console.log('🔍 [CONFLICT] Starting conflict check...');
+        this.screenplayStorage.getScreenplays('', 1, 1000).subscribe({
+          next: (response) => {
+            console.log('🔍 [CONFLICT] Checking for existing screenplays:');
+            console.log('   - Looking for name:', filename);
+            console.log('   - Search query:', filename);
+            console.log('   - Total screenplays found:', response.items.length);
+            console.log('   - Existing names:', response.items.map(item => item.name));
+            
+            // More robust comparison - check exact match and also check for similar names
+            const existingScreenplay = response.items.find(item => {
+              const exactMatch = item.name === filename;
+              const similarMatch = item.name.toLowerCase() === filename.toLowerCase();
+              console.log(`   - Exact match "${item.name}" === "${filename}": ${exactMatch}`);
+              console.log(`   - Similar match "${item.name.toLowerCase()}" === "${filename.toLowerCase()}": ${similarMatch}`);
+              return exactMatch;
+            });
+            
+            console.log('   - Found existing?', !!existingScreenplay);
+            if (existingScreenplay) {
+              console.log('   - Existing screenplay ID:', existingScreenplay.id);
+              console.log('   - Existing screenplay name:', existingScreenplay.name);
+            }
+
+            if (existingScreenplay) {
+              console.log('⚠️ [CONFLICT] Potential conflict detected, loading full screenplay to verify...');
+              console.log('   - Existing ID:', existingScreenplay.id);
+              console.log('   - Existing name:', existingScreenplay.name);
+              
+              // Load full screenplay to check content
+              this.screenplayStorage.getScreenplay(existingScreenplay.id).subscribe({
+                next: (fullScreenplay) => {
+                  console.log('   - Full screenplay content length:', fullScreenplay.content?.length || 0);
+                  console.log('   - Full screenplay content preview:', fullScreenplay.content?.substring(0, 100));
+                  
+                  // Check if the existing screenplay is actually different
+                  if (fullScreenplay.content === content) {
+                    console.log('🔄 [CONFLICT] Same content detected, loading existing screenplay');
+                    this.loadScreenplayIntoEditor(fullScreenplay);
+                  } else {
+                    console.log('⚠️ [CONFLICT] Different content detected, showing conflict modal');
+                    this.handleScreenplayConflict(fullScreenplay, content, filename);
+                  }
+                },
+                error: (error: any) => {
+                  console.error('❌ Erro ao carregar roteiro completo:', error);
+                  this.createAndLinkScreenplayAutomatically(content, filename);
+                }
+              });
+            } else {
+              console.log('✅ [CONFLICT] No conflict detected, creating new screenplay');
+              // No conflict - automatically create in MongoDB
+              this.createAndLinkScreenplayAutomatically(content, filename);
+            }
+          },
+          error: (error: any) => {
+            console.error('❌ Erro ao verificar roteiros existentes:', error);
+            // Fallback: create automatically
+            this.createAndLinkScreenplayAutomatically(content, filename);
+          }
+        });
+      };
+
+      reader.onerror = (error) => {
+        console.error('❌ Erro ao ler arquivo:', error);
+        alert('Falha ao carregar o arquivo. Tente novamente.');
+      };
+
+      reader.readAsText(file);
+
+      // Reset input to allow reloading the same file
+      input.value = '';
+    }
+  }
+
+
+  /**
+   * SAGA-005 v2: Load content as new screenplay (fallback method)
+   */
+  private loadAsNewScreenplay(content: string, filename: string): void {
+    console.log(`📄 [NEW] Loading as new screenplay: ${filename}`);
+
+    // Clear previous state
+    this.agentInstances.clear();
+    this.agents = [];
+    this.currentScreenplay = null;
+    this.isDirty = false;
+    this.currentFileName = '';
+
+    // SAGA-005 v2: Clear chat when loading new screenplay
+    this.clearChatState();
+
+    // Set state for new screenplay
+    this.sourceOrigin = 'new';
+    this.sourceIdentifier = filename;
+
+    // Load content into editor
+    this.editorContent = content;
+    this.interactiveEditor.setContent(content, true);
+
+    console.log(`✅ [NEW] New screenplay loaded: ${filename}`);
+  }
+
+  /**
+   * Create screenplay in MongoDB automatically and link to editor
+   * No confirmation needed for new files
+   */
+  private createAndLinkScreenplayAutomatically(content: string, filename: string): void {
+    console.log(`💾 [AUTO] Criando roteiro automaticamente no banco: ${filename}`);
+    console.log(`   - Nome: ${filename}`);
+    console.log(`   - Tamanho do conteúdo: ${content.length} caracteres`);
+    console.log(`   - Primeiros 100 chars: ${content.substring(0, 100)}`);
+
+    // Clean filename - remove .md extension if present and sanitize
+    const cleanFilename = filename.replace(/\.md$/, '').replace(/[^a-zA-Z0-9\-_]/g, '-');
+    console.log(`   - Nome limpo: ${cleanFilename}`);
+
+    // Validate filename
+    if (!cleanFilename || cleanFilename.length === 0) {
+      console.error('❌ [AUTO] Nome de arquivo inválido após limpeza');
+      this.loadAsNewScreenplay(content, 'arquivo-importado');
+      return;
+    }
+
+    this.screenplayStorage.createScreenplay({
+      name: cleanFilename,
+      content: content,
+      description: `Importado do disco em ${new Date().toLocaleDateString()}`
+    }).subscribe({
+      next: (newScreenplay) => {
+        console.log(`✅ [AUTO] Roteiro criado: ${newScreenplay.id}`);
+        console.log(`   - Nome no banco: ${newScreenplay.name}`);
+        console.log(`   - Conteúdo retornado (length): ${newScreenplay.content?.length || 0}`);
+        console.log('📄 [AUTO] Carregando conteúdo do disco no editor...');
+
+        // CRITICAL: Always use disk content in editor (backend might return empty)
+        const screenplayWithDiskContent: Screenplay = {
+          id: newScreenplay.id,
+          name: newScreenplay.name,
+          content: content,  // Always use disk content
+          description: newScreenplay.description || '',
+          tags: newScreenplay.tags || [],
+          version: newScreenplay.version || 1,
+          createdAt: newScreenplay.createdAt || new Date().toISOString(),
+          updatedAt: newScreenplay.updatedAt || new Date().toISOString(),
+          isDeleted: false
+        };
+
+        this.loadScreenplayIntoEditor(screenplayWithDiskContent);
+
+        // If backend didn't return content, update it asynchronously
+        if (!newScreenplay.content || newScreenplay.content.length === 0) {
+          console.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...');
+          this.screenplayStorage.updateScreenplay(newScreenplay.id, {
+            content: content
+          }).subscribe({
+            next: () => {
+              console.log('✅ [AUTO] Banco sincronizado com sucesso');
+            },
+            error: (updateError) => {
+              console.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError);
+            }
+          });
+        }
+      },
+      error: (error) => {
+        console.error('❌ [AUTO] Erro ao criar roteiro no MongoDB:', error);
+        console.error('   - Detalhes do erro:', JSON.stringify(error, null, 2));
+
+        // Check if it's a "name already exists" error
+        if (error.message && error.message.includes('already exists')) {
+          console.warn('⚠️ [AUTO] Roteiro já existe, buscando e carregando o existente');
+
+          // Instead of trying with timestamp, search for and load the existing screenplay
+          this.screenplayStorage.getScreenplays(cleanFilename, 1, 10).subscribe({
+            next: (response) => {
+              const existingScreenplay = response.items.find(item => item.name === cleanFilename);
+
+              if (existingScreenplay) {
+                console.log(`✅ [AUTO] Roteiro existente encontrado: ${existingScreenplay.id}`);
+                console.log('📄 [AUTO] Carregando conteúdo do disco no editor primeiro...');
+
+                // CRITICAL: Load disk content into editor IMMEDIATELY
+                const screenplayWithDiskContent = {
+                  ...existingScreenplay,
+                  content: content,
+                  name: existingScreenplay.name,
+                  id: existingScreenplay.id,
+                  version: existingScreenplay.version,
+                  description: existingScreenplay.description || '',
+                  tags: existingScreenplay.tags || [],
+                  createdAt: existingScreenplay.createdAt,
+                  updatedAt: existingScreenplay.updatedAt,
+                  isDeleted: existingScreenplay.isDeleted
+                } as Screenplay;
+
+                this.loadScreenplayIntoEditor(screenplayWithDiskContent);
+
+                // Then update backend asynchronously
+                console.log('💾 [AUTO] Sincronizando com banco em background...');
+                this.screenplayStorage.updateScreenplay(existingScreenplay.id, {
+                  content: content
+                }).subscribe({
+                  next: () => {
+                    console.log('✅ [AUTO] Banco atualizado com sucesso');
+                  },
+                  error: (updateError) => {
+                    console.error('❌ [AUTO] Erro ao atualizar banco (conteúdo já está no editor):', updateError);
+                  }
+                });
+              } else {
+                // Screenplay not found in search, try with timestamp as fallback
+                console.warn('⚠️ [AUTO] Roteiro não encontrado na busca, tentando com timestamp');
+                console.log('   - Content length:', content?.length || 0);
+                console.log('   - Content preview:', content?.substring(0, 200) || 'EMPTY');
+                console.log('   - cleanFilename:', cleanFilename);
+
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const uniqueName = `${cleanFilename}-${timestamp}`;
+                console.log('   - uniqueName:', uniqueName);
+
+                const createPayload = {
+                  name: uniqueName,
+                  content: content,
+                  description: `Importado do disco em ${new Date().toLocaleDateString()} (nome original: ${cleanFilename})`
+                };
+                console.log('   - Payload:', JSON.stringify({
+                  name: createPayload.name,
+                  contentLength: createPayload.content?.length,
+                  description: createPayload.description
+                }));
+
+                this.screenplayStorage.createScreenplay(createPayload).subscribe({
+                  next: (newScreenplay) => {
+                    console.log(`✅ [AUTO] Roteiro criado com nome único: ${newScreenplay.id}`);
+                    console.log('   - Screenplay name:', newScreenplay.name);
+                    console.log('   - Screenplay content length:', newScreenplay.content?.length || 0);
+                    console.log('📄 [AUTO] Carregando conteúdo do disco no editor...');
+
+                    // CRITICAL: Always use disk content in editor
+                    const screenplayWithDiskContent: Screenplay = {
+                      id: newScreenplay.id,
+                      name: newScreenplay.name,
+                      content: content,  // Always use disk content
+                      description: newScreenplay.description || '',
+                      tags: newScreenplay.tags || [],
+                      version: newScreenplay.version || 1,
+                      createdAt: newScreenplay.createdAt || new Date().toISOString(),
+                      updatedAt: newScreenplay.updatedAt || new Date().toISOString(),
+                      isDeleted: false
+                    };
+
+                    this.loadScreenplayIntoEditor(screenplayWithDiskContent);
+
+                    // If backend didn't return content, update it asynchronously
+                    if (!newScreenplay.content || newScreenplay.content.length === 0) {
+                      console.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...');
+                      this.screenplayStorage.updateScreenplay(newScreenplay.id, {
+                        content: content
+                      }).subscribe({
+                        next: () => {
+                          console.log('✅ [AUTO] Banco sincronizado com sucesso');
+                        },
+                        error: (updateError) => {
+                          console.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError);
+                        }
+                      });
+                    }
+                  },
+                  error: (retryError) => {
+                    console.error('❌ [AUTO] Falha mesmo com nome único:', retryError);
+                    this.loadAsNewScreenplay(content, cleanFilename);
+                  }
+                });
+              }
+            },
+            error: (searchError) => {
+              console.error('❌ [AUTO] Erro ao buscar roteiro existente:', searchError);
+              this.loadAsNewScreenplay(content, cleanFilename);
+            }
+          });
+        } else {
+          console.warn('⚠️ [AUTO] Fallback: carregando como novo roteiro');
+          // Fallback: load as new screenplay (user can save later)
+          this.loadAsNewScreenplay(content, cleanFilename);
+        }
+      }
+    });
+  }
+
+  /**
+   * Handle conflict when loading a file that already exists in MongoDB
+   * Shows modal for user decision
+   */
+  private handleScreenplayConflict(existingScreenplay: Screenplay, diskContent: string, filename: string): void {
+    const diskLines = diskContent.split('\n').length;
+    const dbLines = existingScreenplay.content.split('\n').length;
+
+    // TODO: Replace with beautiful modal component
+    // For now, using improved window.confirm
+    const message = `⚠️ CONFLITO DETECTADO\n\n` +
+      `Já existe um roteiro "${filename}" no banco de dados.\n\n` +
+      `📄 Arquivo do disco: ${diskLines} linhas\n` +
+      `💾 Arquivo do banco: ${dbLines} linhas\n\n` +
+      `[OK] - Sobrescrever banco com arquivo do disco\n` +
+      `[Cancelar] - Manter banco como está e carregar arquivo em memória\n`;
+
+    const overwrite = window.confirm(message);
+
+    if (overwrite) {
+      console.log(`🔁 [CONFLICT] Sobrescrevendo MongoDB com conteúdo do disco`);
+
+      this.screenplayStorage.updateScreenplay(existingScreenplay.id, {
+        content: diskContent
+      }).subscribe({
+        next: (updatedScreenplay) => {
+          this.loadScreenplayIntoEditor(updatedScreenplay);
+          console.log(`✅ [CONFLICT] Roteiro atualizado: ${filename}`);
+        },
+        error: (error) => {
+          console.error('❌ [CONFLICT] Erro ao atualizar:', error);
+          // Fallback: create new
+          this.createAndLinkScreenplayAutomatically(diskContent, `${filename}-novo`);
+        }
+      });
+    } else {
+      console.log(`📄 [CONFLICT] Usuário optou por carregar do banco`);
+      // Load existing screenplay from database (ignore disk content)
+      this.loadScreenplayIntoEditor(existingScreenplay);
+    }
+  }
+
+  /**
+   * SAGA-005: Export current markdown content to disk as a file
+   */
+  exportToDisk(): void {
+    // Get current content
+    const content = this.generateMarkdownForSave();
+
+    // Determine filename
+    let filename = this.currentScreenplay?.name || this.currentFileName || 'roteiro-vivo.md';
+    if (!filename.endsWith('.md')) {
+      filename += '.md';
+    }
+
+    // Create blob and download
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('💾 Arquivo salvo no disco:', filename);
+  }
+
+  /**
+   * Reload current screenplay from database
+   */
+  loadFromDatabase(): void {
+    if (!this.currentScreenplay) {
+      console.warn('⚠️ Nenhum roteiro carregado do banco');
+      return;
+    }
+
+    if (this.isDirty) {
+      const confirm = window.confirm(
+        'Você tem alterações não salvas. Deseja realmente recarregar do banco? As alterações serão perdidas.'
+      );
+      if (!confirm) {
+        return;
+      }
+    }
+
+    // Reload from storage
+    this.screenplayStorage.getScreenplay(this.currentScreenplay.id).subscribe({
+      next: (screenplay) => {
+        this.loadScreenplayIntoEditor(screenplay);
+        console.log('🔄 Roteiro recarregado do banco:', screenplay.name);
+      },
+      error: (error) => {
+        console.error('❌ Erro ao recarregar roteiro:', error);
+        alert('Falha ao recarregar o roteiro do banco.');
+      }
+    });
+  }
+
+  /**
+   * SAGA-005 v2: Simplified save method - disk files are automatically converted to database
+   */
+  save(): void {
+    console.log(`💾 [SAVE] Intelligent save - sourceOrigin: ${this.sourceOrigin}`);
+
+    if (!this.isDirty) {
+      console.log('⏭️ [SAVE] No changes to save');
+      return;
+    }
+
+    switch (this.sourceOrigin) {
+      case 'database':
+        // Update existing screenplay in database
+        this.saveCurrentScreenplay();
+        break;
+      
+      case 'new':
+        // Need to create new screenplay in database
+        this.promptCreateNewScreenplay();
+        break;
+      
+      default:
+        console.warn('⚠️ [SAVE] Unknown sourceOrigin:', this.sourceOrigin);
+    }
+  }
+
+  /**
+   * SAGA-005: Prompt user to create new screenplay in database
+   */
+  private promptCreateNewScreenplay(): void {
+    const content = this.generateMarkdownForSave();
+    const defaultName = this.sourceIdentifier || 'roteiro-novo';
+    
+    console.log(`💾 [PROMPT] Prompting for new screenplay name`);
+    console.log(`   - Default name: ${defaultName}`);
+    console.log(`   - Content length: ${content.length} characters`);
+    
+    // TODO: Replace with beautiful modal component
+    // For now, using improved window.prompt
+    const name = window.prompt(
+      `💾 Criar Novo Roteiro no Banco\n\n` +
+      `Nome do roteiro:`,
+      defaultName
+    );
+
+    console.log(`   - User input: "${name}"`);
+    console.log(`   - User input type: ${typeof name}`);
+    console.log(`   - User input length: ${name?.length || 0}`);
+    console.log(`   - Default name was: "${defaultName}"`);
+    console.log(`   - Is same as default: ${name === defaultName}`);
+    console.log(`   - Trimmed: "${name?.trim()}"`);
+    console.log(`   - Trimmed length: ${name?.trim().length || 0}`);
+    console.log(`   - Is valid: ${name && name.trim().length > 0}`);
+
+    // Handle the case where user accepts default name without editing
+    let finalName = name;
+    if (name === defaultName) {
+      console.log(`🔄 [PROMPT] User accepted default name, using as-is: "${defaultName}"`);
+      finalName = defaultName;
+    } else if (name && name.trim() && name.trim().length > 0) {
+      finalName = name.trim();
+      console.log(`✅ [PROMPT] User provided custom name: "${finalName}"`);
+    } else if (name === null) {
+      console.log('❌ [SAVE] User cancelled screenplay creation (null)');
+      return;
+    } else if (name === '') {
+      console.log('❌ [SAVE] User entered empty string');
+      return;
+    } else {
+      console.log('❌ [SAVE] User entered invalid name:', name);
+      return;
+    }
+
+    console.log(`✅ [PROMPT] Final name to create: "${finalName}"`);
+    this.createNewScreenplayInDatabase(finalName, content);
+  }
+
+  /**
+   * SAGA-005: Create new screenplay in database and link to editor
+   */
+  private createNewScreenplayInDatabase(name: string, content: string): void {
+    console.log(`💾 [CREATE] Creating new screenplay in database: ${name}`);
+    console.log(`   - Name: "${name}"`);
+    console.log(`   - Name length: ${name.length}`);
+    console.log(`   - Content length: ${content.length}`);
+    console.log(`   - Content preview: ${content.substring(0, 100)}...`);
+
+    // Sanitize name similar to import - but be more careful
+    let sanitizedName = name.trim();
+    
+    // Only sanitize if there are problematic characters
+    if (/[^a-zA-Z0-9\-_]/.test(sanitizedName)) {
+      console.log(`   - Name contains special characters, sanitizing...`);
+      sanitizedName = sanitizedName.replace(/[^a-zA-Z0-9\-_]/g, '-');
+      // Remove multiple consecutive dashes
+      sanitizedName = sanitizedName.replace(/-+/g, '-');
+      // Remove leading/trailing dashes
+      sanitizedName = sanitizedName.replace(/^-+|-+$/g, '');
+    }
+    
+    console.log(`   - Sanitized name: "${sanitizedName}"`);
+
+    // Validate name
+    if (!sanitizedName || sanitizedName.length === 0) {
+      console.error('❌ [CREATE] Invalid name after sanitization');
+      alert('Nome inválido. Use apenas letras, números, hífens e underscores.');
+      return;
+    }
+
+    // Additional validation - ensure it's not just dashes
+    if (sanitizedName.replace(/-/g, '').length === 0) {
+      console.error('❌ [CREATE] Name is only dashes after sanitization');
+      alert('Nome inválido. Use pelo menos uma letra ou número.');
+      return;
+    }
+
+    console.log('💾 [CREATE] Sending to MongoDB:');
+    console.log('   - Name:', sanitizedName);
+    console.log('   - Content length:', content.length);
+    console.log('   - Content preview:', content.substring(0, 200));
+    console.log('   - Description:', `Criado em ${new Date().toLocaleDateString()}`);
+
+    this.screenplayStorage.createScreenplay({
+      name: sanitizedName,
+      content: content,
+      description: `Criado em ${new Date().toLocaleDateString()}`
+    }).subscribe({
+      next: (newScreenplay) => {
+        console.log(`✅ [CREATE] Screenplay created: ${newScreenplay.id}`);
+        console.log(`   - Name in database: ${newScreenplay.name}`);
+        console.log(`   - Version: ${newScreenplay.version}`);
+        
+        // Update state to database-linked
+        this.sourceOrigin = 'database';
+        this.sourceIdentifier = newScreenplay.id;
+        this.currentScreenplay = newScreenplay;
+        this.isDirty = false;
+        this.currentFileName = '';
+        
+        console.log(`✅ [CREATE] Screenplay linked to editor: ${newScreenplay.name}`);
+      },
+      error: (error) => {
+        console.error('❌ [CREATE] Failed to create screenplay:', error);
+        console.error('   - Error details:', JSON.stringify(error, null, 2));
+        alert(`Falha ao criar roteiro no banco: ${error.message || 'Erro desconhecido'}`);
+      }
+    });
+  }
+
   private loadScreenplayIntoEditor(screenplay: Screenplay): void {
     // Clear previous state
     this.agentInstances.clear();
     this.agents = [];
 
+    // SAGA-005 v2: Clear chat when loading new screenplay
+    this.clearChatState();
+
     // Set current screenplay
     this.currentScreenplay = screenplay;
     this.isDirty = false;
+    this.currentFileName = ''; // Clear disk filename
 
-    // Load content into editor
+    // SAGA-005: Update state for database-linked screenplay
+    this.sourceOrigin = 'database';
+    this.sourceIdentifier = screenplay.id;
+
+    console.log(`📖 [LOAD] Loading screenplay into editor:`, screenplay.name);
+    console.log(`   - Content length:`, screenplay.content.length, 'chars');
+    console.log(`   - First 100 chars:`, screenplay.content.substring(0, 100));
+
+    // CRITICAL: Set editorContent first (backward compatibility with old code)
+    this.editorContent = screenplay.content;
+
+    // SAGA-005 v2: Temporarily disable auto-save to prevent interference
+    const originalAutoSave = this.autoSaveTimeout;
+    this.autoSaveTimeout = null;
+
+    // Then update TipTap editor
     this.interactiveEditor.setContent(screenplay.content, true);
 
-    console.log(`📖 Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`);
+    // Restore auto-save after a short delay
+    setTimeout(() => {
+      this.autoSaveTimeout = originalAutoSave;
+    }, 100);
+
+    console.log(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`);
   }
 
   saveCurrentScreenplay(): void {
-    if (!this.currentScreenplay || !this.isDirty) {
+    if (!this.currentScreenplay) {
+      console.log('⏭️ No screenplay loaded');
+      return;
+    }
+    
+    if (!this.isDirty) {
       console.log('⏭️ No changes to save');
       return;
     }
@@ -965,6 +1763,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
     // 1. Get current markdown content
     let markdown = this.interactiveEditor.getMarkdown();
+    
+    console.log('📝 [GENERATE] Generating markdown for save:');
+    console.log('   - Content length:', markdown.length);
+    console.log('   - First 200 chars:', markdown.substring(0, 200));
+    console.log('   - Source origin:', this.sourceOrigin);
+    console.log('   - Is dirty:', this.isDirty);
 
     // 2. Group instances by emoji for ordered processing
     const instancesByEmoji = new Map<string, AgentInstance[]>();
@@ -1370,10 +2174,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   // === Event Handlers ===
   handleContentUpdate(newContent: string): void {
-    // Mark content as dirty (has unsaved changes)
-    if (this.currentScreenplay) {
-      this.isDirty = true;
-    }
+    // SAGA-005 v2: Mark content as dirty for any source origin
+    this.isDirty = true;
 
     // Debounce to avoid too many updates while typing
     clearTimeout(this.updateTimeout);
@@ -1384,12 +2186,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
       // Passa o conteúdo mais recente para a lógica de sincronização
       this.syncAgentsWithMarkdown(newContent);
 
-      // Auto-save: save 3 seconds after user stops typing
-      if (this.currentScreenplay && this.isDirty) {
+      // Auto-save: only for database-linked screenplays and only after user interaction
+      if (this.isDirty && this.sourceOrigin === 'database' && this.currentScreenplay) {
         clearTimeout(this.autoSaveTimeout);
         this.autoSaveTimeout = setTimeout(() => {
           console.log('💾 Auto-saving screenplay...');
-          this.saveCurrentScreenplay();
+          this.save();
         }, 3000);
       }
     }, 1000);
@@ -1977,9 +2779,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
   @HostListener('document:keydown.meta.s', ['$event'])
   handleSaveShortcut(event: Event): void {
     event.preventDefault();
-    if (this.currentScreenplay && this.isDirty) {
+    if (this.isDirty) {
       console.log('💾 Ctrl/Cmd+S pressed - Saving screenplay');
-      this.saveCurrentScreenplay();
+      this.save();
     }
   }
 
