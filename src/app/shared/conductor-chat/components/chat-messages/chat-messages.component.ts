@@ -2,6 +2,7 @@ import { Component, Input, ElementRef, ViewChild, AfterViewChecked } from '@angu
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Message } from '../../models/chat.models';
+import { marked } from 'marked';
 
 @Component({
   selector: 'app-chat-messages',
@@ -16,15 +17,20 @@ import { Message } from '../../models/chat.models';
         [class.bot-message]="message.type === 'bot'"
         [class.system-message]="message.type === 'system'"
       >
-        <div class="message-content">
-          <strong *ngIf="message.type !== 'system'">{{ message.type === 'user' ? 'Você:' : 'Conductor:' }}</strong>
-          <span
-            *ngIf="shouldFormatAsHtml(message.content)"
-            [innerHTML]="formatMessage(message.content)"
-          ></span>
-          <span *ngIf="!shouldFormatAsHtml(message.content)">
-            {{ message.content }}
-          </span>
+        <!-- User and System Messages -->
+        <div *ngIf="message.type !== 'bot'" class="message-content">
+          <strong *ngIf="message.type !== 'system'">Você:</strong>
+          <span>{{ message.content }}</span>
+        </div>
+
+        <!-- Bot Messages with Markdown and Copy Button -->
+        <div *ngIf="message.type === 'bot'" class="message-content bot-content-wrapper">
+          <button class="copy-btn" (click)="copyToClipboard(message)">
+            <span *ngIf="copiedMessageId !== message.id">📋</span>
+            <span *ngIf="copiedMessageId === message.id">✅</span>
+          </button>
+          <strong>Conductor:</strong>
+          <div class="markdown-content" [innerHTML]="formatMessage(message.content)"></div>
         </div>
       </div>
 
@@ -44,13 +50,14 @@ import { Message } from '../../models/chat.models';
         class="message bot-message"
       >
         <div class="message-content">
-          <strong>Conductor:</strong> {{ streamingMessage.content }}
+          <strong>Conductor:</strong>
+          <div class="markdown-content" [innerHTML]="formatMessage(streamingMessage.content)"></div>
         </div>
       </div>
 
       <!-- Typing indicator -->
       <div
-        *ngIf="isLoading && !progressMessage"
+        *ngIf="isLoading && !progressMessage && !streamingMessage"
         class="message bot-message"
       >
         <div class="message-content">
@@ -91,6 +98,7 @@ import { Message } from '../../models/chat.models';
       word-wrap: break-word;
       animation: fadeIn 0.3s ease;
       font-size: 13px;
+      position: relative; /* For copy button positioning */
     }
 
     .user-message {
@@ -105,6 +113,10 @@ import { Message } from '../../models/chat.models';
       color: #2c3e50;
       align-self: flex-start;
       border: 1px solid #e1e4e8;
+    }
+
+    .bot-message:hover .copy-btn {
+      opacity: 1;
     }
 
     .system-message {
@@ -135,6 +147,55 @@ import { Message } from '../../models/chat.models';
       display: block;
       margin-bottom: 4px;
       font-weight: 600;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #f0f3f7;
+      border: 1px solid #e1e4e8;
+      color: #6b7280;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .copy-btn:hover {
+      background: #e1e4e8;
+    }
+
+    .markdown-content ::ng-deep pre {
+      background-color: #f3f4f6;
+      border-radius: 4px;
+      padding: 12px;
+      overflow-x: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+    }
+
+    .markdown-content ::ng-deep code {
+      background-color: #f3f4f6;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .markdown-content ::ng-deep p {
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+
+    .markdown-content ::ng-deep ul, .markdown-content ::ng-deep ol {
+      padding-left: 20px;
+      margin-bottom: 8px;
     }
 
     .typing-indicator {
@@ -209,6 +270,7 @@ export class ChatMessagesComponent implements AfterViewChecked {
   @ViewChild('messagesContainer') messagesContainer?: ElementRef;
 
   private shouldScrollToBottom = false;
+  copiedMessageId: string | null = null;
 
   constructor(private sanitizer: DomSanitizer) {}
 
@@ -230,18 +292,25 @@ export class ChatMessagesComponent implements AfterViewChecked {
     }
   }
 
-  shouldFormatAsHtml(content: string): boolean {
+  formatMessage(content: string): SafeHtml {
     if (!content || typeof content !== 'string') {
-      return false;
+      return '';
     }
-    return content.includes('<ul>') ||
-           content.includes('<li>') ||
-           content.includes('<code>') ||
-           content.includes('<strong>') ||
-           content.includes('<em>');
+    // Use marked to parse markdown content
+    const rawHtml = marked(content) as string;
+    // Sanitize the HTML before rendering
+    return this.sanitizer.bypassSecurityTrustHtml(rawHtml);
   }
 
-  formatMessage(content: string): SafeHtml {
-    return this.sanitizer.sanitize(1, content) || content;
+  copyToClipboard(message: Message): void {
+    if (!message || !message.content) return;
+    navigator.clipboard.writeText(message.content).then(() => {
+      this.copiedMessageId = message.id;
+      setTimeout(() => {
+        this.copiedMessageId = null;
+      }, 2000);
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
   }
 }
