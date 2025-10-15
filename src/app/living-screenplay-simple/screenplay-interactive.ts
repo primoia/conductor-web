@@ -1,12 +1,13 @@
-import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
 import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
 import { AgentSelectorModalComponent, AgentSelectionData } from './agent-selector-modal/agent-selector-modal.component';
 import { AgentPreviewModalComponent, PreviewData, PreviewAction } from './agent-preview-modal/agent-preview-modal.component';
-import { AgentService } from '../services/agent.service';
+import { AgentService, Agent } from '../services/agent.service';
 import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.component';
 import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
@@ -95,6 +96,11 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
               <button (click)="exportToDisk()">Exportar para Disco...</button>
             </menu>
           </details>
+          
+          <!-- Loading indicator -->
+          <div *ngIf="isLoading" class="loading-indicator">
+            <span>Carregando screenplay...</span>
+          </div>
           <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
 
           <!-- SAGA-005 v2: Simplified file indicator - only database and new -->
@@ -274,6 +280,21 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       <div class="chat-panel" [style.width.%]="chatWidth">
         <app-conductor-chat #conductorChat></app-conductor-chat>
       </div>
+
+      <!-- Agent Launcher Dock -->
+      <div class="agent-launcher-dock">
+        <div class="dock-section">
+          <div class="dock-section-title">Agents</div>
+          <button 
+            *ngFor="let agent of contextualAgents" 
+            class="dock-item" 
+            [class.active]="activeAgentId === agent.id"
+            [title]="agent.definition.description" 
+            (click)="onDockAgentClick(agent)">
+            {{ agent.emoji }}
+          </button>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -327,6 +348,14 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       overflow: hidden;
       transition: width 0.1s ease-out;
       flex-shrink: 0;
+    }
+
+
+    .dock-separator {
+      width: 80%;
+      border: none;
+      border-top: 1px solid #4a5568;
+      margin: 10px 0;
     }
 
     .control-panel {
@@ -840,9 +869,136 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       pointer-events: auto;
     }
 
+    /* Agent Launcher Dock Styles */
+    .agent-launcher-dock {
+      width: 60px;
+      flex-shrink: 0;
+      background: #f0f3f7;
+      padding: 10px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      border-left: 1px solid #e1e4e8;
+      border-right: 1px solid #e1e4e8;
+      position: relative;
+      z-index: 10;
+      overflow-y: auto;
+      max-height: 100vh;
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e0 #f0f3f7;
+    }
+
+    .agent-launcher-dock::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .agent-launcher-dock::-webkit-scrollbar-track {
+      background: #f0f3f7;
+    }
+
+    .agent-launcher-dock::-webkit-scrollbar-thumb {
+      background: #cbd5e0;
+      border-radius: 2px;
+    }
+
+    .agent-launcher-dock::-webkit-scrollbar-thumb:hover {
+      background: #a0aec0;
+    }
+
+    .dock-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .dock-section-title {
+      font-size: 10px;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .dock-item {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e1e4e8;
+      cursor: pointer;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .dock-item:hover {
+      background: #f7fafc;
+      border-color: #a8b9ff;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .dock-item:active {
+      transform: scale(0.95);
+    }
+
+    .dock-item.active {
+      background: #ebf4ff;
+      border-color: #7c9ff6;
+      box-shadow: 0 0 0 2px rgba(124, 159, 246, 0.3);
+      transform: scale(1.05);
+    }
+
+    .dock-item.active:hover {
+      background: #dbeafe;
+      border-color: #60a5fa;
+      transform: scale(1.15);
+    }
+
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .agent-launcher-dock {
+        width: 50px;
+        padding: 8px 0;
+      }
+      
+      .dock-item {
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+      }
+      
+      .dock-section-title {
+        font-size: 9px;
+      }
+    }
+
+    .loading-indicator {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #007bff;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
   `]
 })
-export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
+export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
   @ViewChild(ConductorChatComponent) conductorChat!: ConductorChatComponent;
@@ -868,6 +1024,10 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   // SAGA-005: New state management for file synchronization
   sourceOrigin: 'database' | 'disk' | 'new' = 'new';
   sourceIdentifier: string | null = null;
+
+  // URL state management
+  private pendingScreenplayId: string | null = null;
+  isLoading = false;
 
   // Estado do popup
   popupVisible = false;
@@ -901,6 +1061,10 @@ export class ScreenplayInteractive implements AfterViewInit, OnDestroy {
   // Agent execution service integration
   private agentStateSubscription?: Subscription;
   public selectedAgent: AgentInstance | null = null;
+
+  // Agent Dock properties
+  public contextualAgents: AgentInstance[] = [];
+  public activeAgentId: string | null = null;
 
   // Conteúdo do editor (fonte da verdade)
   editorContent = `# 🎬 Roteiro Vivo Interativo
@@ -946,7 +1110,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     private agentExecutionService: AgentExecutionService,
     private screenplayService: ScreenplayService,
     private agentService: AgentService,
-    private screenplayStorage: ScreenplayStorage
+    private screenplayStorage: ScreenplayStorage,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     // Subscribe to agent execution state changes
     this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
@@ -1018,16 +1184,56 @@ Aqui temos alguns agentes distribuídos pelo documento:
       });
   }
 
+  ngOnInit(): void {
+    // Subscribe to URL query parameter changes
+    this.route.queryParamMap.subscribe(params => {
+      const screenplayId = params.get('screenplayId');
+      
+      // Prevent reload if ID hasn't changed
+      if (screenplayId === this.currentScreenplay?.id) {
+        return;
+      }
+      
+      // Check for unsaved changes before loading new screenplay
+      if (this.isDirty && screenplayId !== this.currentScreenplay?.id) {
+        const confirmed = confirm(
+          'Você tem alterações não salvas. Deseja descartá-las e carregar um novo screenplay?'
+        );
+        if (!confirmed) {
+          // Revert URL to current screenplay
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { screenplayId: this.currentScreenplay?.id || null },
+            replaceUrl: true
+          });
+          return;
+        }
+      }
+      
+      this.pendingScreenplayId = screenplayId;
+    });
+  }
+
   ngAfterViewInit(): void {
     // Load instances from MongoDB (primary source) with localStorage fallback
     this.loadInstancesFromMongoDB();
 
     // Define conteúdo inicial no editor, que disparará o evento de sincronização automaticamente
     setTimeout(() => {
-      this.interactiveEditor.setContent(this.editorContent, true);
+      if (this.pendingScreenplayId) {
+        // Load screenplay from URL
+        this.loadScreenplayById(this.pendingScreenplayId);
+        this.pendingScreenplayId = null;
+      } else {
+        // Load default content
+        this.interactiveEditor.setContent(this.editorContent, true);
+      }
       // Inicializa o ScreenplayService com a instância do editor TipTap
       this.screenplayService.initialize(this.interactiveEditor.getEditor());
     }, 0);
+
+    // Initialize agent dock lists
+    this.updateAgentDockLists();
   }
 
   ngOnDestroy(): void {
@@ -1099,14 +1305,25 @@ Aqui temos alguns agentes distribuídos pelo documento:
       case 'open':
         if (event.screenplay) {
           this.loadScreenplayIntoEditor(event.screenplay);
+          this.updateUrlWithScreenplayId(event.screenplay.id);
         }
         break;
       case 'create':
         if (event.screenplay) {
           this.loadScreenplayIntoEditor(event.screenplay);
+          this.updateUrlWithScreenplayId(event.screenplay.id);
         }
         break;
     }
+  }
+
+  private updateUrlWithScreenplayId(id: string): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { screenplayId: id },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
   }
 
   // === Disk File Operations ===
@@ -1683,6 +1900,43 @@ Aqui temos alguns agentes distribuídos pelo documento:
     });
   }
 
+  private loadScreenplayById(id: string): void {
+    this.isLoading = true;
+    this.screenplayStorage.getScreenplay(id).subscribe({
+      next: (screenplay) => {
+        if (screenplay.isDeleted) {
+          console.error('Screenplay was deleted');
+          alert('Este roteiro foi deletado.');
+          this.loadDefaultContent();
+          this.clearInvalidUrl();
+          this.isLoading = false;
+          return;
+        }
+        this.loadScreenplayIntoEditor(screenplay);
+        this.isLoading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load screenplay:', err);
+        alert('Não foi possível carregar o roteiro. Carregando padrão.');
+        this.loadDefaultContent();
+        this.clearInvalidUrl();
+        this.isLoading = false;
+      }
+    });
+  }
+
+  private loadDefaultContent(): void {
+    this.interactiveEditor.setContent(this.editorContent, true);
+  }
+
+  private clearInvalidUrl(): void {
+    this.router.navigate([], { 
+      relativeTo: this.route, 
+      queryParams: {},
+      replaceUrl: true 
+    });
+  }
+
   private loadScreenplayIntoEditor(screenplay: Screenplay): void {
     // Clear previous state
     this.agentInstances.clear();
@@ -1956,6 +2210,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Update legacy structures for backward compatibility
     this.updateAvailableEmojis();
     this.updateLegacyAgentsFromInstances();
+
+    // Update agent dock lists
+    this.updateAgentDockLists();
   }
 
   private updateAvailableEmojis(): void {
@@ -2548,6 +2805,26 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   getAgentInstancesAsArray(): AgentInstance[] {
     return Array.from(this.agentInstances.values());
+  }
+
+  // === Agent Dock Methods ===
+
+  private updateAgentDockLists(): void {
+    // Popula agentes contextuais a partir das instâncias no documento
+    this.contextualAgents = this.getAgentInstancesAsArray();
+    console.log(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento`);
+  }
+
+  public onDockAgentClick(agent: AgentInstance): void {
+    console.log(`🔄 Dock: Carregando agente: ${agent.definition.title}`);
+    this.activeAgentId = agent.id;
+    this.conductorChat.loadContextForAgent(
+      agent.id, 
+      agent.definition.title, 
+      agent.emoji, 
+      agent.agent_id, 
+      agent.config?.cwd
+    );
   }
 
   hasSomeAgentsForEmoji(emoji: string): boolean {
