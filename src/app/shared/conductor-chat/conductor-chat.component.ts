@@ -551,6 +551,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   selectedAgentDbId: string | null = null; // MongoDB agent_id
   selectedAgentName: string | null = null;
   selectedAgentEmoji: string | null = null;
+  activeScreenplayId: string | null = null; // SAGA-006: Add screenplay ID for document association
   showPersonaModal = false;
 
   // CWD management
@@ -679,7 +680,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.addProgressMessage('🚀 Executando agente...');
 
       this.subscriptions.add(
-        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId, cwd).subscribe({
+        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId, cwd, this.activeScreenplayId || undefined).subscribe({
           next: (result) => {
             console.log('✅ Agent execution result:', result);
             this.progressMessage = null;
@@ -875,14 +876,16 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * @param agentEmoji - Optional agent emoji to display in header
    * @param agentDbId - Optional MongoDB agent_id for direct execution
    * @param cwd - Optional working directory for the agent
+   * @param screenplayId - Optional screenplay ID for document association
    */
-  loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string, cwd?: string): void {
+  loadContextForAgent(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string, cwd?: string, screenplayId?: string): void {
     console.log('================================================================================');
     console.log('📥 [CHAT] loadContextForAgent chamado:');
     console.log('   - instanceId (instance_id):', instanceId);
     console.log('   - agentDbId (agent_id MongoDB):', agentDbId);
     console.log('   - agentName:', agentName);
     console.log('   - agentEmoji:', agentEmoji);
+    console.log('   - screenplayId:', screenplayId || 'não fornecido');
     console.log('================================================================================');
 
     if (!agentDbId) {
@@ -898,6 +901,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentDbId = agentDbId || null;
     this.selectedAgentName = agentName || null;
     this.selectedAgentEmoji = agentEmoji || null;
+    this.activeScreenplayId = screenplayId || null; // SAGA-006: Store screenplay ID for document association
     // Don't set activeAgentCwd here - it will be loaded from MongoDB in getAgentContext
     this.chatState.isLoading = true;
 
@@ -906,6 +910,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     console.log('   - this.selectedAgentDbId (agent_id):', this.selectedAgentDbId);
     console.log('   - this.selectedAgentName:', this.selectedAgentName);
     console.log('   - this.selectedAgentEmoji:', this.selectedAgentEmoji);
+    console.log('   - this.activeScreenplayId:', this.activeScreenplayId);
 
     this.subscriptions.add(
       this.agentService.getAgentContext(instanceId).subscribe({

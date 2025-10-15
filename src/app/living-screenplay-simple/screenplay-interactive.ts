@@ -1145,12 +1145,81 @@ Aqui temos alguns agentes distribuídos pelo documento:
     });
   }
 
+  /**
+   * SAGA-006: Salva o roteiro antes de criar a instância do agente
+   * Usado quando o roteiro ainda não foi salvo (não tem ID)
+   */
+  private saveScreenplayBeforeAgentCreation(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
+    console.log('💾 [AUTO-SAVE] Salvando roteiro antes de criar instância do agente...');
+    
+    // Se for um roteiro novo, criar no banco
+    if (this.sourceOrigin === 'new') {
+      const content = this.generateMarkdownForSave();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const defaultName = `novo-roteiro-${timestamp}`;
+      
+      console.log(`💾 [AUTO-SAVE] Criando roteiro: ${defaultName}`);
+      
+      this.screenplayStorage.createScreenplay({
+        name: defaultName,
+        content: content,
+        description: `Criado automaticamente em ${new Date().toLocaleDateString()}`
+      }).subscribe({
+        next: (newScreenplay) => {
+          console.log(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`);
+          
+          // Atualizar estado
+          this.sourceOrigin = 'database';
+          this.sourceIdentifier = newScreenplay.id;
+          this.currentScreenplay = newScreenplay;
+          this.isDirty = false;
+          
+          // Agora criar a instância do agente
+          this.createAgentInstanceInMongoDB(instanceId, agentId, position, cwd);
+        },
+        error: (error) => {
+          console.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error);
+          alert('Falha ao salvar o roteiro. Tente novamente.');
+        }
+      });
+    } else {
+      // Se for um roteiro existente, apenas salvar
+      this.saveCurrentScreenplay();
+      
+      // Aguardar um pouco e tentar novamente
+      setTimeout(() => {
+        if (this.currentScreenplay?.id) {
+          console.log('✅ [AUTO-SAVE] Roteiro salvo, criando instância do agente...');
+          this.createAgentInstanceInMongoDB(instanceId, agentId, position, cwd);
+        } else {
+          console.error('❌ [AUTO-SAVE] Falha ao salvar roteiro, não foi possível criar instância');
+          alert('Falha ao salvar o roteiro. Tente novamente.');
+        }
+      }, 1000);
+    }
+  }
+
   private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
     console.log('💾 [SCREENPLAY] Criando instância no MongoDB:');
     console.log('   - instance_id:', instanceId);
     console.log('   - agent_id:', agentId);
     console.log('   - position:', position);
     console.log('   - cwd:', cwd || 'não definido');
+    console.log('   - screenplay_id:', this.currentScreenplay?.id || 'não disponível');
+    console.log('   - currentScreenplay completo:', this.currentScreenplay);
+    console.log('   - currentScreenplay.id tipo:', typeof this.currentScreenplay?.id);
+    console.log('   - currentScreenplay.id valor:', this.currentScreenplay?.id);
+
+    // SAGA-006: Verificar se o roteiro foi salvo (tem ID)
+    if (!this.currentScreenplay?.id) {
+      console.log('⚠️ [SCREENPLAY] Roteiro não foi salvo ainda! Salvando automaticamente...');
+      console.log('   - sourceOrigin:', this.sourceOrigin);
+      console.log('   - isDirty:', this.isDirty);
+      
+      // Salvar o roteiro primeiro
+      this.saveScreenplayBeforeAgentCreation(instanceId, agentId, position, cwd);
+      return;
+    }
 
     // Call gateway to create instance record
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
@@ -1161,8 +1230,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
       position: position,
       created_at: new Date().toISOString(),
       is_system_default: false, // SAGA-006: Default to false for regular agents
-      is_hidden: false // SAGA-006: Default to false for regular agents
+      is_hidden: false, // SAGA-006: Default to false for regular agents
+      screenplay_id: this.currentScreenplay?.id // SAGA-006: Add screenplay_id to associate agent with screenplay
     };
+
+    console.log('🔍 [DEBUG] Payload completo antes do envio:');
+    console.log('   - payload.screenplay_id:', payload.screenplay_id);
+    console.log('   - payload.screenplay_id tipo:', typeof payload.screenplay_id);
+    console.log('   - payload completo:', JSON.stringify(payload, null, 2));
 
     // Add cwd if provided
     if (cwd) {
@@ -1277,7 +1352,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
         agent.id,
         agent.definition.title,
         agent.emoji,
-        agent.agent_id
+        agent.agent_id,
+        undefined, // cwd
+        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
     }
     
@@ -1314,11 +1391,80 @@ Aqui temos alguns agentes distribuídos pelo documento:
   /**
    * SAGA-006: Create default agent instance in MongoDB
    */
+  /**
+   * SAGA-006: Salva o roteiro antes de criar a instância do agente padrão
+   * Usado quando o roteiro ainda não foi salvo (não tem ID)
+   */
+  private saveScreenplayBeforeDefaultAgentCreation(instanceId: string, agentId: string, position: CirclePosition): void {
+    console.log('💾 [AUTO-SAVE] Salvando roteiro antes de criar instância do agente padrão...');
+    
+    // Se for um roteiro novo, criar no banco
+    if (this.sourceOrigin === 'new') {
+      const content = this.generateMarkdownForSave();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const defaultName = `novo-roteiro-${timestamp}`;
+      
+      console.log(`💾 [AUTO-SAVE] Criando roteiro: ${defaultName}`);
+      
+      this.screenplayStorage.createScreenplay({
+        name: defaultName,
+        content: content,
+        description: `Criado automaticamente em ${new Date().toLocaleDateString()}`
+      }).subscribe({
+        next: (newScreenplay) => {
+          console.log(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`);
+          
+          // Atualizar estado
+          this.sourceOrigin = 'database';
+          this.sourceIdentifier = newScreenplay.id;
+          this.currentScreenplay = newScreenplay;
+          this.isDirty = false;
+          
+          // Agora criar a instância do agente padrão
+          this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+        },
+        error: (error) => {
+          console.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error);
+          alert('Falha ao salvar o roteiro. Tente novamente.');
+        }
+      });
+    } else {
+      // Se for um roteiro existente, apenas salvar
+      this.saveCurrentScreenplay();
+      
+      // Aguardar um pouco e tentar novamente
+      setTimeout(() => {
+        if (this.currentScreenplay?.id) {
+          console.log('✅ [AUTO-SAVE] Roteiro salvo, criando instância do agente padrão...');
+          this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+        } else {
+          console.error('❌ [AUTO-SAVE] Falha ao salvar roteiro, não foi possível criar instância');
+          alert('Falha ao salvar o roteiro. Tente novamente.');
+        }
+      }, 1000);
+    }
+  }
+
   private createDefaultAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition): void {
     console.log('💾 [DEFAULT AGENT] Creating default agent instance in MongoDB:');
     console.log('   - instance_id:', instanceId);
     console.log('   - agent_id:', agentId);
     console.log('   - position:', position);
+    console.log('   - screenplay_id:', this.currentScreenplay?.id || 'não disponível');
+    console.log('   - currentScreenplay completo:', this.currentScreenplay);
+    console.log('   - currentScreenplay.id tipo:', typeof this.currentScreenplay?.id);
+    console.log('   - currentScreenplay.id valor:', this.currentScreenplay?.id);
+
+    // SAGA-006: Verificar se o roteiro foi salvo (tem ID)
+    if (!this.currentScreenplay?.id) {
+      console.log('⚠️ [DEFAULT AGENT] Roteiro não foi salvo ainda! Salvando automaticamente...');
+      console.log('   - sourceOrigin:', this.sourceOrigin);
+      console.log('   - isDirty:', this.isDirty);
+      
+      // Salvar o roteiro primeiro
+      this.saveScreenplayBeforeDefaultAgentCreation(instanceId, agentId, position);
+      return;
+    }
 
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
 
@@ -1328,8 +1474,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
       position: position,
       created_at: new Date().toISOString(),
       is_system_default: true, // SAGA-006: Mark as system default
-      is_hidden: false // SAGA-006: Not hidden by default
+      is_hidden: false, // SAGA-006: Not hidden by default
+      screenplay_id: this.currentScreenplay?.id // SAGA-006: Add screenplay_id to associate agent with screenplay
     };
+
+    console.log('🔍 [DEBUG] Payload completo (DEFAULT AGENT) antes do envio:');
+    console.log('   - payload.screenplay_id:', payload.screenplay_id);
+    console.log('   - payload.screenplay_id tipo:', typeof payload.screenplay_id);
+    console.log('   - payload completo:', JSON.stringify(payload, null, 2));
 
     fetch(`${baseUrl}/api/agents/instances`, {
       method: 'POST',
@@ -2061,7 +2213,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
    */
   private promptCreateNewScreenplay(): void {
     const content = this.generateMarkdownForSave();
-    const defaultName = this.sourceIdentifier || 'roteiro-novo';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const defaultName = `novo-roteiro-${timestamp}`;
     
     console.log(`💾 [PROMPT] Prompting for new screenplay name`);
     console.log(`   - Default name: ${defaultName}`);
@@ -2778,7 +2931,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
         instance.definition.title,
         instance.emoji,
         instance.agent_id,  // Pass MongoDB agent_id for direct execution
-        instance.config?.cwd  // Pass working directory if defined
+        instance.config?.cwd,  // Pass working directory if defined
+        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
       console.log('💬 Carregando contexto no chat:');
       console.log('   - instance_id passado:', instance.id);
@@ -3103,7 +3257,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
       agent.definition.title, 
       agent.emoji, 
       agent.agent_id, 
-      agent.config?.cwd
+      agent.config?.cwd,
+      this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
     );
   }
 
