@@ -43,6 +43,8 @@ interface AgentInstance {
   status: 'pending' | 'queued' | 'running' | 'completed' | 'error';
   position: CirclePosition; // XY position on screen
   executionState?: AgentExecutionState; // Link to execution service state
+  is_system_default?: boolean; // SAGA-006: Flag for system default agents
+  is_hidden?: boolean; // SAGA-006: Flag for hidden agents
   config?: {
     cwd?: string; // Working directory for agent execution
     createdAt?: Date;
@@ -87,7 +89,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
           <details class="file-controls-menu">
             <summary>Arquivo</summary>
             <menu>
-              <button (click)="newScreenplay()">Novo Roteiro</button>
+              <button (click)="newScreenplayWithDefaultAgent()">Novo Roteiro</button>
               <button (click)="openScreenplayManager()">Abrir do Banco...</button>
               <button (click)="importFromDisk()">Importar do Disco...</button>
               <hr>
@@ -1157,7 +1159,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
       instance_id: instanceId,
       agent_id: agentId,
       position: position,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      is_system_default: false, // SAGA-006: Default to false for regular agents
+      is_hidden: false // SAGA-006: Default to false for regular agents
     };
 
     // Add cwd if provided
@@ -1181,6 +1185,243 @@ Aqui temos alguns agentes distribuídos pelo documento:
       })
       .catch(error => {
         console.error('❌ [SCREENPLAY] Erro ao criar instância no MongoDB:', error);
+      });
+  }
+
+  /**
+   * SAGA-006: Create default agent instance for new screenplays
+   */
+  private async createDefaultAgentInstance(): Promise<void> {
+    console.log('🤖 [DEFAULT AGENT] Creating default agent instance');
+    
+    try {
+      // Generate instance ID
+      const instanceId = this.generateUUID();
+      
+      // Default agent configuration
+      const agentId = 'ScreenplayAssistant_Agent';
+      const emoji = '🎬';
+      const position: CirclePosition = { x: 100, y: 100 };
+      
+      // SAGA-006: Insert emoji into editor content first
+      this.insertEmojiIntoEditor(emoji, instanceId);
+      
+      // Create agent instance in memory
+      const defaultInstance: AgentInstance = {
+        id: instanceId,
+        agent_id: agentId,
+        emoji: emoji,
+        definition: {
+          title: 'Assistente de Roteiro',
+          description: 'Agente especializado em ajudar com roteiros e narrativas',
+          unicode: '\\u{1F3AC}'
+        },
+        status: 'pending',
+        position: position,
+        is_system_default: true, // SAGA-006: Mark as system default
+        is_hidden: false, // SAGA-006: Not hidden by default
+        config: {
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      };
+      
+      // Add to agent instances
+      this.agentInstances.set(instanceId, defaultInstance);
+      
+      // Update legacy structures
+      this.updateLegacyAgentsFromInstances();
+      this.updateAvailableEmojis();
+      this.updateAgentDockLists();
+      
+      // Create in MongoDB with system default flags
+      this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+      
+      // Auto-activate the default agent in chat
+      this.activateDefaultAgent(defaultInstance);
+      
+      console.log('✅ [DEFAULT AGENT] Default agent instance created and activated');
+      
+    } catch (error) {
+      console.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error);
+    }
+  }
+
+  /**
+   * SAGA-006: Insert emoji into editor content
+   */
+  private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
+    console.log('📝 [DEFAULT AGENT] Inserting emoji into editor:', emoji);
+    
+    // Insert emoji at the beginning of the editor with a new line
+    this.interactiveEditor.insertContent(emoji + '\n\n');
+    
+    // Update editor content to trigger sync
+    this.editorContent = this.interactiveEditor.getMarkdown();
+    
+    console.log('✅ [DEFAULT AGENT] Emoji inserted into editor');
+  }
+
+  /**
+   * SAGA-006: Activate default agent in chat panel
+   */
+  private activateDefaultAgent(agent: AgentInstance): void {
+    console.log('🎯 [DEFAULT AGENT] Activating default agent in chat');
+    
+    // Set as active agent
+    this.activeAgentId = agent.id;
+    
+    // Load context in chat
+    if (this.conductorChat) {
+      this.conductorChat.loadContextForAgent(
+        agent.id,
+        agent.definition.title,
+        agent.emoji,
+        agent.agent_id
+      );
+    }
+    
+    console.log('✅ [DEFAULT AGENT] Default agent activated in chat');
+  }
+
+  /**
+   * SAGA-006: Hide agent instead of deleting (for system default agents)
+   */
+  hideAgent(instanceId: string): void {
+    console.log('👁️ [HIDE AGENT] Hiding agent:', instanceId);
+    
+    const agent = this.agentInstances.get(instanceId);
+    if (!agent) {
+      console.warn('⚠️ [HIDE AGENT] Agent not found:', instanceId);
+      return;
+    }
+    
+    // Update agent to hidden state
+    agent.is_hidden = true;
+    this.agentInstances.set(instanceId, agent);
+    
+    // Update UI
+    this.updateLegacyAgentsFromInstances();
+    this.updateAvailableEmojis();
+    this.updateAgentDockLists();
+    
+    // Update in MongoDB
+    this.updateAgentInMongoDB(instanceId, { is_hidden: true });
+    
+    console.log('✅ [HIDE AGENT] Agent hidden successfully');
+  }
+
+  /**
+   * SAGA-006: Create default agent instance in MongoDB
+   */
+  private createDefaultAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition): void {
+    console.log('💾 [DEFAULT AGENT] Creating default agent instance in MongoDB:');
+    console.log('   - instance_id:', instanceId);
+    console.log('   - agent_id:', agentId);
+    console.log('   - position:', position);
+
+    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+
+    const payload: any = {
+      instance_id: instanceId,
+      agent_id: agentId,
+      position: position,
+      created_at: new Date().toISOString(),
+      is_system_default: true, // SAGA-006: Mark as system default
+      is_hidden: false // SAGA-006: Not hidden by default
+    };
+
+    fetch(`${baseUrl}/api/agents/instances`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [DEFAULT AGENT] Default agent instance created in MongoDB successfully');
+        } else {
+          console.warn('⚠️ [DEFAULT AGENT] Failed to create default agent instance in MongoDB:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [DEFAULT AGENT] Error creating default agent instance in MongoDB:', error);
+      });
+  }
+
+  /**
+   * SAGA-006: Update agent in MongoDB
+   */
+  private updateAgentInMongoDB(instanceId: string, updates: any): void {
+    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+    
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updates)
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [MONGODB] Agent updated successfully');
+        } else {
+          console.warn('⚠️ [MONGODB] Failed to update agent:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [MONGODB] Error updating agent:', error);
+      });
+  }
+
+  /**
+   * SAGA-006: Delete agent (for non-system agents)
+   */
+  deleteAgent(instanceId: string): void {
+    console.log('🗑️ [DELETE AGENT] Deleting agent:', instanceId);
+    
+    const agent = this.agentInstances.get(instanceId);
+    if (!agent) {
+      console.warn('⚠️ [DELETE AGENT] Agent not found:', instanceId);
+      return;
+    }
+    
+    // Remove from memory
+    this.agentInstances.delete(instanceId);
+    
+    // Update UI
+    this.updateLegacyAgentsFromInstances();
+    this.updateAvailableEmojis();
+    this.updateAgentDockLists();
+    
+    // Delete from MongoDB
+    this.deleteAgentFromMongoDB(instanceId);
+    
+    console.log('✅ [DELETE AGENT] Agent deleted successfully');
+  }
+
+  /**
+   * SAGA-006: Delete agent from MongoDB
+   */
+  private deleteAgentFromMongoDB(instanceId: string): void {
+    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+    
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [MONGODB] Agent deleted successfully');
+        } else {
+          console.warn('⚠️ [MONGODB] Failed to delete agent:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [MONGODB] Error deleting agent:', error);
       });
   }
 
@@ -1290,6 +1531,40 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('✅ [NEW] New screenplay created');
   }
 
+  /**
+   * SAGA-006: Create a new screenplay with default agent - creates screenplay and instantiates default agent
+   */
+  async newScreenplayWithDefaultAgent(): Promise<void> {
+    console.log('📝 [NEW] Creating new screenplay with default agent');
+    
+    // Clear editor content
+    this.editorContent = '';
+    this.interactiveEditor.setContent('', true);
+    
+    // Reset state
+    this.sourceOrigin = 'new';
+    this.sourceIdentifier = null;
+    this.isDirty = false;
+    this.currentScreenplay = null;
+    this.currentFileName = '';
+    
+    // Clear agents
+    this.agentInstances.clear();
+    this.agents = [];
+    this.updateLegacyAgentsFromInstances();
+    this.updateAvailableEmojis();
+    
+    // SAGA-005 v2: Clear chat when creating new screenplay
+    this.clearChatState();
+    
+    // SAGA-006: Wait for editor to be ready, then create default agent instance
+    setTimeout(async () => {
+      await this.createDefaultAgentInstance();
+    }, 100);
+    
+    console.log('✅ [NEW] New screenplay with default agent created');
+  }
+
   openScreenplayManager(): void {
     this.showScreenplayManager = true;
   }
@@ -1312,6 +1587,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
         if (event.screenplay) {
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
+          // SAGA-006: Wait for editor to be ready, then create default agent for new screenplay
+          setTimeout(async () => {
+            await this.createDefaultAgentInstance();
+          }, 100);
         }
         break;
     }
@@ -2811,8 +3090,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   private updateAgentDockLists(): void {
     // Popula agentes contextuais a partir das instâncias no documento
-    this.contextualAgents = this.getAgentInstancesAsArray();
-    console.log(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento`);
+    // SAGA-006: Filter out hidden agents
+    this.contextualAgents = this.getAgentInstancesAsArray().filter(agent => !agent.is_hidden);
+    console.log(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (${this.agentInstances.size - this.contextualAgents.length} ocultos)`);
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
@@ -2875,7 +3155,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
             status: doc.status || 'pending',
             position: doc.position,
             config: doc.config,
-            executionState: doc.execution_state
+            executionState: doc.execution_state,
+            is_system_default: doc.is_system_default || false, // SAGA-006: Load system default flag
+            is_hidden: doc.is_hidden || false // SAGA-006: Load hidden flag
           };
 
           this.agentInstances.set(instance.id, instance);
