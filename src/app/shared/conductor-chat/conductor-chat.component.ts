@@ -615,6 +615,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Force save screenplay if it has unsaved changes before sending message
+    this.forceSaveScreenplayIfNeeded();
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: content.trim(),
@@ -1166,6 +1169,57 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     // Close options menu if clicking outside
     if (!target.closest('.agent-options-menu') && !target.closest('.settings-btn')) {
       this.showAgentOptionsMenu = false;
+    }
+  }
+
+  /**
+   * Handle ESC key to close modals
+   */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    // Close persona modal if open
+    if (this.showPersonaModal) {
+      this.togglePersonaModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Close CWD modal if open
+    if (this.showCwdModal) {
+      this.closeCwdModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Close agent options menu if open
+    if (this.showAgentOptionsMenu) {
+      this.showAgentOptionsMenu = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+  }
+
+  /**
+   * Force save screenplay if it has unsaved changes before sending message
+   * This prevents sending outdated data to the conductor
+   */
+  private forceSaveScreenplayIfNeeded(): void {
+    // Check if we have an active screenplay ID and need to force save
+    if (this.activeScreenplayId) {
+      console.log('💾 [CHAT] Verificando se precisa forçar salvamento do screenplay...');
+      
+      // Emit a custom event to notify the screenplay component to force save
+      const forceSaveEvent = new CustomEvent('forceSaveScreenplay', {
+        detail: { screenplayId: this.activeScreenplayId }
+      });
+      
+      // Dispatch the event on the document so the screenplay component can listen to it
+      document.dispatchEvent(forceSaveEvent);
+      
+      console.log('📤 [CHAT] Evento forceSaveScreenplay disparado para screenplay:', this.activeScreenplayId);
     }
   }
 }

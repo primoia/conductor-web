@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
@@ -305,5 +305,43 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  /**
+   * Handle ESC key to close modals and dialogs
+   */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    // Close delete confirmation dialog if open
+    if (this.showDeleteConfirm) {
+      this.cancelDialog();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Close rename dialog if open
+    if (this.showRenameDialog) {
+      this.cancelDialog();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Close create dialog if open
+    if (this.showCreateDialog) {
+      this.cancelDialog();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Close main modal if open
+    if (this.isVisible) {
+      this.closeModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
   }
 }

@@ -1605,6 +1605,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
       
       this.pendingScreenplayId = screenplayId;
     });
+
+    // Listen for force save events from chat
+    document.addEventListener('forceSaveScreenplay', this.handleForceSaveScreenplay);
   }
 
   ngAfterViewInit(): void {
@@ -1633,7 +1636,18 @@ Aqui temos alguns agentes distribuídos pelo documento:
     if (this.agentStateSubscription) {
       this.agentStateSubscription.unsubscribe();
     }
+    
+    // Remove force save event listener
+    document.removeEventListener('forceSaveScreenplay', this.handleForceSaveScreenplay);
   }
+
+  private handleForceSaveScreenplay = (event: any) => {
+    const screenplayId = event.detail?.screenplayId;
+    if (screenplayId && this.isDirty && this.currentScreenplay?.id === screenplayId) {
+      console.log('💾 [SCREENPLAY] Forçando salvamento antes do envio da mensagem...');
+      this.save();
+    }
+  };
 
   // === Screenplay Management (MongoDB Integration) ===
 
@@ -1693,13 +1707,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.editorContent = '';
     this.interactiveEditor.setContent('', true);
     
-    // Reset state
-    this.sourceOrigin = 'new';
-    this.sourceIdentifier = null;
-    this.isDirty = false;
-    this.currentScreenplay = null;
-    this.currentFileName = '';
-    
     // Clear agents
     this.agentInstances.clear();
     this.agents = [];
@@ -1709,12 +1716,58 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // SAGA-005 v2: Clear chat when creating new screenplay
     this.clearChatState();
     
-    // SAGA-006: Wait for editor to be ready, then create default agent instance
-    setTimeout(async () => {
-      await this.createDefaultAgentInstance();
-    }, 100);
+    // Create new screenplay in database immediately
+    this.createNewScreenplayImmediately();
     
     console.log('✅ [NEW] New screenplay with default agent created');
+  }
+
+  /**
+   * Create new screenplay in database immediately and update URL
+   */
+  private createNewScreenplayImmediately(): void {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const defaultName = `novo-roteiro-${timestamp}`;
+    
+    console.log(`💾 [IMMEDIATE] Creating new screenplay immediately: ${defaultName}`);
+    
+    this.screenplayStorage.createScreenplay({
+      name: defaultName,
+      content: '',
+      description: `Criado em ${new Date().toLocaleDateString()}`
+    }).subscribe({
+      next: (newScreenplay) => {
+        console.log(`✅ [IMMEDIATE] Screenplay created: ${newScreenplay.id}`);
+        
+        // Update state to database-linked
+        this.sourceOrigin = 'database';
+        this.sourceIdentifier = newScreenplay.id;
+        this.currentScreenplay = newScreenplay;
+        this.isDirty = false;
+        this.currentFileName = '';
+        
+        // Update URL with new screenplay ID
+        this.updateUrlWithScreenplayId(newScreenplay.id);
+        
+        // SAGA-006: Wait for editor to be ready, then create default agent instance
+        setTimeout(async () => {
+          await this.createDefaultAgentInstance();
+        }, 100);
+        
+        console.log(`✅ [IMMEDIATE] Screenplay linked to editor and URL updated: ${newScreenplay.name}`);
+      },
+      error: (error) => {
+        console.error('❌ [IMMEDIATE] Failed to create screenplay:', error);
+        alert(`Falha ao criar roteiro: ${error.message || 'Erro desconhecido'}`);
+        
+        // Fallback: set as new (not saved)
+        this.sourceOrigin = 'new';
+        this.sourceIdentifier = null;
+        this.currentScreenplay = null;
+        this.isDirty = false;
+        this.currentFileName = '';
+      }
+    });
   }
 
   openScreenplayManager(): void {
@@ -2322,7 +2375,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.isDirty = false;
         this.currentFileName = '';
         
+        // Update URL with new screenplay ID
+        this.updateUrlWithScreenplayId(newScreenplay.id);
+        
         console.log(`✅ [CREATE] Screenplay linked to editor: ${newScreenplay.name}`);
+        console.log(`✅ [CREATE] URL updated with screenplayId: ${newScreenplay.id}`);
       },
       error: (error) => {
         console.error('❌ [CREATE] Failed to create screenplay:', error);
@@ -2385,6 +2442,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // SAGA-005: Update state for database-linked screenplay
     this.sourceOrigin = 'database';
     this.sourceIdentifier = screenplay.id;
+
+    // Update URL with screenplay ID
+    this.updateUrlWithScreenplayId(screenplay.id);
 
     console.log(`📖 [LOAD] Loading screenplay into editor:`, screenplay.name);
     console.log(`   - Content length:`, screenplay.content.length, 'chars');
@@ -3480,11 +3540,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.isDraggingSplitter = false;
   }
 
-  @HostListener('document:keydown.escape')
-  onEscapeKey(): void {
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
     // ESC não desseleciona o agente para manter configurações e tarja amarela visíveis
     // O usuário pode clicar em outro agente ou fechar manualmente se desejar
     console.log('⎋ ESC pressed - agent remains selected');
+    
+    // Don't prevent default or stop propagation to allow child components to handle ESC
+    // This allows modals and dialogs to close properly
   }
 
   // === Keyboard Shortcuts for Screenplay Management ===
