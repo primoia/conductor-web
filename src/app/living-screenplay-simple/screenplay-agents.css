@@ -1,0 +1,302 @@
+.dock-separator {
+  width: 80%;
+  border: none;
+  border-top: 1px solid #4a5568;
+  margin: 10px 0;
+}
+
+.emoji-list {
+  margin-top: 15px;
+}
+
+.emoji-list small {
+  color: #6b7280;
+  font-size: 10px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.emoji-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emoji-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.emoji-btn {
+  width: 35px;
+  height: 35px;
+  border: 1px solid #cbd5e0;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  /* Força fontes de emoji para renderização correta */
+  font-family: 'emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important;
+}
+
+.emoji-btn:hover {
+  background: #f7fafc;
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.emoji-btn.has-some-agents {
+  border-color: #fbbf24;
+  background: #fef3c7;
+}
+
+.emoji-btn.has-all-agents {
+  border-color: #68d391;
+  background: #c6f6d5;
+}
+
+.emoji-count {
+  color: #6b7280;
+  font-size: 9px;
+}
+
+.execution-status, .queue-status {
+  margin-top: 15px;
+  padding: 10px;
+  background: #d1fae5;
+  border-radius: 6px;
+  border-left: 3px solid #48bb78;
+}
+
+.execution-status small, .queue-status small {
+  color: #065f46;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.running-agent, .queued-agent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 11px;
+  color: #1f2937;
+}
+
+.cancel-btn {
+  background: none;
+  border: none;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.cancel-btn:hover {
+  opacity: 1;
+}
+
+/* Agent status indicators */
+.overlay-elements draggable-circle.agent-queued::after {
+  content: '⏳';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 12px;
+  background: #fef3c7;
+  border: 2px solid #fbbf24;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 2s infinite;
+}
+
+.overlay-elements draggable-circle.agent-running::after {
+  content: '⚡';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 12px;
+  background: #dbeafe;
+  border: 2px solid #60a5fa;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: spin 1s linear infinite;
+}
+
+.overlay-elements draggable-circle.agent-completed::after {
+  content: '✅';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 12px;
+  background: #d1fae5;
+  border: 2px solid #68d391;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-elements draggable-circle.agent-error::after {
+  content: '❌';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 12px;
+  background: #fee2e2;
+  border: 2px solid #f87171;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Agent badges */
+.agent-badge {
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.cwd-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  font-family: 'Courier New', monospace;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+}
+
+/* Agent Launcher Dock Styles */
+.agent-launcher-dock {
+  width: 60px;
+  flex-shrink: 0;
+  background: #f0f3f7;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid #e1e4e8;
+  border-right: 1px solid #e1e4e8;
+  position: relative;
+  z-index: 10;
+  overflow-y: auto;
+  max-height: 100vh;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f0f3f7;
+}
+
+.agent-launcher-dock::-webkit-scrollbar {
+  width: 4px;
+}
+
+.agent-launcher-dock::-webkit-scrollbar-track {
+  background: #f0f3f7;
+}
+
+.agent-launcher-dock::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 2px;
+}
+
+.agent-launcher-dock::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.dock-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.dock-section-title {
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.dock-item {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
+  cursor: pointer;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dock-item:hover {
+  background: #f7fafc;
+  border-color: #a8b9ff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dock-item:active {
+  transform: scale(0.95);
+}
+
+.dock-item.active {
+  background: #ebf4ff;
+  border-color: #7c9ff6;
+  box-shadow: 0 0 0 2px rgba(124, 159, 246, 0.3);
+  transform: scale(1.05);
+}
+
+.dock-item.active:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  transform: scale(1.15);
+}

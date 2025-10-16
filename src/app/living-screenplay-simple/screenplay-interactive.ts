@@ -299,706 +299,12 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
       </div>
     </div>
   `,
-  styles: [`
-    /* Força fontes de emoji em todo o componente */
-    :host {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-    }
-
-    .screenplay-layout {
-      display: flex;
-      height: 100vh;
-      width: 100%;
-      overflow: hidden;
-    }
-
-    .screenplay-container {
-      display: flex;
-      height: 100vh;
-      background: #fafbfc;
-      font-family: inherit !important;
-      transition: width 0.1s ease-out;
-    }
-
-    .splitter {
-      width: 6px;
-      background: #e1e4e8;
-      cursor: col-resize;
-      flex-shrink: 0;
-      transition: background 0.2s;
-      position: relative;
-    }
-
-    .splitter:hover {
-      background: #a8b9ff;
-    }
-
-    .splitter::before {
-      content: '';
-      position: absolute;
-      left: 2px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 2px;
-      height: 40px;
-      background: white;
-      border-radius: 2px;
-    }
-
-    .chat-panel {
-      height: 100vh;
-      overflow: hidden;
-      transition: width 0.1s ease-out;
-      flex-shrink: 0;
-    }
-
-
-    .dock-separator {
-      width: 80%;
-      border: none;
-      border-top: 1px solid #4a5568;
-      margin: 10px 0;
-    }
-
-    .control-panel {
-      width: 280px;
-      background: #f0f3f7;
-      color: #2c3e50;
-      padding: 20px;
-      overflow-y: auto;
-      flex-shrink: 0;
-      border-right: 1px solid #e1e4e8;
-
-      /* Força fontes de emoji em todo o painel */
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-    }
-
-    .control-panel h3 {
-      margin: 0 0 20px 0;
-      color: #5a67d8;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .control-panel h4 {
-      margin: 20px 0 10px 0;
-      color: #48bb78;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .file-controls {
-      margin-bottom: 20px;
-      border-bottom: 1px solid #d1d5db;
-      padding-bottom: 15px;
-    }
-
-    .file-controls-menu {
-      margin-bottom: 10px;
-      border: 1px solid #cbd5e0;
-      border-radius: 8px;
-      background: #ffffff;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-
-    .file-controls-menu summary {
-      padding: 10px 12px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
-      color: #4a5568;
-      list-style: none;
-      user-select: none;
-      transition: all 0.2s;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-    }
-
-    .file-controls-menu summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .file-controls-menu summary::after {
-      content: ' ▼';
-      font-size: 10px;
-      float: right;
-      transition: transform 0.2s;
-    }
-
-    .file-controls-menu[open] summary::after {
-      transform: rotate(180deg);
-    }
-
-    .file-controls-menu summary:hover {
-      background: #f7fafc;
-    }
-
-    .file-controls-menu menu {
-      padding: 8px 0;
-      border-top: 1px solid #e2e8f0;
-      animation: menuFadeIn 0.15s ease-out;
-      margin: 0;
-      list-style: none;
-    }
-
-    @keyframes menuFadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-5px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .file-controls-menu menu button {
-      display: block;
-      width: 100%;
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      color: #4a5568;
-      cursor: pointer;
-      font-size: 11px;
-      text-align: left;
-      transition: all 0.15s;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-    }
-
-    .file-controls-menu menu button:hover:not(:disabled) {
-      background: #ebf4ff;
-      color: #2d3748;
-    }
-
-    .file-controls-menu menu button:disabled {
-      color: #9ca3af;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-
-    .menu-divider {
-      margin: 6px 0;
-      border: none;
-      border-top: 1px solid #e2e8f0;
-    }
-
-    .agent-controls {
-      margin-bottom: 20px;
-      border-bottom: 1px solid #d1d5db;
-      padding-bottom: 15px;
-    }
-
-    .view-controls {
-      margin-bottom: 20px;
-    }
-
-    .control-btn {
-      display: block;
-      width: 100%;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      border: 1px solid #cbd5e0;
-      border-radius: 8px;
-      background: #ffffff;
-      color: #4a5568;
-      cursor: pointer;
-      font-size: 12px;
-      text-align: left;
-      transition: all 0.2s;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-
-      /* Força fontes de emoji nos botões */
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-    }
-
-    .control-btn:hover {
-      background: #f7fafc;
-      border-color: #a0aec0;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    }
-
-    .control-btn.active {
-      background: #ebf4ff;
-      border-color: #7c9ff6;
-      color: #2d3748;
-    }
-
-    .create-agent-btn {
-      background: #e9d8fd !important;
-      border-color: #b794f4 !important;
-      color: #553c9a !important;
-    }
-
-    .create-agent-btn:hover {
-      background: #d6bcfa !important;
-      border-color: #9f7aea !important;
-    }
-
-    .add-agent-btn {
-      background: #c6f6d5 !important;
-      border-color: #68d391 !important;
-      color: #276749 !important;
-    }
-
-    .add-agent-btn:hover {
-      background: #9ae6b4 !important;
-      border-color: #48bb78 !important;
-    }
-
-    .current-file {
-      margin-top: 10px;
-      padding: 8px;
-      background: #fef3c7;
-      border-radius: 6px;
-      font-size: 11px;
-      color: #92400e;
-      border: 1px solid #fcd34d;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .current-file.new-file {
-      background: #fef3c7;
-      border-color: #fcd34d;
-      color: #92400e;
-    }
-
-    .db-indicator {
-      color: #10b981;
-      font-size: 12px;
-    }
-
-
-    .new-indicator {
-      color: #f59e0b;
-      font-size: 12px;
-    }
-
-    .new-hint {
-      width: 100%;
-      color: #92400e;
-      font-size: 9px;
-      font-style: italic;
-    }
-
-    .dirty-indicator {
-      color: #f59e0b;
-      font-size: 16px;
-      animation: pulse 2s infinite;
-    }
-
-    .save-status {
-      color: #10b981;
-      font-size: 10px;
-      font-weight: 600;
-    }
-
-    .save-btn {
-      background: #10b981 !important;
-      border-color: #059669 !important;
-      color: white !important;
-    }
-
-    .save-btn:hover {
-      background: #059669 !important;
-      border-color: #047857 !important;
-    }
-
-    .save-btn:disabled {
-      background: #9ca3af !important;
-      border-color: #6b7280 !important;
-      color: #6b7280 !important;
-      cursor: not-allowed !important;
-      opacity: 0.6;
-    }
-
-    .save-btn:disabled:hover {
-      background: #9ca3af !important;
-      border-color: #6b7280 !important;
-    }
-
-    .emoji-list {
-      margin-top: 15px;
-    }
-
-    .emoji-list small {
-      color: #6b7280;
-      font-size: 10px;
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    .emoji-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .emoji-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-    }
-
-    .emoji-btn {
-      width: 35px;
-      height: 35px;
-      border: 1px solid #cbd5e0;
-      border-radius: 50%;
-      background: #ffffff;
-      cursor: pointer;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-
-      /* Força fontes de emoji para renderização correta */
-      font-family: 'emoji', 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif !important;
-    }
-
-    .emoji-btn:hover {
-      background: #f7fafc;
-      transform: scale(1.1);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .emoji-btn.has-some-agents {
-      border-color: #fbbf24;
-      background: #fef3c7;
-    }
-
-    .emoji-btn.has-all-agents {
-      border-color: #68d391;
-      background: #c6f6d5;
-    }
-
-    .emoji-count {
-      color: #6b7280;
-      font-size: 9px;
-    }
-
-    .execution-status, .queue-status {
-      margin-top: 15px;
-      padding: 10px;
-      background: #d1fae5;
-      border-radius: 6px;
-      border-left: 3px solid #48bb78;
-    }
-
-    .execution-status small, .queue-status small {
-      color: #065f46;
-      font-weight: 600;
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .running-agent, .queued-agent {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 0;
-      font-size: 11px;
-      color: #1f2937;
-    }
-
-    .cancel-btn {
-      background: none;
-      border: none;
-      font-size: 10px;
-      cursor: pointer;
-      opacity: 0.7;
-      transition: opacity 0.2s;
-    }
-
-    .cancel-btn:hover {
-      opacity: 1;
-    }
-
-    .screenplay-canvas {
-      flex: 1;
-      position: relative;
-      background: #ffffff;
-      overflow: auto;
-    }
-
-    .editor-content {
-      height: 100%;
-      position: relative;
-      z-index: 1;
-    }
-
-    .overlay-elements {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-      z-index: 10;
-    }
-
-    .overlay-elements draggable-circle {
-      pointer-events: auto;
-    }
-
-    /* Agent status indicators */
-    .overlay-elements draggable-circle.agent-queued::after {
-      content: '⏳';
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      font-size: 12px;
-      background: #fef3c7;
-      border: 2px solid #fbbf24;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: pulse 2s infinite;
-    }
-
-    .overlay-elements draggable-circle.agent-running::after {
-      content: '⚡';
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      font-size: 12px;
-      background: #dbeafe;
-      border: 2px solid #60a5fa;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      animation: spin 1s linear infinite;
-    }
-
-    .overlay-elements draggable-circle.agent-completed::after {
-      content: '✅';
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      font-size: 12px;
-      background: #d1fae5;
-      border: 2px solid #68d391;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .overlay-elements draggable-circle.agent-error::after {
-      content: '❌';
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      font-size: 12px;
-      background: #fee2e2;
-      border: 2px solid #f87171;
-      border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.7; transform: scale(1.1); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    .action-popup {
-      position: fixed;
-      background: #1f2937;
-      color: #f9fafb;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      z-index: 1000;
-      pointer-events: none;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-
-    .popup-arrow {
-      position: absolute;
-      bottom: -5px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 0;
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 5px solid #1f2937;
-    }
-
-    /* Agent badges */
-    .agent-badge {
-      position: absolute;
-      pointer-events: none;
-      z-index: 15;
-    }
-
-    .cwd-badge {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 10px;
-      font-weight: 500;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      white-space: nowrap;
-      font-family: 'Courier New', monospace;
-      max-width: 150px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: auto;
-    }
-
-    /* Agent Launcher Dock Styles */
-    .agent-launcher-dock {
-      width: 60px;
-      flex-shrink: 0;
-      background: #f0f3f7;
-      padding: 10px 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      border-left: 1px solid #e1e4e8;
-      border-right: 1px solid #e1e4e8;
-      position: relative;
-      z-index: 10;
-      overflow-y: auto;
-      max-height: 100vh;
-      scrollbar-width: thin;
-      scrollbar-color: #cbd5e0 #f0f3f7;
-    }
-
-    .agent-launcher-dock::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .agent-launcher-dock::-webkit-scrollbar-track {
-      background: #f0f3f7;
-    }
-
-    .agent-launcher-dock::-webkit-scrollbar-thumb {
-      background: #cbd5e0;
-      border-radius: 2px;
-    }
-
-    .agent-launcher-dock::-webkit-scrollbar-thumb:hover {
-      background: #a0aec0;
-    }
-
-    .dock-section {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-    }
-
-    .dock-section-title {
-      font-size: 10px;
-      color: #6b7280;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-
-    .dock-item {
-      width: 44px;
-      height: 44px;
-      border-radius: 8px;
-      background: #ffffff;
-      border: 1px solid #e1e4e8;
-      cursor: pointer;
-      font-size: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-
-    .dock-item:hover {
-      background: #f7fafc;
-      border-color: #a8b9ff;
-      transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .dock-item:active {
-      transform: scale(0.95);
-    }
-
-    .dock-item.active {
-      background: #ebf4ff;
-      border-color: #7c9ff6;
-      box-shadow: 0 0 0 2px rgba(124, 159, 246, 0.3);
-      transform: scale(1.05);
-    }
-
-    .dock-item.active:hover {
-      background: #dbeafe;
-      border-color: #60a5fa;
-      transform: scale(1.15);
-    }
-
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .agent-launcher-dock {
-        width: 50px;
-        padding: 8px 0;
-      }
-      
-      .dock-item {
-        width: 36px;
-        height: 36px;
-        font-size: 20px;
-      }
-      
-      .dock-section-title {
-        font-size: 9px;
-      }
-    }
-
-    .loading-indicator {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #007bff;
-      color: white;
-      padding: 10px 15px;
-      border-radius: 5px;
-      font-size: 14px;
-      z-index: 1000;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    }
-
-  `]
+  styleUrls: [
+    './screenplay-layout.css',
+    './screenplay-controls.css', 
+    './screenplay-agents.css',
+    './screenplay-popup.css'
+  ]
 })
 export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) canvas!: ElementRef;
@@ -1736,7 +1042,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   ngAfterViewInit(): void {
-    // Load instances from MongoDB (primary source) with localStorage fallback
+    // Load instances from MongoDB
     this.loadInstancesFromMongoDB();
 
     // Define conteúdo inicial no editor, que disparará o evento de sincronização automaticamente
@@ -2825,7 +2131,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     }
 
     this.updateAgentPositionsFromText();
-    this.saveStateToLocalStorage();
 
     console.log(`✅ Sincronização completa. ${this.agentInstances.size} agentes ativos.`);
 
@@ -2896,7 +2201,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     };
 
     this.agentInstances.set(agentId, newInstance);
-    this.saveStateToLocalStorage();
     this.updateLegacyAgentsFromInstances();
 
     console.log('➕ Agente manual adicionado:', randomEmoji);
@@ -2911,7 +2215,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Clear memory first for immediate UI update
     this.agents = [];
     this.agentInstances.clear();
-    this.saveStateToLocalStorage();
 
     // Delete all instances from MongoDB (cascade to remove history and logs)
     instanceIds.forEach(instanceId => {
@@ -3087,7 +2390,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   onAgentPositionChange(position: CirclePosition, agent: AgentConfig): void {
     agent.position = position;
-    this.saveStateToLocalStorage();
   }
 
   onAgentInstanceCircleEvent(event: CircleEvent, instance: AgentInstance): void {
@@ -3133,16 +2435,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
   onAgentInstancePositionChange(position: CirclePosition, instance: AgentInstance): void {
     instance.position = position;
 
-    // Update MongoDB first, fallback to localStorage
+    // Update MongoDB
     this.agentService.updateInstance(instance.id, { position }).subscribe({
       next: () => {
         console.log(`✅ [SCREENPLAY] Posição atualizada no MongoDB: ${instance.id}`);
-        this.saveStateToLocalStorage(); // Update cache
       },
       error: (error) => {
         console.error('❌ [SCREENPLAY] Falha ao atualizar posição no MongoDB:', error);
-        console.warn('⚠️ [SCREENPLAY] Salvando apenas no localStorage');
-        this.saveStateToLocalStorage(); // Fallback to localStorage only
       }
     });
 
@@ -3186,7 +2485,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
     };
 
     this.agentInstances.set(agentId, newInstance);
-    this.saveStateToLocalStorage();
     this.updateLegacyAgentsFromInstances();
     this.closeAgentCreator();
 
@@ -3246,9 +2544,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Create instance record in MongoDB via gateway
     this.createAgentInstanceInMongoDB(instanceId, agent.id, newInstance.position, cwd);
 
-    // Note: Conversation history is now stored in MongoDB, no localStorage init needed
+    // Note: Conversation history is now stored in MongoDB
 
-    this.saveStateToLocalStorage();
     this.updateLegacyAgentsFromInstances();
 
     // CRITICAL: Position the agent circle over the emoji in the text
@@ -3489,8 +2786,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   // === Persistência ===
 
   /**
-   * Load agent instances from MongoDB (primary source)
-   * Falls back to localStorage if MongoDB fails
+   * Load agent instances from MongoDB
    * Only loads agents for the current screenplay
    */
   loadInstancesFromMongoDB(): void {
@@ -3563,51 +2859,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
           }, 300);
         }
 
-        // Update localStorage as cache
-        this.saveStateToLocalStorage();
       },
       error: (error) => {
         console.error('❌ [SCREENPLAY] Falha ao carregar do MongoDB:', error);
-        console.warn('⚠️ [SCREENPLAY] Usando localStorage como fallback');
-
-        // Fallback to localStorage
-        this.loadStateFromLocalStorage();
       }
     });
   }
 
-  saveStateToLocalStorage(): void {
-    const serializableInstances = Array.from(this.agentInstances.entries());
-    localStorage.setItem('screenplay-agent-instances', JSON.stringify(serializableInstances));
-    console.log('💾 State saved to LocalStorage.');
-  }
-
-  loadStateFromLocalStorage(): void {
-    const storedState = localStorage.getItem('screenplay-agent-instances');
-    if (storedState) {
-      try {
-        const parsedState = JSON.parse(storedState);
-        this.agentInstances = new Map<string, AgentInstance>(parsedState);
-        console.log(`🔄 ${this.agentInstances.size} agent instances loaded from LocalStorage.`);
-
-        // Verificar se as instâncias têm agent_id
-        this.agentInstances.forEach((instance, id) => {
-          if (!instance.agent_id) {
-            console.warn(`⚠️ Instância ${id} carregada do localStorage SEM agent_id!`);
-            console.warn(`   Isso pode causar problemas na execução.`);
-            console.warn(`   Considere limpar o localStorage: localStorage.clear()`);
-          }
-        });
-
-        // Update legacy structures for UI
-        this.updateLegacyAgentsFromInstances();
-        this.updateAvailableEmojis();
-      } catch (e) {
-        console.error('Error loading state from LocalStorage:', e);
-        this.agentInstances.clear();
-      }
-    }
-  }
 
   // === Agent Execution Integration ===
 
