@@ -79,226 +79,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
   selector: 'app-screenplay-interactive',
   standalone: true,
   imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager],
-  template: `
-    <div class="screenplay-layout">
-      <div class="screenplay-container" [style.width.%]="screenplayWidth">
-        <div class="control-panel">
-        <h3>🎬 Roteiro Vivo</h3>
-
-        <div class="file-controls">
-          <details class="file-controls-menu">
-            <summary>Arquivo</summary>
-            <menu>
-              <button (click)="newScreenplayWithDefaultAgent()">Novo Roteiro</button>
-              <button (click)="openScreenplayManager()">Abrir do Banco...</button>
-              <button (click)="importFromDisk()">Importar do Disco...</button>
-              <hr>
-              <button (click)="save()" [disabled]="!isDirty">Salvar</button>
-              <hr>
-              <button (click)="exportToDisk()">Exportar para Disco...</button>
-            </menu>
-          </details>
-          
-          <!-- Loading indicator -->
-          <div *ngIf="isLoading" class="loading-indicator">
-            <span>Carregando screenplay...</span>
-          </div>
-          <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
-
-          <!-- SAGA-005 v2: Simplified file indicator - only database and new -->
-          <div class="current-file" *ngIf="sourceOrigin === 'database' && currentScreenplay">
-            💾 {{ currentScreenplay.name }}
-            <span class="db-indicator" title="Vinculado ao MongoDB">🔗</span>
-            <span class="dirty-indicator" *ngIf="isDirty">●</span>
-            <span class="save-status" *ngIf="isSaving">Salvando...</span>
-          </div>
-
-          <!-- New file indicator -->
-          <div class="current-file new-file" *ngIf="sourceOrigin === 'new'">
-            📝 {{ sourceIdentifier || 'Novo Roteiro' }}
-            <span class="new-indicator" title="Roteiro novo - não salvo">✨</span>
-            <small class="new-hint">Não salvo</small>
-          </div>
-        </div>
-
-        <div class="agent-controls">
-          <h4>🤖 Agentes ({{ agents.length }})</h4>
-          <button (click)="openAgentCreator()" class="control-btn create-agent-btn">
-            ✨ Criar Agente Personalizado
-          </button>
-          <button (click)="openAgentSelector()" class="control-btn add-agent-btn">
-            ➕ Adicionar Agente
-          </button>
-          <button (click)="resyncManually()" class="control-btn">
-            🔄 Ressincronizar com Texto
-          </button>
-          <button (click)="clearAllAgents()" class="control-btn" *ngIf="agents.length > 0">
-            🗑️ Limpar Todos
-          </button>
-
-          <!-- Agent execution status -->
-          <div class="execution-status" *ngIf="getRunningAgents().length > 0">
-            <small>Em execução:</small>
-            <div class="running-agents">
-              <div *ngFor="let agent of getRunningAgents()" class="running-agent">
-                {{ agent.emoji }} {{ agent.definition.title }}
-                <button (click)="cancelAgentExecution(agent.id)" class="cancel-btn" title="Cancelar">❌</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Queue status -->
-          <div class="queue-status" *ngIf="getQueuedAgents().length > 0">
-            <small>Na fila ({{ getQueuedAgents().length }}):</small>
-            <div class="queued-agents">
-              <div *ngFor="let agent of getQueuedAgents(); let i = index" class="queued-agent">
-                {{ agent.emoji }} {{ agent.definition.title }} ({{ i + 1 }})
-              </div>
-            </div>
-          </div>
-          <div class="emoji-list" *ngIf="availableEmojis.length > 0">
-            <small>Emojis encontrados:</small>
-            <div class="emoji-buttons">
-              <div *ngFor="let emojiInfo of availableEmojis" class="emoji-group">
-                <button
-                  (click)="createAgentsForEmoji(emojiInfo)"
-                  class="emoji-btn"
-                  [class.has-some-agents]="hasSomeAgentsForEmoji(emojiInfo.emoji)"
-                  [class.has-all-agents]="hasAllAgentsForEmoji(emojiInfo.emoji, emojiInfo.count)"
-                  [title]="getEmojiTooltip(emojiInfo)">
-                  {{ emojiInfo.emoji }}
-                </button>
-                <small class="emoji-count">{{ getAgentCountForEmoji(emojiInfo.emoji) }}/{{ emojiInfo.count }}</small>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="view-controls">
-          <button
-            [class.active]="currentView === 'clean'"
-            (click)="switchView('clean')">
-            📝 Roteiro Limpo
-          </button>
-          <button
-            [class.active]="currentView === 'agents'"
-            (click)="switchView('agents')">
-            🤖 Com Agentes
-          </button>
-          <button
-            [class.active]="currentView === 'full'"
-            (click)="switchView('full')">
-            🌐 Visão Completa
-          </button>
-        </div>
-      </div>
-
-      <div class="screenplay-canvas" #canvas>
-        <div class="editor-content">
-          <app-interactive-editor
-            [content]="editorContent"
-            [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
-            (contentChange)="handleContentUpdate($event)"
-            (blockCommand)="onBlockCommand($event)">
-          </app-interactive-editor>
-        </div>
-
-        <div class="overlay-elements" *ngIf="currentView !== 'clean'">
-          <!-- Multiple draggable circles -->
-          <draggable-circle
-            *ngFor="let agent of getAgentInstancesAsArray()"
-            [data]="{ id: agent.id, emoji: agent.emoji, title: agent.definition.title, description: agent.definition.description, category: 'auth' }"
-            [position]="agent.position"
-            [container]="canvas"
-            [attr.data-status]="agent.status"
-            [class.agent-queued]="agent.status === 'queued'"
-            [class.agent-running]="agent.status === 'running'"
-            [class.agent-completed]="agent.status === 'completed'"
-            [class.agent-error]="agent.status === 'error'"
-            [title]="getAgentTooltip(agent)"
-            (circleEvent)="onAgentInstanceCircleEvent($event, agent)"
-            (positionChange)="onAgentInstancePositionChange($event, agent)">
-          </draggable-circle>
-
-          <!-- Agent info badges (cwd only, no context menu button) -->
-          <div
-            *ngFor="let agent of getAgentInstancesAsArray()"
-            class="agent-badge"
-            [style.left.px]="agent.position.x + 50"
-            [style.top.px]="agent.position.y - 10">
-            <div class="cwd-badge" *ngIf="agent.config?.cwd" [title]="agent.config?.cwd || ''">
-              📁 {{ getAgentCwdDisplay(agent) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Popup para hover -->
-      <div class="action-popup"
-           *ngIf="popupVisible"
-           [style.left.px]="popupX"
-           [style.top.px]="popupY">
-        {{ popupText }}
-        <div class="popup-arrow"></div>
-      </div>
-
-      <!-- Agent Creator Modal -->
-      <app-agent-creator
-        [isVisible]="showAgentCreator"
-        (agentCreated)="onAgentCreated($event)"
-        (close)="closeAgentCreator()">
-      </app-agent-creator>
-
-      <!-- Agent Selector Modal -->
-      <app-agent-selector-modal
-        [isVisible]="showAgentSelector"
-        (agentSelected)="onAgentSelected($event)"
-        (close)="closeAgentSelector()">
-      </app-agent-selector-modal>
-
-      <!-- Agent Preview Modal -->
-      <app-agent-preview-modal
-        [isVisible]="showAgentPreview"
-        [previewData]="previewData"
-        [isLoading]="previewLoading"
-        [error]="previewError"
-        (accept)="onPreviewAccept($event)"
-        (reject)="onPreviewReject($event)"
-        (close)="closeAgentPreview()">
-      </app-agent-preview-modal>
-
-      <!-- Screenplay Manager Modal -->
-      <app-screenplay-manager
-        [isVisible]="showScreenplayManager"
-        (close)="closeScreenplayManager()"
-        (action)="onScreenplayManagerAction($event)">
-      </app-screenplay-manager>
-      </div>
-
-      <!-- Resizable splitter -->
-      <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
-
-      <!-- Chat component -->
-      <div class="chat-panel" [style.width.%]="chatWidth">
-        <app-conductor-chat #conductorChat></app-conductor-chat>
-      </div>
-
-      <!-- Agent Launcher Dock -->
-      <div class="agent-launcher-dock">
-        <div class="dock-section">
-          <div class="dock-section-title">Agents</div>
-          <button 
-            *ngFor="let agent of contextualAgents" 
-            class="dock-item" 
-            [class.active]="activeAgentId === agent.id"
-            [title]="agent.definition.description" 
-            (click)="onDockAgentClick(agent)">
-            {{ agent.emoji }}
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './screenplay-interactive.html',
   styleUrls: [
     './screenplay-layout.css',
     './screenplay-controls.css', 
@@ -455,17 +236,21 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-006: Salva o roteiro antes de criar a instância do agente
    * Usado quando o roteiro ainda não foi salvo (não tem ID)
    */
-  private saveScreenplayBeforeAgentCreation(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
-    console.log('💾 [AUTO-SAVE] Salvando roteiro antes de criar instância do agente...');
-    
-    // Se for um roteiro novo, criar no banco
-    if (this.sourceOrigin === 'new') {
+  private _saveScreenplayIfNeeded(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (this.currentScreenplay?.id) {
+        if (this.isDirty) {
+          this.saveCurrentScreenplay(); // Save if dirty
+        }
+        resolve(this.currentScreenplay.id);
+        return;
+      }
+
+      console.log('💾 [AUTO-SAVE] Roteiro não existe, criando um novo...');
       const content = this.generateMarkdownForSave();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const defaultName = `novo-roteiro-${timestamp}`;
-      
-      console.log(`💾 [AUTO-SAVE] Criando roteiro: ${defaultName}`);
-      
+
       this.screenplayStorage.createScreenplay({
         name: defaultName,
         content: content,
@@ -473,464 +258,77 @@ Aqui temos alguns agentes distribuídos pelo documento:
       }).subscribe({
         next: (newScreenplay) => {
           console.log(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`);
-          
-          // Atualizar estado
           this.sourceOrigin = 'database';
           this.sourceIdentifier = newScreenplay.id;
           this.currentScreenplay = newScreenplay;
           this.isDirty = false;
-          
-          // Agora criar a instância do agente
-          this.createAgentInstanceInMongoDB(instanceId, agentId, position, cwd);
+          resolve(newScreenplay.id);
         },
         error: (error) => {
           console.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error);
           alert('Falha ao salvar o roteiro. Tente novamente.');
+          reject(error);
         }
       });
-    } else {
-      // Se for um roteiro existente, apenas salvar
-      this.saveCurrentScreenplay();
-      
-      // Aguardar um pouco e tentar novamente
-      setTimeout(() => {
-        if (this.currentScreenplay?.id) {
-          console.log('✅ [AUTO-SAVE] Roteiro salvo, criando instância do agente...');
-          this.createAgentInstanceInMongoDB(instanceId, agentId, position, cwd);
-        } else {
-          console.error('❌ [AUTO-SAVE] Falha ao salvar roteiro, não foi possível criar instância');
-          alert('Falha ao salvar o roteiro. Tente novamente.');
-        }
-      }, 1000);
-    }
+    });
   }
 
-  private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
-    console.log('💾 [SCREENPLAY] Criando instância no MongoDB:');
-    console.log('   - instance_id:', instanceId);
-    console.log('   - agent_id:', agentId);
-    console.log('   - position:', position);
-    console.log('   - cwd:', cwd || 'não definido');
-    console.log('   - screenplay_id:', this.currentScreenplay?.id || 'não disponível');
-    console.log('   - currentScreenplay completo:', this.currentScreenplay);
-    console.log('   - currentScreenplay.id tipo:', typeof this.currentScreenplay?.id);
-    console.log('   - currentScreenplay.id valor:', this.currentScreenplay?.id);
 
-    // SAGA-006: Verificar se o roteiro foi salvo (tem ID)
-    if (!this.currentScreenplay?.id) {
-      console.log('⚠️ [SCREENPLAY] Roteiro não foi salvo ainda! Salvando automaticamente...');
-      console.log('   - sourceOrigin:', this.sourceOrigin);
-      console.log('   - isDirty:', this.isDirty);
-      
-      // Salvar o roteiro primeiro
-      this.saveScreenplayBeforeAgentCreation(instanceId, agentId, position, cwd);
-      return;
-    }
+  private async _createAgentInstanceInMongoDB(
+    instanceId: string,
+    agentId: string,
+    position: CirclePosition,
+    options: { cwd?: string; isSystemDefault: boolean }
+  ): Promise<void> {
+    const { cwd, isSystemDefault } = options;
+    const logPrefix = isSystemDefault ? '[DEFAULT AGENT]' : '[SCREENPLAY]';
 
-    // Call gateway to create instance record
-    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
-
-    const payload: any = {
-      instance_id: instanceId,
-      agent_id: agentId,
-      position: position,
-      created_at: new Date().toISOString(),
-      is_system_default: false, // SAGA-006: Default to false for regular agents
-      is_hidden: false, // SAGA-006: Default to false for regular agents
-      screenplay_id: this.currentScreenplay?.id // SAGA-006: Add screenplay_id to associate agent with screenplay
-    };
-
-    console.log('🔍 [DEBUG] Payload completo antes do envio:');
-    console.log('   - payload.screenplay_id:', payload.screenplay_id);
-    console.log('   - payload.screenplay_id tipo:', typeof payload.screenplay_id);
-    console.log('   - payload completo:', JSON.stringify(payload, null, 2));
-
-    // Add cwd if provided
-    if (cwd) {
-      payload.cwd = cwd;
-    }
-
-    fetch(`${baseUrl}/api/agents/instances`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    })
-      .then(response => {
-        if (response.ok) {
-          console.log('✅ [SCREENPLAY] Instância criada no MongoDB com sucesso');
-        } else {
-          console.warn('⚠️ [SCREENPLAY] Falha ao criar instância no MongoDB:', response.status);
-        }
-      })
-      .catch(error => {
-        console.error('❌ [SCREENPLAY] Erro ao criar instância no MongoDB:', error);
-      });
-  }
-
-  /**
-   * SAGA-006: Create default agent instance for new screenplays
-   */
-  private async createDefaultAgentInstance(): Promise<void> {
-    console.log('🤖 [DEFAULT AGENT] Creating default agent instance');
-    
     try {
-      // Check if we already have a default agent for this screenplay
-      const existingDefaultAgent = Array.from(this.agentInstances.values())
-        .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
-      
-      if (existingDefaultAgent) {
-        console.log('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation');
-        console.log('   - Existing agent ID:', existingDefaultAgent.id);
-        console.log('   - Existing agent emoji:', existingDefaultAgent.emoji);
-        return;
+      const screenplayId = await this._saveScreenplayIfNeeded();
+
+      const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+      const payload: any = {
+        instance_id: instanceId,
+        agent_id: agentId,
+        position: position,
+        created_at: new Date().toISOString(),
+        is_system_default: isSystemDefault,
+        is_hidden: false,
+        screenplay_id: screenplayId
+      };
+
+      if (cwd) {
+        payload.cwd = cwd;
       }
       
-      // Generate instance ID
-      const instanceId = this.generateUUID();
-      
-      // Default agent configuration
-      const agentId = 'ScreenplayAssistant_Agent';
-      const emoji = '🎬';
-      const position: CirclePosition = { x: 100, y: 100 };
-      
-      // SAGA-006: Insert emoji into editor content first
-      this.insertEmojiIntoEditor(emoji, instanceId);
-      
-      // Create agent instance in memory
-      const defaultInstance: AgentInstance = {
-        id: instanceId,
-        agent_id: agentId,
-        emoji: emoji,
-        definition: {
-          title: 'Assistente de Roteiro',
-          description: 'Agente especializado em ajudar com roteiros e narrativas',
-          unicode: '\\u{1F3AC}'
-        },
-        status: 'pending',
-        position: position,
-        is_system_default: true, // SAGA-006: Mark as system default
-        is_hidden: false, // SAGA-006: Not hidden by default
-        config: {
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      };
-      
-      // Add to agent instances
-      this.agentInstances.set(instanceId, defaultInstance);
-      
-      // Update legacy structures
-      this.updateLegacyAgentsFromInstances();
-      this.updateAvailableEmojis();
-      this.updateAgentDockLists();
-      
-      // Create in MongoDB with system default flags
-      this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
-      
-      // Auto-activate the default agent in chat
-      this.activateDefaultAgent(defaultInstance);
-      
-      console.log('✅ [DEFAULT AGENT] Default agent instance created and activated');
-      console.log('   - Instance ID:', defaultInstance.id);
-      console.log('   - Agent ID:', defaultInstance.agent_id);
-      console.log('   - Emoji:', defaultInstance.emoji);
-      
+      console.log(`💾 ${logPrefix} Criando instância no MongoDB:`, payload);
+
+      const response = await fetch(`${baseUrl}/api/agents/instances`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        console.log(`✅ ${logPrefix} Instância criada no MongoDB com sucesso`);
+      } else {
+        console.warn(`⚠️ ${logPrefix} Falha ao criar instância no MongoDB:`, response.status);
+      }
     } catch (error) {
-      console.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error);
+      console.error(`❌ ${logPrefix} Erro ao criar instância no MongoDB:`, error);
     }
   }
 
-  /**
-   * SAGA-006: Insert emoji into editor content
-   */
-  private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
-    console.log('📝 [DEFAULT AGENT] Inserting emoji into editor:', emoji);
-    
-    // Insert emoji at the beginning of the editor with a new line
-    this.interactiveEditor.insertContent(emoji + '\n\n');
-    
-    // Update editor content to trigger sync
-    this.editorContent = this.interactiveEditor.getMarkdown();
-    
-    console.log('✅ [DEFAULT AGENT] Emoji inserted into editor');
-  }
 
-  /**
-   * SAGA-006: Activate default agent in chat panel
-   */
-  private activateDefaultAgent(agent: AgentInstance): void {
-    console.log('🎯 [DEFAULT AGENT] Activating default agent in chat');
-    
-    // Set as active agent
-    this.activeAgentId = agent.id;
-    
-    // Load context in chat
-    if (this.conductorChat) {
-      this.conductorChat.loadContextForAgent(
-        agent.id,
-        agent.definition.title,
-        agent.emoji,
-        agent.agent_id,
-        undefined, // cwd
-        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
-      );
-    }
-    
-    // Auto-select the agent in the dock to ensure chat is loaded
-    // This simulates clicking on the dock-item with class="dock-item active"
-    setTimeout(() => {
-      this.autoSelectDefaultAgent(agent);
-    }, 500); // Increased delay to ensure the agent is fully loaded and UI is ready
-    
-    console.log('✅ [DEFAULT AGENT] Default agent activated in chat');
-  }
-
-  /**
-   * Auto-select the default agent in the dock to ensure chat is loaded
-   * This simulates the user clicking on the dock-item
-   */
-  private autoSelectDefaultAgent(agent: AgentInstance): void {
-    console.log('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', agent.definition.title);
-    console.log('   - Agent ID:', agent.id);
-    console.log('   - Agent emoji:', agent.emoji);
-    console.log('   - Agent title:', agent.definition.title);
-    console.log('   - Agent agent_id:', agent.agent_id);
-    console.log('   - Agent cwd:', agent.config?.cwd);
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - ConductorChat available:', !!this.conductorChat);
-    
-    // Ensure the agent is in the contextual agents list
-    if (!this.contextualAgents.find(a => a.id === agent.id)) {
-      console.log('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...');
-      this.updateAgentDockLists();
-      console.log('   - Contextual agents after update:', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
-    }
-    
-    // Simulate the dock click by calling the same function
-    console.log('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...');
-    this.onDockAgentClick(agent);
-    
-    console.log('✅ [AUTO-SELECT] Default agent auto-selected in dock');
-  }
-
-  /**
-   * Auto-select first agent after loading agents
-   * Universal solution that works for all flows
-   */
-  private autoSelectFirstAgent(): void {
-    console.log('🎯 [AUTO-SELECT-FIRST] Auto-selecting first available agent...');
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - Total agent instances:', this.agentInstances.size);
-    console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
-    
-    if (this.agentInstances.size === 0) {
-      console.log('⚠️ [AUTO-SELECT-FIRST] No agents available to select');
-      return;
-    }
-    
-    // Get the first agent from the instances
-    const firstAgent = Array.from(this.agentInstances.values())[0];
-    
-    console.log('✅ [AUTO-SELECT-FIRST] Selecting first agent:', firstAgent.definition.title);
-    console.log('   - Agent ID:', firstAgent.id);
-    console.log('   - Agent emoji:', firstAgent.emoji);
-    console.log('   - ConductorChat available:', !!this.conductorChat);
-    
-    // Auto-select the first agent
-    this.autoSelectDefaultAgent(firstAgent);
-  }
-
-  /**
-   * Auto-select default agent after loading agents from MongoDB
-   * This is called when loading an existing screenplay
-   */
-  private autoSelectDefaultAgentAfterLoad(): void {
-    console.log('🔍 [AUTO-SELECT-LOAD] Looking for default agent to auto-select...');
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - Total agent instances:', this.agentInstances.size);
-    console.log('   - Agent instances:', Array.from(this.agentInstances.values()).map(a => ({
-      id: a.id,
-      emoji: a.emoji,
-      title: a.definition.title,
-      is_system_default: a.is_system_default,
-      agent_id: a.agent_id
-    })));
-    
-    // Find the default agent for this screenplay
-    // Look for ScreenplayAssistant_Agent first, then fallback to any agent with is_system_default
-    let defaultAgent = Array.from(this.agentInstances.values())
-      .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
-    
-    // If no default agent found, look for any ScreenplayAssistant_Agent (fallback for old data)
-    if (!defaultAgent) {
-      defaultAgent = Array.from(this.agentInstances.values())
-        .find(agent => agent.agent_id === 'ScreenplayAssistant_Agent');
-    }
-    
-    // If still no default agent, select the first available agent
-    if (!defaultAgent && this.agentInstances.size > 0) {
-      defaultAgent = Array.from(this.agentInstances.values())[0];
-      console.log('🔄 [AUTO-SELECT-LOAD] No default agent found, selecting first available agent');
-    }
-    
-    if (defaultAgent) {
-      console.log('✅ [AUTO-SELECT-LOAD] Default agent found:', defaultAgent.definition.title);
-      console.log('   - Agent ID:', defaultAgent.id);
-      console.log('   - Agent emoji:', defaultAgent.emoji);
-      console.log('   - ConductorChat available:', !!this.conductorChat);
-      
-      // Auto-select with a small delay to ensure UI is ready
-      setTimeout(() => {
-        console.log('🎯 [AUTO-SELECT-LOAD] Executing auto-select for default agent...');
-        this.autoSelectDefaultAgent(defaultAgent);
-      }, 300);
-    } else {
-      console.log('⚠️ [AUTO-SELECT-LOAD] No default agent found for this screenplay');
-      console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title} (default: ${a.is_system_default}, id: ${a.agent_id})`));
-    }
-  }
-
-  /**
-   * SAGA-006: Hide agent instead of deleting (for system default agents)
-   */
-  hideAgent(instanceId: string): void {
-    console.log('👁️ [HIDE AGENT] Hiding agent:', instanceId);
-    
-    const agent = this.agentInstances.get(instanceId);
-    if (!agent) {
-      console.warn('⚠️ [HIDE AGENT] Agent not found:', instanceId);
-      return;
-    }
-    
-    // Update agent to hidden state
-    agent.is_hidden = true;
-    this.agentInstances.set(instanceId, agent);
-    
-    // Update UI
-    this.updateLegacyAgentsFromInstances();
-    this.updateAvailableEmojis();
-    this.updateAgentDockLists();
-    
-    // Update in MongoDB
-    this.updateAgentInMongoDB(instanceId, { is_hidden: true });
-    
-    console.log('✅ [HIDE AGENT] Agent hidden successfully');
+  private createAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition, cwd?: string): void {
+    this._createAgentInstanceInMongoDB(instanceId, agentId, position, { cwd, isSystemDefault: false });
   }
 
   /**
    * SAGA-006: Create default agent instance in MongoDB
    */
-  /**
-   * SAGA-006: Salva o roteiro antes de criar a instância do agente padrão
-   * Usado quando o roteiro ainda não foi salvo (não tem ID)
-   */
-  private saveScreenplayBeforeDefaultAgentCreation(instanceId: string, agentId: string, position: CirclePosition): void {
-    console.log('💾 [AUTO-SAVE] Salvando roteiro antes de criar instância do agente padrão...');
-    
-    // Se for um roteiro novo, criar no banco
-    if (this.sourceOrigin === 'new') {
-      const content = this.generateMarkdownForSave();
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const defaultName = `novo-roteiro-${timestamp}`;
-      
-      console.log(`💾 [AUTO-SAVE] Criando roteiro: ${defaultName}`);
-      
-      this.screenplayStorage.createScreenplay({
-        name: defaultName,
-        content: content,
-        description: `Criado automaticamente em ${new Date().toLocaleDateString()}`
-      }).subscribe({
-        next: (newScreenplay) => {
-          console.log(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`);
-          
-          // Atualizar estado
-          this.sourceOrigin = 'database';
-          this.sourceIdentifier = newScreenplay.id;
-          this.currentScreenplay = newScreenplay;
-          this.isDirty = false;
-          
-          // Agora criar a instância do agente padrão
-          this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
-        },
-        error: (error) => {
-          console.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error);
-          alert('Falha ao salvar o roteiro. Tente novamente.');
-        }
-      });
-    } else {
-      // Se for um roteiro existente, apenas salvar
-      this.saveCurrentScreenplay();
-      
-      // Aguardar um pouco e tentar novamente
-      setTimeout(() => {
-        if (this.currentScreenplay?.id) {
-          console.log('✅ [AUTO-SAVE] Roteiro salvo, criando instância do agente padrão...');
-          this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
-        } else {
-          console.error('❌ [AUTO-SAVE] Falha ao salvar roteiro, não foi possível criar instância');
-          alert('Falha ao salvar o roteiro. Tente novamente.');
-        }
-      }, 1000);
-    }
-  }
-
   private createDefaultAgentInstanceInMongoDB(instanceId: string, agentId: string, position: CirclePosition): void {
-    console.log('💾 [DEFAULT AGENT] Creating default agent instance in MongoDB:');
-    console.log('   - instance_id:', instanceId);
-    console.log('   - agent_id:', agentId);
-    console.log('   - position:', position);
-    console.log('   - screenplay_id:', this.currentScreenplay?.id || 'não disponível');
-    console.log('   - currentScreenplay completo:', this.currentScreenplay);
-    console.log('   - currentScreenplay.id tipo:', typeof this.currentScreenplay?.id);
-    console.log('   - currentScreenplay.id valor:', this.currentScreenplay?.id);
-
-    // SAGA-006: Verificar se o roteiro foi salvo (tem ID)
-    if (!this.currentScreenplay?.id) {
-      console.log('⚠️ [DEFAULT AGENT] Roteiro não foi salvo ainda! Salvando automaticamente...');
-      console.log('   - sourceOrigin:', this.sourceOrigin);
-      console.log('   - isDirty:', this.isDirty);
-      
-      // Salvar o roteiro primeiro
-      this.saveScreenplayBeforeDefaultAgentCreation(instanceId, agentId, position);
-      return;
-    }
-
-    const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
-
-    const payload: any = {
-      instance_id: instanceId,
-      agent_id: agentId,
-      position: position,
-      created_at: new Date().toISOString(),
-      is_system_default: true, // SAGA-006: Mark as system default
-      is_hidden: false, // SAGA-006: Not hidden by default
-      screenplay_id: this.currentScreenplay?.id // SAGA-006: Add screenplay_id to associate agent with screenplay
-    };
-
-    console.log('🔍 [DEBUG] Payload completo (DEFAULT AGENT) antes do envio:');
-    console.log('   - payload.screenplay_id:', payload.screenplay_id);
-    console.log('   - payload.screenplay_id tipo:', typeof payload.screenplay_id);
-    console.log('   - payload completo:', JSON.stringify(payload, null, 2));
-
-    fetch(`${baseUrl}/api/agents/instances`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    })
-      .then(response => {
-        if (response.ok) {
-          console.log('✅ [DEFAULT AGENT] Default agent instance created in MongoDB successfully');
-        } else {
-          console.warn('⚠️ [DEFAULT AGENT] Failed to create default agent instance in MongoDB:', response.status);
-        }
-      })
-      .catch(error => {
-        console.error('❌ [DEFAULT AGENT] Error creating default agent instance in MongoDB:', error);
-      });
+    this._createAgentInstanceInMongoDB(instanceId, agentId, position, { isSystemDefault: true });
   }
 
   /**
@@ -3005,6 +2403,186 @@ Aqui temos alguns agentes distribuídos pelo documento:
     event.preventDefault();
     console.log('📚 Ctrl/Cmd+O pressed - Opening screenplay manager');
     this.openScreenplayManager();
+  }
+
+  /**
+   * SAGA-006: Create default agent instance for new screenplays
+   */
+  private async createDefaultAgentInstance(): Promise<void> {
+    console.log('🤖 [DEFAULT AGENT] Creating default agent instance');
+    
+    try {
+      // Check if we already have a default agent for this screenplay
+      const existingDefaultAgent = Array.from(this.agentInstances.values())
+        .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
+      
+      if (existingDefaultAgent) {
+        console.log('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation');
+        console.log('   - Existing agent ID:', existingDefaultAgent.id);
+        console.log('   - Existing agent emoji:', existingDefaultAgent.emoji);
+        return;
+      }
+      
+      // Generate instance ID
+      const instanceId = this.generateUUID();
+      
+      // Default agent configuration
+      const agentId = 'ScreenplayAssistant_Agent';
+      const emoji = '🎬';
+      const position: CirclePosition = { x: 100, y: 100 };
+      
+      // SAGA-006: Insert emoji into editor content first
+      this.insertEmojiIntoEditor(emoji, instanceId);
+      
+      // Create agent instance in memory
+      const defaultInstance: AgentInstance = {
+        id: instanceId,
+        agent_id: agentId,
+        emoji: emoji,
+        definition: {
+          title: 'Assistente de Roteiro',
+          description: 'Agente especializado em ajudar com roteiros e narrativas',
+          unicode: '\\u{1F3AC}'
+        },
+        status: 'pending',
+        position: position,
+        is_system_default: true, // SAGA-006: Mark as system default
+        is_hidden: false, // SAGA-006: Not hidden by default
+        config: {
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      };
+      
+      // Add to agent instances
+      this.agentInstances.set(instanceId, defaultInstance);
+      
+      // Update legacy structures
+      this.updateLegacyAgentsFromInstances();
+      this.updateAvailableEmojis();
+      this.updateAgentDockLists();
+      
+      // Create in MongoDB with system default flags
+      this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+      
+      // Auto-activate the default agent in chat
+      this.activateDefaultAgent(defaultInstance);
+      
+      console.log('✅ [DEFAULT AGENT] Default agent instance created and activated');
+      console.log('   - Instance ID:', defaultInstance.id);
+      console.log('   - Agent ID:', defaultInstance.agent_id);
+      console.log('   - Emoji:', defaultInstance.emoji);
+      
+    } catch (error) {
+      console.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error);
+    }
+  }
+
+  /**
+   * SAGA-006: Insert emoji into editor content
+   */
+  private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
+    console.log('📝 [DEFAULT AGENT] Inserting emoji into editor:', emoji);
+    
+    // Insert emoji at the beginning of the editor with a new line
+    this.interactiveEditor.insertContent(emoji + '\n\n');
+    
+    // Update editor content to trigger sync
+    this.editorContent = this.interactiveEditor.getMarkdown();
+    
+    console.log('✅ [DEFAULT AGENT] Emoji inserted into editor');
+  }
+
+  /**
+   * SAGA-006: Activate default agent in chat panel
+   */
+  private activateDefaultAgent(agent: AgentInstance): void {
+    console.log('🎯 [DEFAULT AGENT] Activating default agent in chat');
+    
+    // Set as active agent
+    this.activeAgentId = agent.id;
+    
+    // Load context in chat
+    if (this.conductorChat) {
+      this.conductorChat.loadContextForAgent(
+        agent.id,
+        agent.definition.title,
+        agent.emoji,
+        agent.agent_id,
+        undefined, // cwd
+        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
+      );
+    }
+    
+    // Auto-select the agent in the dock to ensure chat is loaded
+    // This simulates clicking on the dock-item with class="dock-item active"
+    setTimeout(() => {
+      this.autoSelectDefaultAgent(agent);
+    }, 500); // Increased delay to ensure the agent is fully loaded and UI is ready
+    
+    console.log('✅ [DEFAULT AGENT] Default agent activated in chat');
+  }
+
+  /**
+   * Auto-select the default agent in the dock to ensure chat is loaded
+   * This simulates the user clicking on the dock-item
+   */
+  private autoSelectDefaultAgent(agent: AgentInstance): void {
+    console.log('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', agent.definition.title);
+    console.log('   - Agent ID:', agent.id);
+    console.log('   - Agent emoji:', agent.emoji);
+    console.log('   - Agent title:', agent.definition.title);
+    console.log('   - Agent agent_id:', agent.agent_id);
+    console.log('   - Agent cwd:', agent.config?.cwd);
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
+    console.log('   - ConductorChat available:', !!this.conductorChat);
+    
+    // Ensure the agent is in the contextual agents list
+    if (!this.contextualAgents.find(a => a.id === agent.id)) {
+      console.log('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...');
+      this.updateAgentDockLists();
+      console.log('   - Contextual agents after update:', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
+    }
+    
+    // Simulate the dock click by calling the same function
+    console.log('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...');
+    this.onDockAgentClick(agent);
+    
+    console.log('✅ [AUTO-SELECT] Default agent auto-selected in dock');
+  }
+
+  /**
+   * Auto-select first agent after loading agents
+   * Universal solution that works for all flows
+   */
+  private autoSelectFirstAgent(): void {
+    console.log('🎯 [AUTO-SELECT-FIRST] Auto-selecting first available agent...');
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
+    console.log('   - Total agent instances:', this.agentInstances.size);
+    console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
+    
+    if (this.agentInstances.size === 0) {
+      console.log('⚠️ [AUTO-SELECT-FIRST] No agents available to select');
+      return;
+    }
+    
+    // Get the first agent from the instances
+    const firstAgent = Array.from(this.agentInstances.values())[0];
+    
+    console.log('✅ [AUTO-SELECT-FIRST] Selecting first agent:', firstAgent.definition.title);
+    console.log('   - Agent ID:', firstAgent.id);
+    console.log('   - Agent emoji:', firstAgent.emoji);
+    console.log('   - ConductorChat available:', !!this.conductorChat);
+    
+    // Auto-select the first agent
+    this.autoSelectDefaultAgent(firstAgent);
+  }
+
+  /**
+   * SAGA-006: Hide agent instead of deleting (for system default agents)
+   */
+  hideAgent(instanceId: string): void {
+    // ... existing code ...
   }
 
 }

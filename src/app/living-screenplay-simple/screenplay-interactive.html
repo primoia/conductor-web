@@ -1,0 +1,218 @@
+    <div class="screenplay-layout">
+      <div class="screenplay-container" [style.width.%]="screenplayWidth">
+        <div class="control-panel">
+        <h3>🎬 Roteiro Vivo</h3>
+
+        <div class="file-controls">
+          <details class="file-controls-menu">
+            <summary>Arquivo</summary>
+            <menu>
+              <button (click)="newScreenplayWithDefaultAgent()">Novo Roteiro</button>
+              <button (click)="openScreenplayManager()">Abrir do Banco...</button>
+              <button (click)="importFromDisk()">Importar do Disco...</button>
+              <hr>
+              <button (click)="save()" [disabled]="!isDirty">Salvar</button>
+              <hr>
+              <button (click)="exportToDisk()">Exportar para Disco...</button>
+            </menu>
+          </details>
+          
+          <!-- Loading indicator -->
+          <div *ngIf="isLoading" class="loading-indicator">
+            <span>Carregando screenplay...</span>
+          </div>
+          <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
+
+          <!-- SAGA-005 v2: Simplified file indicator - only database and new -->
+          <div class="current-file" *ngIf="sourceOrigin === 'database' && currentScreenplay">
+            💾 {{ currentScreenplay.name }}
+            <span class="db-indicator" title="Vinculado ao MongoDB">🔗</span>
+            <span class="dirty-indicator" *ngIf="isDirty">●</span>
+            <span class="save-status" *ngIf="isSaving">Salvando...</span>
+          </div>
+
+          <!-- New file indicator -->
+          <div class="current-file new-file" *ngIf="sourceOrigin === 'new'">
+            📝 {{ sourceIdentifier || 'Novo Roteiro' }}
+            <span class="new-indicator" title="Roteiro novo - não salvo">✨</span>
+            <small class="new-hint">Não salvo</small>
+          </div>
+        </div>
+
+        <div class="agent-controls">
+          <h4>🤖 Agentes ({{ agents.length }})</h4>
+          <button (click)="openAgentCreator()" class="control-btn create-agent-btn">
+            ✨ Criar Agente Personalizado
+          </button>
+          <button (click)="openAgentSelector()" class="control-btn add-agent-btn">
+            ➕ Adicionar Agente
+          </button>
+          <button (click)="resyncManually()" class="control-btn">
+            🔄 Ressincronizar com Texto
+          </button>
+          <button (click)="clearAllAgents()" class="control-btn" *ngIf="agents.length > 0">
+            🗑️ Limpar Todos
+          </button>
+
+          <!-- Agent execution status -->
+          <div class="execution-status" *ngIf="getRunningAgents().length > 0">
+            <small>Em execução:</small>
+            <div class="running-agents">
+              <div *ngFor="let agent of getRunningAgents()" class="running-agent">
+                {{ agent.emoji }} {{ agent.definition.title }}
+                <button (click)="cancelAgentExecution(agent.id)" class="cancel-btn" title="Cancelar">❌</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Queue status -->
+          <div class="queue-status" *ngIf="getQueuedAgents().length > 0">
+            <small>Na fila ({{ getQueuedAgents().length }}):</small>
+            <div class="queued-agents">
+              <div *ngFor="let agent of getQueuedAgents(); let i = index" class="queued-agent">
+                {{ agent.emoji }} {{ agent.definition.title }} ({{ i + 1 }})
+              </div>
+            </div>
+          </div>
+          <div class="emoji-list" *ngIf="availableEmojis.length > 0">
+            <small>Emojis encontrados:</small>
+            <div class="emoji-buttons">
+              <div *ngFor="let emojiInfo of availableEmojis" class="emoji-group">
+                <button
+                  (click)="createAgentsForEmoji(emojiInfo)"
+                  class="emoji-btn"
+                  [class.has-some-agents]="hasSomeAgentsForEmoji(emojiInfo.emoji)"
+                  [class.has-all-agents]="hasAllAgentsForEmoji(emojiInfo.emoji, emojiInfo.count)"
+                  [title]="getEmojiTooltip(emojiInfo)">
+                  {{ emojiInfo.emoji }}
+                </button>
+                <small class="emoji-count">{{ getAgentCountForEmoji(emojiInfo.emoji) }}/{{ emojiInfo.count }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-controls">
+          <button
+            [class.active]="currentView === 'clean'"
+            (click)="switchView('clean')">
+            📝 Roteiro Limpo
+          </button>
+          <button
+            [class.active]="currentView === 'agents'"
+            (click)="switchView('agents')">
+            🤖 Com Agentes
+          </button>
+          <button
+            [class.active]="currentView === 'full'"
+            (click)="switchView('full')">
+            🌐 Visão Completa
+          </button>
+        </div>
+      </div>
+
+      <div class="screenplay-canvas" #canvas>
+        <div class="editor-content">
+          <app-interactive-editor
+            [content]="editorContent"
+            [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
+            (contentChange)="handleContentUpdate($event)"
+            (blockCommand)="onBlockCommand($event)">
+          </app-interactive-editor>
+        </div>
+
+        <div class="overlay-elements" *ngIf="currentView !== 'clean'">
+          <!-- Multiple draggable circles -->
+          <draggable-circle
+            *ngFor="let agent of getAgentInstancesAsArray()"
+            [data]="{ id: agent.id, emoji: agent.emoji, title: agent.definition.title, description: agent.definition.description, category: 'auth' }"
+            [position]="agent.position"
+            [container]="canvas"
+            [attr.data-status]="agent.status"
+            [class.agent-queued]="agent.status === 'queued'"
+            [class.agent-running]="agent.status === 'running'"
+            [class.agent-completed]="agent.status === 'completed'"
+            [class.agent-error]="agent.status === 'error'"
+            [title]="getAgentTooltip(agent)"
+            (circleEvent)="onAgentInstanceCircleEvent($event, agent)"
+            (positionChange)="onAgentInstancePositionChange($event, agent)">
+          </draggable-circle>
+
+          <!-- Agent info badges (cwd only, no context menu button) -->
+          <div
+            *ngFor="let agent of getAgentInstancesAsArray()"
+            class="agent-badge"
+            [style.left.px]="agent.position.x + 50"
+            [style.top.px]="agent.position.y - 10">
+            <div class="cwd-badge" *ngIf="agent.config?.cwd" [title]="agent.config?.cwd || ''">
+              📁 {{ getAgentCwdDisplay(agent) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popup para hover -->
+      <div class="action-popup"
+           *ngIf="popupVisible"
+           [style.left.px]="popupX"
+           [style.top.px]="popupY">
+        {{ popupText }}
+        <div class="popup-arrow"></div>
+      </div>
+
+      <!-- Agent Creator Modal -->
+      <app-agent-creator
+        [isVisible]="showAgentCreator"
+        (agentCreated)="onAgentCreated($event)"
+        (close)="closeAgentCreator()">
+      </app-agent-creator>
+
+      <!-- Agent Selector Modal -->
+      <app-agent-selector-modal
+        [isVisible]="showAgentSelector"
+        (agentSelected)="onAgentSelected($event)"
+        (close)="closeAgentSelector()">
+      </app-agent-selector-modal>
+
+      <!-- Agent Preview Modal -->
+      <app-agent-preview-modal
+        [isVisible]="showAgentPreview"
+        [previewData]="previewData"
+        [isLoading]="previewLoading"
+        [error]="previewError"
+        (accept)="onPreviewAccept($event)"
+        (reject)="onPreviewReject($event)"
+        (close)="closeAgentPreview()">
+      </app-agent-preview-modal>
+
+      <!-- Screenplay Manager Modal -->
+      <app-screenplay-manager
+        [isVisible]="showScreenplayManager"
+        (close)="closeScreenplayManager()"
+        (action)="onScreenplayManagerAction($event)">
+      </app-screenplay-manager>
+      </div>
+
+      <!-- Resizable splitter -->
+      <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
+
+      <!-- Chat component -->
+      <div class="chat-panel" [style.width.%]="chatWidth">
+        <app-conductor-chat #conductorChat></app-conductor-chat>
+      </div>
+
+      <!-- Agent Launcher Dock -->
+      <div class="agent-launcher-dock">
+        <div class="dock-section">
+          <div class="dock-section-title">Agents</div>
+          <button 
+            *ngFor="let agent of contextualAgents" 
+            class="dock-item" 
+            [class.active]="activeAgentId === agent.id"
+            [title]="agent.definition.description" 
+            (click)="onDockAgentClick(agent)">
+            {{ agent.emoji }}
+          </button>
+        </div>
+      </div>
+    </div>
