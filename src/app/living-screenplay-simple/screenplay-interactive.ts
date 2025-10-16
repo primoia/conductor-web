@@ -1854,6 +1854,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
         if (event.screenplay) {
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
+          // Auto-select default agent after loading existing screenplay
+          setTimeout(() => {
+            this.autoSelectDefaultAgentAfterLoad();
+          }, 500);
         }
         break;
       case 'create':
