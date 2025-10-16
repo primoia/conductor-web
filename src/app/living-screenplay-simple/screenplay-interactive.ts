@@ -13,6 +13,7 @@ import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
 import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
 import { Subscription } from 'rxjs';
+import { LoggingService } from '../services/logging.service';
 
 interface AgentConfig {
   id: string;
@@ -201,8 +202,15 @@ Aqui temos alguns agentes distribuídos pelo documento:
     private agentService: AgentService,
     private screenplayStorage: ScreenplayStorage,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private logging: LoggingService
   ) {
+    // Create specialized loggers for different contexts
+    this.logger = this.logging.createChildLogger('ScreenplayInteractive');
+    this.agentLogger = this.logging.createChildLogger('ScreenplayInteractive.AgentManager');
+    this.fileLogger = this.logging.createChildLogger('ScreenplayInteractive.FileManager');
+    this.apiLogger = this.logging.createChildLogger('ScreenplayInteractive.API');
+
     // Subscribe to agent execution state changes
     this.agentStateSubscription = this.agentExecutionService.agentState$.subscribe(
       (agentStates) => this.updateAgentInstancesWithExecutionState(agentStates)
@@ -211,6 +219,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Load agent definitions from MongoDB
     this.loadAgentDefinitions();
   }
+
+  // Specialized loggers for different contexts
+  private logger: LoggingService;
+  private agentLogger: LoggingService;
+  private fileLogger: LoggingService;
+  private apiLogger: LoggingService;
 
   private loadAgentDefinitions(): void {
     this.agentService.getAgents().subscribe({
@@ -224,10 +238,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
             };
           }
         });
-        console.log(`✅ ${Object.keys(AGENT_DEFINITIONS).length} emojis carregados no AGENT_DEFINITIONS`);
+        this.logging.info(`✅ ${Object.keys(AGENT_DEFINITIONS).length} emojis carregados no AGENT_DEFINITIONS`, 'ScreenplayInteractive');
       },
       error: (error) => {
-        console.error('❌ Erro ao carregar definições de agentes:', error);
+        this.logging.error('❌ Erro ao carregar definições de agentes:', error, 'ScreenplayInteractive');
       }
     });
   }
@@ -246,7 +260,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         return;
       }
 
-      console.log('💾 [AUTO-SAVE] Roteiro não existe, criando um novo...');
+      this.logging.info('💾 [AUTO-SAVE] Roteiro não existe, criando um novo...', 'ScreenplayInteractive');
       const content = this.generateMarkdownForSave();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const defaultName = `novo-roteiro-${timestamp}`;
@@ -257,7 +271,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         description: `Criado automaticamente em ${new Date().toLocaleDateString()}`
       }).subscribe({
         next: (newScreenplay) => {
-          console.log(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`);
+          this.logging.info(`✅ [AUTO-SAVE] Roteiro criado: ${newScreenplay.id}`, 'ScreenplayInteractive');
           this.sourceOrigin = 'database';
           this.sourceIdentifier = newScreenplay.id;
           this.currentScreenplay = newScreenplay;
@@ -265,7 +279,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
           resolve(newScreenplay.id);
         },
         error: (error) => {
-          console.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error);
+          this.logging.error('❌ [AUTO-SAVE] Falha ao criar roteiro:', error, 'ScreenplayInteractive');
           alert('Falha ao salvar o roteiro. Tente novamente.');
           reject(error);
         }
@@ -301,7 +315,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         payload.cwd = cwd;
       }
       
-      console.log(`💾 ${logPrefix} Criando instância no MongoDB:`, payload);
+      this.logging.info(`💾 ${logPrefix} Criando instância no MongoDB:`, 'ScreenplayInteractive', payload);
 
       const response = await fetch(`${baseUrl}/api/agents/instances`, {
         method: 'POST',
@@ -310,12 +324,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
       });
 
       if (response.ok) {
-        console.log(`✅ ${logPrefix} Instância criada no MongoDB com sucesso`);
+        this.logging.info(`✅ ${logPrefix} Instância criada no MongoDB com sucesso`, 'ScreenplayInteractive');
       } else {
-        console.warn(`⚠️ ${logPrefix} Falha ao criar instância no MongoDB:`, response.status);
+        this.logging.warn(`⚠️ ${logPrefix} Falha ao criar instância no MongoDB:`, 'ScreenplayInteractive', response.status);
       }
     } catch (error) {
-      console.error(`❌ ${logPrefix} Erro ao criar instância no MongoDB:`, error);
+      this.logging.error(`❌ ${logPrefix} Erro ao criar instância no MongoDB:`, error, 'ScreenplayInteractive');
     }
   }
 
@@ -346,13 +360,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
     })
       .then(response => {
         if (response.ok) {
-          console.log('✅ [MONGODB] Agent updated successfully');
+          this.logging.info('✅ [MONGODB] Agent updated successfully', 'ScreenplayInteractive');
         } else {
-          console.warn('⚠️ [MONGODB] Failed to update agent:', response.status);
+          this.logging.warn('⚠️ [MONGODB] Failed to update agent:', 'ScreenplayInteractive', response.status);
         }
       })
       .catch(error => {
-        console.error('❌ [MONGODB] Error updating agent:', error);
+        this.logging.error('❌ [MONGODB] Error updating agent:', error, 'ScreenplayInteractive');
       });
   }
 
@@ -360,11 +374,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-006: Delete agent (for non-system agents)
    */
   deleteAgent(instanceId: string): void {
-    console.log('🗑️ [DELETE AGENT] Deleting agent:', instanceId);
+    this.logging.info('🗑️ [DELETE AGENT] Deleting agent:', 'ScreenplayInteractive', instanceId);
     
     const agent = this.agentInstances.get(instanceId);
     if (!agent) {
-      console.warn('⚠️ [DELETE AGENT] Agent not found:', instanceId);
+      this.logging.warn('⚠️ [DELETE AGENT] Agent not found:', 'ScreenplayInteractive', instanceId);
       return;
     }
     
@@ -379,7 +393,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Delete from MongoDB
     this.deleteAgentFromMongoDB(instanceId);
     
-    console.log('✅ [DELETE AGENT] Agent deleted successfully');
+    this.logging.info('✅ [DELETE AGENT] Agent deleted successfully', 'ScreenplayInteractive');
   }
 
   /**
@@ -396,13 +410,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
     })
       .then(response => {
         if (response.ok) {
-          console.log('✅ [MONGODB] Agent deleted successfully');
+          this.logging.info('✅ [MONGODB] Agent deleted successfully', 'ScreenplayInteractive');
         } else {
-          console.warn('⚠️ [MONGODB] Failed to delete agent:', response.status);
+          this.logging.warn('⚠️ [MONGODB] Failed to delete agent:', 'ScreenplayInteractive', response.status);
         }
       })
       .catch(error => {
-        console.error('❌ [MONGODB] Error deleting agent:', error);
+        this.logging.error('❌ [MONGODB] Error deleting agent:', error, 'ScreenplayInteractive');
       });
   }
 
@@ -473,7 +487,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   private handleForceSaveScreenplay = (event: any) => {
     const screenplayId = event.detail?.screenplayId;
     if (screenplayId && this.isDirty && this.currentScreenplay?.id === screenplayId) {
-      console.log('💾 [SCREENPLAY] Forçando salvamento antes do envio da mensagem...');
+      this.logging.info('💾 [SCREENPLAY] Forçando salvamento antes do envio da mensagem...', 'ScreenplayInteractive');
       this.save();
     }
   };
@@ -484,7 +498,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-005 v2: Clear chat state when loading new screenplay
    */
   private clearChatState(): void {
-    console.log('🧹 [CHAT] Clearing chat state for new screenplay');
+    this.logging.info('🧹 [CHAT] Clearing chat state for new screenplay', 'ScreenplayInteractive');
     
     // Clear selected agent
     this.selectedAgent = null;
@@ -494,14 +508,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
       this.conductorChat.clear();
     }
     
-    console.log('✅ [CHAT] Chat state cleared');
+    this.logging.info('✅ [CHAT] Chat state cleared', 'ScreenplayInteractive');
   }
 
   /**
    * SAGA-005: Create a new screenplay - clears editor and resets state
    */
   newScreenplay(): void {
-    console.log('📝 [NEW] Creating new screenplay');
+    this.logging.info('📝 [NEW] Creating new screenplay', 'ScreenplayInteractive');
     
     // Clear editor content
     this.editorContent = '';
@@ -523,14 +537,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // SAGA-005 v2: Clear chat when creating new screenplay
     this.clearChatState();
     
-    console.log('✅ [NEW] New screenplay created');
+    this.logging.info('✅ [NEW] New screenplay created', 'ScreenplayInteractive');
   }
 
   /**
    * SAGA-006: Create a new screenplay with default agent - creates screenplay and instantiates default agent
    */
   async newScreenplayWithDefaultAgent(): Promise<void> {
-    console.log('📝 [NEW] Creating new screenplay with default agent');
+    this.logging.info('📝 [NEW] Creating new screenplay with default agent', 'ScreenplayInteractive');
     
     // Clear editor content
     this.editorContent = '';
@@ -548,7 +562,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Create new screenplay in database immediately
     this.createNewScreenplayImmediately();
     
-    console.log('✅ [NEW] New screenplay with default agent created');
+    this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
   }
 
   /**
@@ -558,7 +572,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const defaultName = `novo-roteiro-${timestamp}`;
     
-    console.log(`💾 [IMMEDIATE] Creating new screenplay immediately: ${defaultName}`);
+    this.logging.info(`💾 [IMMEDIATE] Creating new screenplay immediately: ${defaultName}`, 'ScreenplayInteractive');
     
     this.screenplayStorage.createScreenplay({
       name: defaultName,
@@ -566,7 +580,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       description: `Criado em ${new Date().toLocaleDateString()}`
     }).subscribe({
       next: (newScreenplay) => {
-        console.log(`✅ [IMMEDIATE] Screenplay created: ${newScreenplay.id}`);
+        this.logging.info(`✅ [IMMEDIATE] Screenplay created: ${newScreenplay.id}`, 'ScreenplayInteractive');
         
         // Update state to database-linked
         this.sourceOrigin = 'database';
@@ -583,10 +597,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
           await this.createDefaultAgentInstance();
         }, 100);
         
-        console.log(`✅ [IMMEDIATE] Screenplay linked to editor and URL updated: ${newScreenplay.name}`);
+        this.logging.info(`✅ [IMMEDIATE] Screenplay linked to editor and URL updated: ${newScreenplay.name}`, 'ScreenplayInteractive');
       },
       error: (error) => {
-        console.error('❌ [IMMEDIATE] Failed to create screenplay:', error);
+        this.logging.error('❌ [IMMEDIATE] Failed to create screenplay:', error, 'ScreenplayInteractive');
         alert(`Falha ao criar roteiro: ${error.message || 'Erro desconhecido'}`);
         
         // Fallback: set as new (not saved)
@@ -608,12 +622,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   onScreenplayManagerAction(event: ScreenplayManagerEvent): void {
-    console.log('📝 Screenplay manager action:', event.action);
+    this.logging.info('📝 Screenplay manager action:', 'ScreenplayInteractive', event.action);
 
     switch (event.action) {
       case 'open':
         if (event.screenplay) {
-          console.log('🔄 [OPEN] Loading screenplay from database:', event.screenplay.name);
+          this.logging.info('🔄 [OPEN] Loading screenplay from database:', 'ScreenplayInteractive', event.screenplay.name);
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
           // Auto-selection will be handled by loadInstancesFromMongoDB when agents are loaded
@@ -665,70 +679,72 @@ Aqui temos alguns agentes distribuídos pelo documento:
         const content = e.target?.result as string;
         const filename = file.name.replace(/\.md$/, ''); // Remove .md extension
 
-        console.log('📂 [DISK] Arquivo lido do disco:');
-        console.log('   - Nome:', file.name);
-        console.log('   - Tamanho:', content.length, 'caracteres');
-        console.log('   - Primeiros 100 chars:', content.substring(0, 100));
+        this.logging.info('📂 [DISK] Arquivo lido do disco:', 'ScreenplayInteractive', {
+          name: file.name,
+          size: content.length,
+          preview: content.substring(0, 100)
+        });
 
         // Check if screenplay with same name exists in MongoDB
         // First, try to get all screenplays to see what's really there
-        console.log('🔍 [CONFLICT] Starting conflict check...');
+        this.logging.info('🔍 [CONFLICT] Starting conflict check...', 'ScreenplayInteractive');
         this.screenplayStorage.getScreenplays('', 1, 1000).subscribe({
           next: (response) => {
-            console.log('🔍 [CONFLICT] Checking for existing screenplays:');
-            console.log('   - Looking for name:', filename);
-            console.log('   - Search query:', filename);
-            console.log('   - Total screenplays found:', response.items.length);
-            console.log('   - Existing names:', response.items.map(item => item.name));
+            this.logging.info('🔍 [CONFLICT] Checking for existing screenplays:', 'ScreenplayInteractive', {
+              lookingFor: filename,
+              totalFound: response.items.length,
+              existingNames: response.items.map(item => item.name)
+            });
             
             // More robust comparison - check exact match and also check for similar names
             const existingScreenplay = response.items.find(item => {
               const exactMatch = item.name === filename;
               const similarMatch = item.name.toLowerCase() === filename.toLowerCase();
-              console.log(`   - Exact match "${item.name}" === "${filename}": ${exactMatch}`);
-              console.log(`   - Similar match "${item.name.toLowerCase()}" === "${filename.toLowerCase()}": ${similarMatch}`);
+              this.logging.debug(`   - Exact match "${item.name}" === "${filename}": ${exactMatch}`, 'ScreenplayInteractive');
+              this.logging.debug(`   - Similar match "${item.name.toLowerCase()}" === "${filename.toLowerCase()}": ${similarMatch}`, 'ScreenplayInteractive');
               return exactMatch;
             });
             
-            console.log('   - Found existing?', !!existingScreenplay);
+            this.logging.debug('   - Found existing?', 'ScreenplayInteractive', !!existingScreenplay);
             if (existingScreenplay) {
-              console.log('   - Existing screenplay ID:', existingScreenplay.id);
-              console.log('   - Existing screenplay name:', existingScreenplay.name);
+              this.logging.debug('   - Existing screenplay ID:', 'ScreenplayInteractive', existingScreenplay.id);
+              this.logging.debug('   - Existing screenplay name:', 'ScreenplayInteractive', existingScreenplay.name);
             }
 
             if (existingScreenplay) {
-              console.log('⚠️ [CONFLICT] Potential conflict detected, loading full screenplay to verify...');
-              console.log('   - Existing ID:', existingScreenplay.id);
-              console.log('   - Existing name:', existingScreenplay.name);
+              this.logging.info('⚠️ [CONFLICT] Potential conflict detected, loading full screenplay to verify...', 'ScreenplayInteractive', {
+                existingId: existingScreenplay.id,
+                existingName: existingScreenplay.name
+              });
               
               // Load full screenplay to check content
               this.screenplayStorage.getScreenplay(existingScreenplay.id).subscribe({
                 next: (fullScreenplay) => {
-                  console.log('   - Full screenplay content length:', fullScreenplay.content?.length || 0);
-                  console.log('   - Full screenplay content preview:', fullScreenplay.content?.substring(0, 100));
+                  this.logging.debug('   - Full screenplay content length:', 'ScreenplayInteractive', fullScreenplay.content?.length || 0);
+                  this.logging.debug('   - Full screenplay content preview:', 'ScreenplayInteractive', fullScreenplay.content?.substring(0, 100));
                   
                   // Check if the existing screenplay is actually different
                   if (fullScreenplay.content === content) {
-                    console.log('🔄 [CONFLICT] Same content detected, loading existing screenplay');
+                    this.logging.info('🔄 [CONFLICT] Same content detected, loading existing screenplay', 'ScreenplayInteractive');
                     this.loadScreenplayIntoEditor(fullScreenplay);
                   } else {
-                    console.log('⚠️ [CONFLICT] Different content detected, showing conflict modal');
+                    this.logging.warn('⚠️ [CONFLICT] Different content detected, showing conflict modal', 'ScreenplayInteractive');
                     this.handleScreenplayConflict(fullScreenplay, content, filename);
                   }
                 },
                 error: (error: any) => {
-                  console.error('❌ Erro ao carregar roteiro completo:', error);
+                  this.logging.error('❌ Erro ao carregar roteiro completo:', error, 'ScreenplayInteractive');
                   this.createAndLinkScreenplayAutomatically(content, filename);
                 }
               });
             } else {
-              console.log('✅ [CONFLICT] No conflict detected, creating new screenplay');
+              this.logging.info('✅ [CONFLICT] No conflict detected, creating new screenplay', 'ScreenplayInteractive');
               // No conflict - automatically create in MongoDB
               this.createAndLinkScreenplayAutomatically(content, filename);
             }
           },
           error: (error: any) => {
-            console.error('❌ Erro ao verificar roteiros existentes:', error);
+            this.logging.error('❌ Erro ao verificar roteiros existentes:', error, 'ScreenplayInteractive');
             // Fallback: create automatically
             this.createAndLinkScreenplayAutomatically(content, filename);
           }
@@ -736,7 +752,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       };
 
       reader.onerror = (error) => {
-        console.error('❌ Erro ao ler arquivo:', error);
+        this.logging.error('❌ Erro ao ler arquivo:', error, 'ScreenplayInteractive');
         alert('Falha ao carregar o arquivo. Tente novamente.');
       };
 
@@ -752,7 +768,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-005 v2: Load content as new screenplay (fallback method)
    */
   private loadAsNewScreenplay(content: string, filename: string): void {
-    console.log(`📄 [NEW] Loading as new screenplay: ${filename}`);
+    this.logging.info(`📄 [NEW] Loading as new screenplay: ${filename}`, 'ScreenplayInteractive');
 
     // Clear previous state
     this.agentInstances.clear();
@@ -772,7 +788,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.editorContent = content;
     this.interactiveEditor.setContent(content, true);
 
-    console.log(`✅ [NEW] New screenplay loaded: ${filename}`);
+    this.logging.info(`✅ [NEW] New screenplay loaded: ${filename}`, 'ScreenplayInteractive');
   }
 
   /**
@@ -780,18 +796,19 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * No confirmation needed for new files
    */
   private createAndLinkScreenplayAutomatically(content: string, filename: string): void {
-    console.log(`💾 [AUTO] Criando roteiro automaticamente no banco: ${filename}`);
-    console.log(`   - Nome: ${filename}`);
-    console.log(`   - Tamanho do conteúdo: ${content.length} caracteres`);
-    console.log(`   - Primeiros 100 chars: ${content.substring(0, 100)}`);
+    this.logging.info(`💾 [AUTO] Criando roteiro automaticamente no banco: ${filename}`, 'ScreenplayInteractive', {
+      name: filename,
+      contentLength: content.length,
+      preview: content.substring(0, 100)
+    });
 
     // Clean filename - remove .md extension if present and sanitize
     const cleanFilename = filename.replace(/\.md$/, '').replace(/[^a-zA-Z0-9\-_]/g, '-');
-    console.log(`   - Nome limpo: ${cleanFilename}`);
+    this.logging.debug(`   - Nome limpo: ${cleanFilename}`, 'ScreenplayInteractive');
 
     // Validate filename
     if (!cleanFilename || cleanFilename.length === 0) {
-      console.error('❌ [AUTO] Nome de arquivo inválido após limpeza');
+      this.logging.error('❌ [AUTO] Nome de arquivo inválido após limpeza', undefined, 'ScreenplayInteractive');
       this.loadAsNewScreenplay(content, 'arquivo-importado');
       return;
     }
@@ -802,10 +819,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
       description: `Importado do disco em ${new Date().toLocaleDateString()}`
     }).subscribe({
       next: (newScreenplay) => {
-        console.log(`✅ [AUTO] Roteiro criado: ${newScreenplay.id}`);
-        console.log(`   - Nome no banco: ${newScreenplay.name}`);
-        console.log(`   - Conteúdo retornado (length): ${newScreenplay.content?.length || 0}`);
-        console.log('📄 [AUTO] Carregando conteúdo do disco no editor...');
+        this.logging.info(`✅ [AUTO] Roteiro criado: ${newScreenplay.id}`, 'ScreenplayInteractive', {
+          nameInDb: newScreenplay.name,
+          contentLength: newScreenplay.content?.length || 0
+        });
+        this.logging.info('📄 [AUTO] Carregando conteúdo do disco no editor...', 'ScreenplayInteractive');
 
         // CRITICAL: Always use disk content in editor (backend might return empty)
         const screenplayWithDiskContent: Screenplay = {
@@ -824,26 +842,25 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
         // If backend didn't return content, update it asynchronously
         if (!newScreenplay.content || newScreenplay.content.length === 0) {
-          console.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...');
+          this.logging.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...', 'ScreenplayInteractive');
           this.screenplayStorage.updateScreenplay(newScreenplay.id, {
             content: content
           }).subscribe({
             next: () => {
-              console.log('✅ [AUTO] Banco sincronizado com sucesso');
+              this.logging.info('✅ [AUTO] Banco sincronizado com sucesso', 'ScreenplayInteractive');
             },
             error: (updateError) => {
-              console.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError);
+              this.logging.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError, 'ScreenplayInteractive');
             }
           });
         }
       },
       error: (error) => {
-        console.error('❌ [AUTO] Erro ao criar roteiro no MongoDB:', error);
-        console.error('   - Detalhes do erro:', JSON.stringify(error, null, 2));
+        this.logging.error('❌ [AUTO] Erro ao criar roteiro no MongoDB:', error, 'ScreenplayInteractive', { errorDetails: JSON.stringify(error, null, 2) });
 
         // Check if it's a "name already exists" error
         if (error.message && error.message.includes('already exists')) {
-          console.warn('⚠️ [AUTO] Roteiro já existe, buscando e carregando o existente');
+          this.logging.warn('⚠️ [AUTO] Roteiro já existe, buscando e carregando o existente', 'ScreenplayInteractive');
 
           // Instead of trying with timestamp, search for and load the existing screenplay
           this.screenplayStorage.getScreenplays(cleanFilename, 1, 10).subscribe({
@@ -851,8 +868,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
               const existingScreenplay = response.items.find(item => item.name === cleanFilename);
 
               if (existingScreenplay) {
-                console.log(`✅ [AUTO] Roteiro existente encontrado: ${existingScreenplay.id}`);
-                console.log('📄 [AUTO] Carregando conteúdo do disco no editor primeiro...');
+                this.logging.info(`✅ [AUTO] Roteiro existente encontrado: ${existingScreenplay.id}`, 'ScreenplayInteractive');
+                this.logging.info('📄 [AUTO] Carregando conteúdo do disco no editor primeiro...', 'ScreenplayInteractive');
 
                 // CRITICAL: Load disk content into editor IMMEDIATELY
                 const screenplayWithDiskContent = {
@@ -871,34 +888,35 @@ Aqui temos alguns agentes distribuídos pelo documento:
                 this.loadScreenplayIntoEditor(screenplayWithDiskContent);
 
                 // Then update backend asynchronously
-                console.log('💾 [AUTO] Sincronizando com banco em background...');
+                this.logging.info('💾 [AUTO] Sincronizando com banco em background...', 'ScreenplayInteractive');
                 this.screenplayStorage.updateScreenplay(existingScreenplay.id, {
                   content: content
                 }).subscribe({
                   next: () => {
-                    console.log('✅ [AUTO] Banco atualizado com sucesso');
+                    this.logging.info('✅ [AUTO] Banco atualizado com sucesso', 'ScreenplayInteractive');
                   },
                   error: (updateError) => {
-                    console.error('❌ [AUTO] Erro ao atualizar banco (conteúdo já está no editor):', updateError);
+                    this.logging.error('❌ [AUTO] Erro ao atualizar banco (conteúdo já está no editor):', updateError, 'ScreenplayInteractive');
                   }
                 });
               } else {
                 // Screenplay not found in search, try with timestamp as fallback
-                console.warn('⚠️ [AUTO] Roteiro não encontrado na busca, tentando com timestamp');
-                console.log('   - Content length:', content?.length || 0);
-                console.log('   - Content preview:', content?.substring(0, 200) || 'EMPTY');
-                console.log('   - cleanFilename:', cleanFilename);
+                this.logging.warn('⚠️ [AUTO] Roteiro não encontrado na busca, tentando com timestamp', 'ScreenplayInteractive', {
+                  contentLength: content?.length || 0,
+                  contentPreview: content?.substring(0, 200) || 'EMPTY',
+                  cleanFilename
+                });
 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
                 const uniqueName = `${cleanFilename}-${timestamp}`;
-                console.log('   - uniqueName:', uniqueName);
+                this.logging.debug(`   - uniqueName: ${uniqueName}`, 'ScreenplayInteractive');
 
                 const createPayload = {
                   name: uniqueName,
                   content: content,
                   description: `Importado do disco em ${new Date().toLocaleDateString()} (nome original: ${cleanFilename})`
                 };
-                console.log('   - Payload:', JSON.stringify({
+                this.logging.debug('   - Payload:', 'ScreenplayInteractive', JSON.stringify({
                   name: createPayload.name,
                   contentLength: createPayload.content?.length,
                   description: createPayload.description
@@ -906,10 +924,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
                 this.screenplayStorage.createScreenplay(createPayload).subscribe({
                   next: (newScreenplay) => {
-                    console.log(`✅ [AUTO] Roteiro criado com nome único: ${newScreenplay.id}`);
-                    console.log('   - Screenplay name:', newScreenplay.name);
-                    console.log('   - Screenplay content length:', newScreenplay.content?.length || 0);
-                    console.log('📄 [AUTO] Carregando conteúdo do disco no editor...');
+                    this.logging.info(`✅ [AUTO] Roteiro criado com nome único: ${newScreenplay.id}`, 'ScreenplayInteractive', {
+                      screenplayName: newScreenplay.name,
+                      contentLength: newScreenplay.content?.length || 0
+                    });
+                    this.logging.info('📄 [AUTO] Carregando conteúdo do disco no editor...', 'ScreenplayInteractive');
 
                     // CRITICAL: Always use disk content in editor
                     const screenplayWithDiskContent: Screenplay = {
@@ -928,33 +947,33 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
                     // If backend didn't return content, update it asynchronously
                     if (!newScreenplay.content || newScreenplay.content.length === 0) {
-                      console.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...');
+                      this.logging.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...', 'ScreenplayInteractive');
                       this.screenplayStorage.updateScreenplay(newScreenplay.id, {
                         content: content
                       }).subscribe({
                         next: () => {
-                          console.log('✅ [AUTO] Banco sincronizado com sucesso');
+                          this.logging.info('✅ [AUTO] Banco sincronizado com sucesso', 'ScreenplayInteractive');
                         },
                         error: (updateError) => {
-                          console.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError);
+                          this.logging.error('❌ [AUTO] Erro ao sincronizar banco (conteúdo já está no editor):', updateError, 'ScreenplayInteractive');
                         }
                       });
                     }
                   },
                   error: (retryError) => {
-                    console.error('❌ [AUTO] Falha mesmo com nome único:', retryError);
+                    this.logging.error('❌ [AUTO] Falha mesmo com nome único:', retryError, 'ScreenplayInteractive');
                     this.loadAsNewScreenplay(content, cleanFilename);
                   }
                 });
               }
             },
             error: (searchError) => {
-              console.error('❌ [AUTO] Erro ao buscar roteiro existente:', searchError);
+              this.logging.error('❌ [AUTO] Erro ao buscar roteiro existente:', searchError, 'ScreenplayInteractive');
               this.loadAsNewScreenplay(content, cleanFilename);
             }
           });
         } else {
-          console.warn('⚠️ [AUTO] Fallback: carregando como novo roteiro');
+          this.logging.warn('⚠️ [AUTO] Fallback: carregando como novo roteiro', 'ScreenplayInteractive');
           // Fallback: load as new screenplay (user can save later)
           this.loadAsNewScreenplay(content, cleanFilename);
         }
@@ -982,23 +1001,23 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const overwrite = window.confirm(message);
 
     if (overwrite) {
-      console.log(`🔁 [CONFLICT] Sobrescrevendo MongoDB com conteúdo do disco`);
+      this.logging.info(`🔁 [CONFLICT] Sobrescrevendo MongoDB com conteúdo do disco`, 'ScreenplayInteractive');
 
       this.screenplayStorage.updateScreenplay(existingScreenplay.id, {
         content: diskContent
       }).subscribe({
         next: (updatedScreenplay) => {
           this.loadScreenplayIntoEditor(updatedScreenplay);
-          console.log(`✅ [CONFLICT] Roteiro atualizado: ${filename}`);
+          this.logging.info(`✅ [CONFLICT] Roteiro atualizado: ${filename}`, 'ScreenplayInteractive');
         },
         error: (error) => {
-          console.error('❌ [CONFLICT] Erro ao atualizar:', error);
+          this.logging.error('❌ [CONFLICT] Erro ao atualizar:', error, 'ScreenplayInteractive');
           // Fallback: create new
           this.createAndLinkScreenplayAutomatically(diskContent, `${filename}-novo`);
         }
       });
     } else {
-      console.log(`📄 [CONFLICT] Usuário optou por carregar do banco`);
+      this.logging.info(`📄 [CONFLICT] Usuário optou por carregar do banco`, 'ScreenplayInteractive');
       // Load existing screenplay from database (ignore disk content)
       this.loadScreenplayIntoEditor(existingScreenplay);
     }
@@ -1031,7 +1050,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    console.log('💾 Arquivo salvo no disco:', filename);
+    this.logging.info('💾 Arquivo salvo no disco:', 'ScreenplayInteractive', filename);
   }
 
   /**
@@ -1039,7 +1058,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    */
   loadFromDatabase(): void {
     if (!this.currentScreenplay) {
-      console.warn('⚠️ Nenhum roteiro carregado do banco');
+      this.logging.warn('⚠️ Nenhum roteiro carregado do banco', 'ScreenplayInteractive');
       return;
     }
 
@@ -1056,10 +1075,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.screenplayStorage.getScreenplay(this.currentScreenplay.id).subscribe({
       next: (screenplay) => {
         this.loadScreenplayIntoEditor(screenplay);
-        console.log('🔄 Roteiro recarregado do banco:', screenplay.name);
+        this.logging.info('🔄 Roteiro recarregado do banco:', 'ScreenplayInteractive', screenplay.name);
       },
       error: (error) => {
-        console.error('❌ Erro ao recarregar roteiro:', error);
+        this.logging.error('❌ Erro ao recarregar roteiro:', error, 'ScreenplayInteractive');
         alert('Falha ao recarregar o roteiro do banco.');
       }
     });
@@ -1069,10 +1088,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-005 v2: Simplified save method - disk files are automatically converted to database
    */
   save(): void {
-    console.log(`💾 [SAVE] Intelligent save - sourceOrigin: ${this.sourceOrigin}`);
+    this.logging.info(`💾 [SAVE] Intelligent save - sourceOrigin: ${this.sourceOrigin}`, 'ScreenplayInteractive');
 
     if (!this.isDirty) {
-      console.log('⏭️ [SAVE] No changes to save');
+      this.logging.info('⏭️ [SAVE] No changes to save', 'ScreenplayInteractive');
       return;
     }
 
@@ -1088,7 +1107,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         break;
       
       default:
-        console.warn('⚠️ [SAVE] Unknown sourceOrigin:', this.sourceOrigin);
+        this.logging.warn('⚠️ [SAVE] Unknown sourceOrigin:', 'ScreenplayInteractive', this.sourceOrigin);
     }
   }
 
@@ -1100,9 +1119,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const defaultName = `novo-roteiro-${timestamp}`;
     
-    console.log(`💾 [PROMPT] Prompting for new screenplay name`);
-    console.log(`   - Default name: ${defaultName}`);
-    console.log(`   - Content length: ${content.length} characters`);
+    this.logging.info(`💾 [PROMPT] Prompting for new screenplay name`, 'ScreenplayInteractive', {
+      defaultName,
+      contentLength: content.length
+    });
     
     // TODO: Replace with beautiful modal component
     // For now, using improved window.prompt
@@ -1112,35 +1132,36 @@ Aqui temos alguns agentes distribuídos pelo documento:
       defaultName
     );
 
-    console.log(`   - User input: "${name}"`);
-    console.log(`   - User input type: ${typeof name}`);
-    console.log(`   - User input length: ${name?.length || 0}`);
-    console.log(`   - Default name was: "${defaultName}"`);
-    console.log(`   - Is same as default: ${name === defaultName}`);
-    console.log(`   - Trimmed: "${name?.trim()}"`);
-    console.log(`   - Trimmed length: ${name?.trim().length || 0}`);
-    console.log(`   - Is valid: ${name && name.trim().length > 0}`);
+    this.logging.debug(`   - User input: "${name}"`, 'ScreenplayInteractive', {
+      type: typeof name,
+      length: name?.length || 0,
+      defaultNameWas: defaultName,
+      isSameAsDefault: name === defaultName,
+      trimmed: name?.trim(),
+      trimmedLength: name?.trim().length || 0,
+      isValid: name && name.trim().length > 0
+    });
 
     // Handle the case where user accepts default name without editing
     let finalName = name;
     if (name === defaultName) {
-      console.log(`🔄 [PROMPT] User accepted default name, using as-is: "${defaultName}"`);
+      this.logging.debug(`🔄 [PROMPT] User accepted default name, using as-is: "${defaultName}"`, 'ScreenplayInteractive');
       finalName = defaultName;
     } else if (name && name.trim() && name.trim().length > 0) {
       finalName = name.trim();
-      console.log(`✅ [PROMPT] User provided custom name: "${finalName}"`);
+      this.logging.info(`✅ [PROMPT] User provided custom name: "${finalName}"`, 'ScreenplayInteractive');
     } else if (name === null) {
-      console.log('❌ [SAVE] User cancelled screenplay creation (null)');
+      this.logging.info('❌ [SAVE] User cancelled screenplay creation (null)', 'ScreenplayInteractive');
       return;
     } else if (name === '') {
-      console.log('❌ [SAVE] User entered empty string');
+      this.logging.warn('❌ [SAVE] User entered empty string', 'ScreenplayInteractive');
       return;
     } else {
-      console.log('❌ [SAVE] User entered invalid name:', name);
+      this.logging.warn('❌ [SAVE] User entered invalid name:', 'ScreenplayInteractive', name);
       return;
     }
 
-    console.log(`✅ [PROMPT] Final name to create: "${finalName}"`);
+    this.logging.info(`✅ [PROMPT] Final name to create: "${finalName}"`, 'ScreenplayInteractive');
     this.createNewScreenplayInDatabase(finalName, content);
   }
 
@@ -1148,18 +1169,19 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-005: Create new screenplay in database and link to editor
    */
   private createNewScreenplayInDatabase(name: string, content: string): void {
-    console.log(`💾 [CREATE] Creating new screenplay in database: ${name}`);
-    console.log(`   - Name: "${name}"`);
-    console.log(`   - Name length: ${name.length}`);
-    console.log(`   - Content length: ${content.length}`);
-    console.log(`   - Content preview: ${content.substring(0, 100)}...`);
+    this.logging.info(`💾 [CREATE] Creating new screenplay in database: ${name}`, 'ScreenplayInteractive', {
+      name,
+      nameLength: name.length,
+      contentLength: content.length,
+      contentPreview: `${content.substring(0, 100)}...`
+    });
 
     // Sanitize name similar to import - but be more careful
     let sanitizedName = name.trim();
     
     // Only sanitize if there are problematic characters
     if (/[^a-zA-Z0-9\-_]/.test(sanitizedName)) {
-      console.log(`   - Name contains special characters, sanitizing...`);
+      this.logging.debug(`   - Name contains special characters, sanitizing...`, 'ScreenplayInteractive');
       sanitizedName = sanitizedName.replace(/[^a-zA-Z0-9\-_]/g, '-');
       // Remove multiple consecutive dashes
       sanitizedName = sanitizedName.replace(/-+/g, '-');
@@ -1167,27 +1189,28 @@ Aqui temos alguns agentes distribuídos pelo documento:
       sanitizedName = sanitizedName.replace(/^-+|-+$/g, '');
     }
     
-    console.log(`   - Sanitized name: "${sanitizedName}"`);
+    this.logging.debug(`   - Sanitized name: "${sanitizedName}"`, 'ScreenplayInteractive');
 
     // Validate name
     if (!sanitizedName || sanitizedName.length === 0) {
-      console.error('❌ [CREATE] Invalid name after sanitization');
+      this.logging.error('❌ [CREATE] Invalid name after sanitization', undefined, 'ScreenplayInteractive');
       alert('Nome inválido. Use apenas letras, números, hífens e underscores.');
       return;
     }
 
     // Additional validation - ensure it's not just dashes
     if (sanitizedName.replace(/-/g, '').length === 0) {
-      console.error('❌ [CREATE] Name is only dashes after sanitization');
+      this.logging.error('❌ [CREATE] Name is only dashes after sanitization', undefined, 'ScreenplayInteractive');
       alert('Nome inválido. Use pelo menos uma letra ou número.');
       return;
     }
 
-    console.log('💾 [CREATE] Sending to MongoDB:');
-    console.log('   - Name:', sanitizedName);
-    console.log('   - Content length:', content.length);
-    console.log('   - Content preview:', content.substring(0, 200));
-    console.log('   - Description:', `Criado em ${new Date().toLocaleDateString()}`);
+    this.logging.info('💾 [CREATE] Sending to MongoDB:', 'ScreenplayInteractive', {
+      name: sanitizedName,
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200),
+      description: `Criado em ${new Date().toLocaleDateString()}`
+    });
 
     this.screenplayStorage.createScreenplay({
       name: sanitizedName,
@@ -1195,9 +1218,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
       description: `Criado em ${new Date().toLocaleDateString()}`
     }).subscribe({
       next: (newScreenplay) => {
-        console.log(`✅ [CREATE] Screenplay created: ${newScreenplay.id}`);
-        console.log(`   - Name in database: ${newScreenplay.name}`);
-        console.log(`   - Version: ${newScreenplay.version}`);
+        this.logging.info(`✅ [CREATE] Screenplay created: ${newScreenplay.id}`, 'ScreenplayInteractive', {
+          nameInDb: newScreenplay.name,
+          version: newScreenplay.version
+        });
         
         // Update state to database-linked
         this.sourceOrigin = 'database';
@@ -1209,12 +1233,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
         // Update URL with new screenplay ID
         this.updateUrlWithScreenplayId(newScreenplay.id);
         
-        console.log(`✅ [CREATE] Screenplay linked to editor: ${newScreenplay.name}`);
-        console.log(`✅ [CREATE] URL updated with screenplayId: ${newScreenplay.id}`);
+        this.logging.info(`✅ [CREATE] Screenplay linked to editor: ${newScreenplay.name}`, 'ScreenplayInteractive');
+        this.logging.info(`✅ [CREATE] URL updated with screenplayId: ${newScreenplay.id}`, 'ScreenplayInteractive');
       },
       error: (error) => {
-        console.error('❌ [CREATE] Failed to create screenplay:', error);
-        console.error('   - Error details:', JSON.stringify(error, null, 2));
+        this.logging.error('❌ [CREATE] Failed to create screenplay:', error, 'ScreenplayInteractive', {
+          errorDetails: JSON.stringify(error, null, 2)
+        });
         alert(`Falha ao criar roteiro no banco: ${error.message || 'Erro desconhecido'}`);
       }
     });
@@ -1225,7 +1250,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.screenplayStorage.getScreenplay(id).subscribe({
       next: (screenplay) => {
         if (screenplay.isDeleted) {
-          console.error('Screenplay was deleted');
+          this.logging.error('Screenplay was deleted', undefined, 'ScreenplayInteractive');
           alert('Este roteiro foi deletado.');
           this.loadDefaultContent();
           this.clearInvalidUrl();
@@ -1236,7 +1261,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.isLoading = false;
       },
       error: (err) => {
-        console.error('Failed to load screenplay:', err);
+        this.logging.error('Failed to load screenplay:', err, 'ScreenplayInteractive');
         alert('Não foi possível carregar o roteiro. Carregando padrão.');
         this.loadDefaultContent();
         this.clearInvalidUrl();
@@ -1277,9 +1302,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Update URL with screenplay ID
     this.updateUrlWithScreenplayId(screenplay.id);
 
-    console.log(`📖 [LOAD] Loading screenplay into editor:`, screenplay.name);
-    console.log(`   - Content length:`, screenplay.content.length, 'chars');
-    console.log(`   - First 100 chars:`, screenplay.content.substring(0, 100));
+    this.logging.info(`📖 [LOAD] Loading screenplay into editor:`, 'ScreenplayInteractive', {
+      name: screenplay.name,
+      contentLength: `${screenplay.content.length} chars`,
+      preview: screenplay.content.substring(0, 100)
+    });
 
     // CRITICAL: Set editorContent first (backward compatibility with old code)
     this.editorContent = screenplay.content;
@@ -1299,17 +1326,17 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Load agents specific to this screenplay
     this.loadInstancesFromMongoDB();
 
-    console.log(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`);
+    this.logging.info(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`, 'ScreenplayInteractive');
   }
 
   saveCurrentScreenplay(): void {
     if (!this.currentScreenplay) {
-      console.log('⏭️ No screenplay loaded');
+      this.logging.info('⏭️ No screenplay loaded', 'ScreenplayInteractive');
       return;
     }
     
     if (!this.isDirty) {
-      console.log('⏭️ No changes to save');
+      this.logging.info('⏭️ No changes to save', 'ScreenplayInteractive');
       return;
     }
 
@@ -1325,11 +1352,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.currentScreenplay = updatedScreenplay;
         this.isDirty = false;
         this.isSaving = false;
-        console.log(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`);
+        this.logging.info(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`, 'ScreenplayInteractive');
       },
       error: (error) => {
         this.isSaving = false;
-        console.error('❌ Failed to save screenplay:', error);
+        this.logging.error('❌ Failed to save screenplay:', error, 'ScreenplayInteractive');
         alert('Falha ao salvar o roteiro. Tente novamente.');
       }
     });
@@ -1337,18 +1364,19 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   generateMarkdownForSave(): string {
     if (!this.interactiveEditor) {
-      console.error('Editor não encontrado. Não é possível salvar.');
+      this.logging.error('Editor não encontrado. Não é possível salvar.', undefined, 'ScreenplayInteractive');
       return '';
     }
 
     // 1. Get current markdown content
     let markdown = this.interactiveEditor.getMarkdown();
     
-    console.log('📝 [GENERATE] Generating markdown for save:');
-    console.log('   - Content length:', markdown.length);
-    console.log('   - First 200 chars:', markdown.substring(0, 200));
-    console.log('   - Source origin:', this.sourceOrigin);
-    console.log('   - Is dirty:', this.isDirty);
+    this.logging.debug('📝 [GENERATE] Generating markdown for save:', 'ScreenplayInteractive', {
+      contentLength: markdown.length,
+      preview: markdown.substring(0, 200),
+      sourceOrigin: this.sourceOrigin,
+      isDirty: this.isDirty
+    });
 
     // 2. Group instances by emoji for ordered processing
     const instancesByEmoji = new Map<string, AgentInstance[]>();
@@ -1383,7 +1411,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   // === Controle de Views ===
   switchView(view: 'clean' | 'agents' | 'full'): void {
     this.currentView = view;
-    console.log(`🌐 View alterada para: ${view}`);
+    this.logging.info(`🌐 View alterada para: ${view}`, 'ScreenplayInteractive');
   }
 
   // === Gerenciamento de Agentes ===
@@ -1396,12 +1424,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   private syncAgentsWithMarkdown(sourceText: string): void {
-    console.log('🔄 Sincronizando agentes...');
+    this.logging.info('🔄 Sincronizando agentes...', 'ScreenplayInteractive');
     const foundAgentIds = new Set<string>();
 
     // Validação robusta: garante que sourceText é uma string antes de usar matchAll
     if (!sourceText || typeof sourceText !== 'string') {
-      console.warn('⚠️ sourceText is not a valid string, skipping synchronization');
+      this.logging.warn('⚠️ sourceText is not a valid string, skipping synchronization', 'ScreenplayInteractive');
       return;
     }
 
@@ -1415,24 +1443,25 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n?(.)/gu;
     const anchoredMatches = [...sourceText.matchAll(anchorRegex)];
 
-    console.log(`📋 Encontradas ${anchoredMatches.length} âncoras SAGA-003 no markdown`);
+    this.logging.debug(`📋 Encontradas ${anchoredMatches.length} âncoras SAGA-003 no markdown`, 'ScreenplayInteractive');
 
     if (anchoredMatches.length === 0) {
-      console.warn('⚠️ Nenhuma âncora encontrada! Verificando se há âncoras no texto...');
+      this.logging.warn('⚠️ Nenhuma âncora encontrada! Verificando se há âncoras no texto...', 'ScreenplayInteractive');
       const hasAnchor = sourceText.includes('agent-instance');
-      console.warn(`   - Texto contém "agent-instance": ${hasAnchor}`);
+      this.logging.warn(`   - Texto contém "agent-instance": ${hasAnchor}`, 'ScreenplayInteractive');
       if (hasAnchor) {
-        console.warn('   - Âncora existe mas regex não está encontrando!');
-        console.warn('   - Trecho do texto:', sourceText.substring(sourceText.indexOf('agent-instance') - 20, sourceText.indexOf('agent-instance') + 100));
+        this.logging.warn('   - Âncora existe mas regex não está encontrando!', 'ScreenplayInteractive');
+        this.logging.warn('   - Trecho do texto:', 'ScreenplayInteractive', sourceText.substring(sourceText.indexOf('agent-instance') - 20, sourceText.indexOf('agent-instance') + 100));
       }
     }
 
     for (const match of anchoredMatches) {
-      console.log('🔍 [SYNC] Match encontrado:', match);
-      console.log('   - match[0] (full):', match[0]);
-      console.log('   - match[1] (instance_id):', match[1]);
-      console.log('   - match[2] (agent_id):', match[2]);
-      console.log('   - match[3] (emoji):', match[3]);
+      this.logging.debug('🔍 [SYNC] Match encontrado:', 'ScreenplayInteractive', {
+        full: match[0],
+        instance_id: match[1],
+        agent_id: match[2],
+        emoji: match[3]
+      });
 
       const instanceId = match[1].trim();
       const agentIdOrSlug = match[2].trim();
@@ -1442,10 +1471,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
       foundAgentIds.add(instanceId);
 
       if (!this.agentInstances.has(instanceId)) {
-        console.log(`✨ Criando instância ${instanceId} do agente ${agentIdOrSlug} (${emoji})`);
-        console.log(`   - instance_id: ${instanceId}`);
-        console.log(`   - agent_id/slug (do markdown): ${agentIdOrSlug}`);
-        console.log(`   - emoji: ${emoji}`);
+        this.logging.info(`✨ Criando instância ${instanceId} do agente ${agentIdOrSlug} (${emoji})`, 'ScreenplayInteractive', {
+          instance_id: instanceId,
+          agent_id_slug: agentIdOrSlug,
+          emoji
+        });
 
         // Usar o agent_id da âncora diretamente
         // O gateway vai resolver se for nome ou MongoDB ID
@@ -1462,10 +1492,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
           position: this.calculateEmojiPosition(match.index || 0)
         };
 
-        console.log(`✅ Instância criada com agent_id: ${newInstance.agent_id}`);
+        this.logging.info(`✅ Instância criada com agent_id: ${newInstance.agent_id}`, 'ScreenplayInteractive');
         this.agentInstances.set(instanceId, newInstance);
       } else {
-        console.log(`ℹ️ Instância ${instanceId} já existe, pulando...`);
+        this.logging.debug(`ℹ️ Instância ${instanceId} já existe, pulando...`, 'ScreenplayInteractive');
       }
     }
 
@@ -1475,7 +1505,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     const standaloneEmojiRegex = new RegExp(`(?<!<!--[^>]*>[\\s\\n]*)(${allEmojis})`, 'gu');
     const standaloneMatches = [...sourceText.matchAll(standaloneEmojiRegex)];
 
-    console.log(`📋 Encontrados ${standaloneMatches.length} emojis standalone de ${Object.keys(AGENT_DEFINITIONS).length} possíveis`);
+    this.logging.debug(`📋 Encontrados ${standaloneMatches.length} emojis standalone de ${Object.keys(AGENT_DEFINITIONS).length} possíveis`, 'ScreenplayInteractive');
 
     // Group standalone matches by emoji
     const matchesByEmoji = new Map<string, Array<{ match: RegExpMatchArray; index: number }>>();
@@ -1502,7 +1532,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
           // Reuse existing instance
           const { id } = existingInstances[i];
           foundAgentIds.add(id);
-          console.log(`♻️  Reutilizando instância ${id} para ${emoji} #${i}`);
+          this.logging.debug(`♻️  Reutilizando instância ${id} para ${emoji} #${i}`, 'ScreenplayInteractive');
         } else {
           // Create new instance for extra emoji
           const instanceId = this.generateUUID();
@@ -1516,7 +1546,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
           this.agentInstances.set(instanceId, newInstance);
           foundAgentIds.add(instanceId);
-          console.log(`✨ Nova instância ${instanceId} para ${emoji} #${i}`);
+          this.logging.info(`✨ Nova instância ${instanceId} para ${emoji} #${i}`, 'ScreenplayInteractive');
         }
       }
     });
@@ -1530,7 +1560,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
     this.updateAgentPositionsFromText();
 
-    console.log(`✅ Sincronização completa. ${this.agentInstances.size} agentes ativos.`);
+    this.logging.info(`✅ Sincronização completa. ${this.agentInstances.size} agentes ativos.`, 'ScreenplayInteractive');
 
     // Update legacy structures for backward compatibility
     this.updateAvailableEmojis();
@@ -1576,7 +1606,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   createAgentsForEmoji(emojiInfo: EmojiInfo): void {
     const currentContent = this.interactiveEditor.getMarkdown();
     this.syncAgentsWithMarkdown(currentContent);
-    console.log(`✨ Triggered sync for ${emojiInfo.emoji}`);
+    this.logging.info(`✨ Triggered sync for ${emojiInfo.emoji}`, 'ScreenplayInteractive');
   }
 
   addManualAgent(): void {
@@ -1601,11 +1631,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.agentInstances.set(agentId, newInstance);
     this.updateLegacyAgentsFromInstances();
 
-    console.log('➕ Agente manual adicionado:', randomEmoji);
+    this.logging.info('➕ Agente manual adicionado:', 'ScreenplayInteractive', randomEmoji);
   }
 
   clearAllAgents(): void {
-    console.log('🗑️ [SCREENPLAY] Removendo todos os agentes...');
+    this.logging.info('🗑️ [SCREENPLAY] Removendo todos os agentes...', 'ScreenplayInteractive');
 
     // Get all instance IDs before clearing
     const instanceIds = Array.from(this.agentInstances.keys());
@@ -1618,23 +1648,23 @@ Aqui temos alguns agentes distribuídos pelo documento:
     instanceIds.forEach(instanceId => {
       this.agentService.deleteInstance(instanceId, true).subscribe({
         next: () => {
-          console.log(`✅ [SCREENPLAY] Instância ${instanceId} deletada do MongoDB`);
+          this.logging.info(`✅ [SCREENPLAY] Instância ${instanceId} deletada do MongoDB`, 'ScreenplayInteractive');
         },
         error: (error) => {
-          console.error(`❌ [SCREENPLAY] Falha ao deletar ${instanceId} do MongoDB:`, error);
+          this.logging.error(`❌ [SCREENPLAY] Falha ao deletar ${instanceId} do MongoDB:`, error, 'ScreenplayInteractive');
           // Continue with other deletions even if one fails
         }
       });
     });
 
-    console.log(`🗑️ Todos os agentes removidos (${instanceIds.length} instâncias)`);
+    this.logging.info(`🗑️ Todos os agentes removidos (${instanceIds.length} instâncias)`, 'ScreenplayInteractive');
   }
 
   resyncManually(): void {
-    console.log('🔄 Executando resincronização manual...');
+    this.logging.info('🔄 Executando resincronização manual...', 'ScreenplayInteractive');
     const currentContent = this.interactiveEditor.getMarkdown();
     this.syncAgentsWithMarkdown(currentContent);
-    console.log('🔄 Resincronização manual completa');
+    this.logging.info('🔄 Resincronização manual completa', 'ScreenplayInteractive');
   }
 
   /**
@@ -1663,31 +1693,31 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   private positionAgentsOverEmojis(): void {
-    console.log('--- Iniciando Posicionamento de Agentes ---');
+    this.logging.debug('--- Iniciando Posicionamento de Agentes ---', 'ScreenplayInteractive');
 
     const canvas = this.canvas.nativeElement;
     if (!canvas) {
-      console.error('❌ BUG: Elemento do Canvas não encontrado.');
+      this.logging.error('❌ BUG: Elemento do Canvas não encontrado.', undefined, 'ScreenplayInteractive');
       return;
     }
 
     const editorElement = this.interactiveEditor.getEditorElement();
     if (!editorElement) {
-      console.error('❌ BUG: Elemento do Editor (.ProseMirror) não foi encontrado pelo filho.');
+      this.logging.error('❌ BUG: Elemento do Editor (.ProseMirror) não foi encontrado pelo filho.', undefined, 'ScreenplayInteractive');
       return;
     }
 
     const canvasRect = canvas.getBoundingClientRect();
-    console.log('📦 Coordenadas do Canvas (referência):', canvasRect);
+    this.logging.debug('📦 Coordenadas do Canvas (referência):', 'ScreenplayInteractive', canvasRect);
 
     // --- INÍCIO DA CORREÇÃO ---
     // 1. Obtenha a posição de scroll do container que ROLA. Neste caso, é o próprio canvas.
     const scrollTop = canvas.scrollTop;
-    console.log(`📜 Posição do Scroll Top: ${scrollTop}`);
+    this.logging.debug(`📜 Posição do Scroll Top: ${scrollTop}`, 'ScreenplayInteractive');
     // --- FIM DA CORREÇÃO ---
 
     if (this.agentInstances.size === 0) {
-      console.log('ℹ️ Nenhuma instância de agente para posicionar.');
+      this.logging.info('ℹ️ Nenhuma instância de agente para posicionar.', 'ScreenplayInteractive');
       return;
     }
 
@@ -1700,7 +1730,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     });
 
     instancesByEmoji.forEach((instances, emoji) => {
-      console.log(`-- Buscando posições para o emoji: "${emoji}" (${instances.length} instâncias)`);
+      this.logging.debug(`-- Buscando posições para o emoji: "${emoji}" (${instances.length} instâncias)`, 'ScreenplayInteractive');
 
       const walker = document.createTreeWalker(editorElement, NodeFilter.SHOW_TEXT, null);
       let node;
@@ -1720,7 +1750,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
           const rect = range.getBoundingClientRect();
 
           if (rect.width === 0 && rect.height === 0) {
-            console.warn(`⚠️ Posição do emoji "${emoji}" #${emojiInstanceIndex} não pôde ser calculada (rect is zero).`);
+            this.logging.warn(`⚠️ Posição do emoji "${emoji}" #${emojiInstanceIndex} não pôde ser calculada (rect is zero).`, 'ScreenplayInteractive');
             emojiInstanceIndex++;
             continue;
           }
@@ -1737,7 +1767,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
           };
           // --- FIM DA CORREÇÃO ---
 
-          console.log(`✅ Emoji "${emoji}" #${emojiInstanceIndex} encontrado. Rect:`, rect, `Posição Relativa com Scroll:`, newPosition);
+          this.logging.debug(`✅ Emoji "${emoji}" #${emojiInstanceIndex} encontrado. Rect:`, 'ScreenplayInteractive', { rect, newPosition });
 
           instance.position = newPosition;
           emojiInstanceIndex++;
@@ -1745,7 +1775,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       }
     });
 
-    console.log('--- Posicionamento de Agentes (com Scroll) Concluído ---');
+    this.logging.debug('--- Posicionamento de Agentes (com Scroll) Concluído ---', 'ScreenplayInteractive');
   }
 
   updateAgentPositionsFromText(): void {
@@ -1760,8 +1790,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Debounce to avoid too many updates while typing
     clearTimeout(this.updateTimeout);
     this.updateTimeout = setTimeout(() => {
-      console.log('📝 handleContentUpdate recebeu conteúdo:', newContent.substring(0, 200));
-      console.log('   - Contém agent-instance?', newContent.includes('agent-instance'));
+      this.logging.debug('📝 handleContentUpdate recebeu conteúdo:', 'ScreenplayInteractive', {
+        preview: newContent.substring(0, 200),
+        hasAgentInstance: newContent.includes('agent-instance')
+      });
 
       // Passa o conteúdo mais recente para a lógica de sincronização
       this.syncAgentsWithMarkdown(newContent);
@@ -1770,7 +1802,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       if (this.isDirty && this.sourceOrigin === 'database' && this.currentScreenplay) {
         clearTimeout(this.autoSaveTimeout);
         this.autoSaveTimeout = setTimeout(() => {
-          console.log('💾 Auto-saving screenplay...');
+          this.logging.info('💾 Auto-saving screenplay...', 'ScreenplayInteractive');
           this.save();
         }, 3000);
       }
@@ -1778,11 +1810,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   onBlockCommand(command: string): void {
-    console.log('🎬 Comando do bloco:', command);
+    this.logging.info('🎬 Comando do bloco:', 'ScreenplayInteractive', command);
   }
 
   onAgentCircleEvent(event: CircleEvent, agent: AgentConfig): void {
-    console.log('🎯 Evento do círculo:', event.type, agent.emoji);
+    this.logging.debug('🎯 Evento do círculo:', 'ScreenplayInteractive', { type: event.type, emoji: agent.emoji });
     // Legacy method - no longer in use, agent instances use onAgentInstanceCircleEvent instead
   }
 
@@ -1791,29 +1823,24 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   onAgentInstanceCircleEvent(event: CircleEvent, instance: AgentInstance): void {
-    console.log('🎯 Agent instance circle event:', event.type, instance.emoji, instance.id);
+    this.logging.info('🎯 Agent instance circle event:', 'ScreenplayInteractive', { type: event.type, emoji: instance.emoji, id: instance.id });
     if (event.type === 'click') {
       this.selectedAgent = instance;
-      console.log('================================================================================');
-      console.log('📍 [SCREENPLAY] Agente clicado:');
-      console.log('   - instance_id:', instance.id);
-      console.log('   - agent_id (MongoDB):', instance.agent_id);
-      console.log('   - agent_id type:', typeof instance.agent_id);
-      console.log('   - agent_id is undefined?', instance.agent_id === undefined);
-      console.log('   - agent_id is null?', instance.agent_id === null);
-      console.log('   - Nome:', instance.definition.title);
-      console.log('   - Emoji:', instance.emoji);
-      console.log('   - Instância completa:', JSON.stringify(instance, null, 2));
-      console.log('================================================================================');
+      this.logging.info('📍 [SCREENPLAY] Agente clicado:', 'ScreenplayInteractive', {
+        instance_id: instance.id,
+        agent_id: instance.agent_id,
+        agent_id_type: typeof instance.agent_id,
+        is_undefined: instance.agent_id === undefined,
+        is_null: instance.agent_id === null,
+        name: instance.definition.title,
+        emoji: instance.emoji,
+        full_instance: JSON.stringify(instance, null, 2)
+      });
 
       if (!instance.agent_id) {
-        console.error('================================================================================');
-        console.error('❌ [SCREENPLAY] ERRO CRÍTICO: agent_id está undefined/null!');
-        console.error('   A instância foi criada mas agent_id não foi definido.');
-        console.error('   Verifique se a âncora no markdown tem agent-id correto.');
-        console.error('   Formato esperado: <!-- agent-instance: uuid, agent-id: nome-do-agente -->');
-        console.error('   Verifique os logs de sincronização acima para ver o que foi extraído.');
-        console.error('================================================================================');
+        this.logging.error('❌ [SCREENPLAY] ERRO CRÍTICO: agent_id está undefined/null!', undefined, 'ScreenplayInteractive', {
+          details: 'A instância foi criada mas agent_id não foi definido. Verifique se a âncora no markdown tem agent-id correto. Formato esperado: <!-- agent-instance: uuid, agent-id: nome-do-agente -->. Verifique os logs de sincronização acima para ver o que foi extraído.'
+        });
       }
 
       this.conductorChat.loadContextForAgent(
@@ -1824,9 +1851,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
         instance.config?.cwd,  // Pass working directory if defined
         this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
-      console.log('💬 Carregando contexto no chat:');
-      console.log('   - instance_id passado:', instance.id);
-      console.log('   - agent_id passado:', instance.agent_id);
+      this.logging.info('💬 Carregando contexto no chat:', 'ScreenplayInteractive', {
+        instance_id_passed: instance.id,
+        agent_id_passed: instance.agent_id
+      });
     }
   }
 
@@ -1836,14 +1864,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Update MongoDB
     this.agentService.updateInstance(instance.id, { position }).subscribe({
       next: () => {
-        console.log(`✅ [SCREENPLAY] Posição atualizada no MongoDB: ${instance.id}`);
+        this.logging.info(`✅ [SCREENPLAY] Posição atualizada no MongoDB: ${instance.id}`, 'ScreenplayInteractive');
       },
       error: (error) => {
-        console.error('❌ [SCREENPLAY] Falha ao atualizar posição no MongoDB:', error);
+        this.logging.error('❌ [SCREENPLAY] Falha ao atualizar posição no MongoDB:', error, 'ScreenplayInteractive');
       }
     });
 
-    console.log(`📍 Agent instance ${instance.id} moved to (${position.x}, ${position.y})`);
+    this.logging.debug(`📍 Agent instance ${instance.id} moved to (${position.x}, ${position.y})`, 'ScreenplayInteractive');
   }
 
   openAgentCreator(): void {
@@ -1886,7 +1914,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     this.updateLegacyAgentsFromInstances();
     this.closeAgentCreator();
 
-    console.log('✨ Agente personalizado criado:', agentData.title, agentData.emoji);
+    this.logging.info('✨ Agente personalizado criado:', 'ScreenplayInteractive', { title: agentData.title, emoji: agentData.emoji });
   }
 
   openAgentSelector(): void {
@@ -1950,12 +1978,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Wait longer for TipTap to update the DOM completely
     setTimeout(() => {
       this.updateAgentPositionsFromText();
-      console.log('📍 Agent positioned over emoji in text');
+      this.logging.info('📍 Agent positioned over emoji in text', 'ScreenplayInteractive');
     }, 500);
 
     this.closeAgentSelector();
 
-    console.log('✅ Agente inserido:', agent.name, agent.emoji, 'ID:', instanceId);
+    this.logging.info('✅ Agente inserido:', 'ScreenplayInteractive', { name: agent.name, emoji: agent.emoji, id: instanceId });
   }
 
   // === Agent Execution with Preview ===
@@ -1976,13 +2004,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
   captureSelectionAndExecute(): void {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
-      console.warn('No text selected');
+      this.logging.warn('No text selected', 'ScreenplayInteractive');
       return;
     }
 
     const selectedText = selection.toString().trim();
     if (!selectedText) {
-      console.warn('Empty selection');
+      this.logging.warn('Empty selection', 'ScreenplayInteractive');
       return;
     }
 
@@ -2093,7 +2121,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         currentMarkdown.substring(this.selectedTextRange.end);
 
       this.interactiveEditor.setContent(newMarkdown, true);
-      console.log('✅ Preview accepted, text replaced');
+      this.logging.info('✅ Preview accepted, text replaced', 'ScreenplayInteractive');
     }
 
     this.closeAgentPreview();
@@ -2103,7 +2131,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * Handle preview reject - close modal without changes
    */
   onPreviewReject(action: PreviewAction): void {
-    console.log('❌ Preview rejected');
+    this.logging.info('❌ Preview rejected', 'ScreenplayInteractive');
     this.closeAgentPreview();
   }
 
@@ -2131,23 +2159,24 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Popula agentes contextuais a partir das instâncias no documento
     // SAGA-006: Filter out hidden agents
     this.contextualAgents = this.getAgentInstancesAsArray().filter(agent => !agent.is_hidden);
-    console.log(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (${this.agentInstances.size - this.contextualAgents.length} ocultos)`);
+    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (${this.agentInstances.size - this.contextualAgents.length} ocultos)`, 'ScreenplayInteractive');
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
-    console.log(`🔄 [DOCK-CLICK] Carregando agente: ${agent.definition.title}`);
-    console.log('   - Agent ID:', agent.id);
-    console.log('   - Agent title:', agent.definition.title);
-    console.log('   - Agent emoji:', agent.emoji);
-    console.log('   - Agent agent_id:', agent.agent_id);
-    console.log('   - Agent cwd:', agent.config?.cwd);
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - ConductorChat available:', !!this.conductorChat);
+    this.logging.info(`🔄 [DOCK-CLICK] Carregando agente: ${agent.definition.title}`, 'ScreenplayInteractive', {
+      agentId: agent.id,
+      agentTitle: agent.definition.title,
+      agentEmoji: agent.emoji,
+      agent_agent_id: agent.agent_id,
+      agentCwd: agent.config?.cwd,
+      currentScreenplayId: this.currentScreenplay?.id,
+      conductorChatAvailable: !!this.conductorChat
+    });
     
     this.activeAgentId = agent.id;
     
     if (this.conductorChat) {
-      console.log('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...');
+      this.logging.debug('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...', 'ScreenplayInteractive');
       this.conductorChat.loadContextForAgent(
         agent.id, 
         agent.definition.title, 
@@ -2156,9 +2185,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
         agent.config?.cwd,
         this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
-      console.log('✅ [DOCK-CLICK] loadContextForAgent called successfully');
+      this.logging.debug('✅ [DOCK-CLICK] loadContextForAgent called successfully', 'ScreenplayInteractive');
     } else {
-      console.error('❌ [DOCK-CLICK] ConductorChat is not available!');
+      this.logging.error('❌ [DOCK-CLICK] ConductorChat is not available!', undefined, 'ScreenplayInteractive');
     }
   }
 
@@ -2188,23 +2217,23 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * Only loads agents for the current screenplay
    */
   loadInstancesFromMongoDB(): void {
-    console.log('📥 [SCREENPLAY] Carregando instâncias do MongoDB...');
+    this.logging.info('📥 [SCREENPLAY] Carregando instâncias do MongoDB...', 'ScreenplayInteractive');
 
     // Only load agents if we have a current screenplay
     if (!this.currentScreenplay?.id) {
-      console.log('⚠️ [SCREENPLAY] Nenhum roteiro carregado, não carregando agentes');
+      this.logging.warn('⚠️ [SCREENPLAY] Nenhum roteiro carregado, não carregando agentes', 'ScreenplayInteractive');
       this.agentInstances.clear();
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
       return;
     }
 
-    console.log(`📥 [SCREENPLAY] Carregando agentes para roteiro: ${this.currentScreenplay.id}`);
+    this.logging.info(`📥 [SCREENPLAY] Carregando agentes para roteiro: ${this.currentScreenplay.id}`, 'ScreenplayInteractive');
 
     this.agentService.loadAllInstances().subscribe({
       next: (instances: any[]) => {
-        console.log(`✅ [SCREENPLAY] ${instances.length} instâncias carregadas do MongoDB`);
-        console.log('🔍 [DEBUG] Todas as instâncias:', instances.map(i => ({
+        this.logging.info(`✅ [SCREENPLAY] ${instances.length} instâncias carregadas do MongoDB`, 'ScreenplayInteractive');
+        this.logging.debug('🔍 [DEBUG] Todas as instâncias:', 'ScreenplayInteractive', instances.map(i => ({
           id: i.instance_id,
           emoji: i.emoji,
           screenplay_id: i.screenplay_id,
@@ -2215,7 +2244,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.agentInstances.clear();
 
         instances.forEach((doc: any) => {
-          console.log(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`);
+          this.logging.debug(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
           
           // Only load agents that belong to the current screenplay
           if (doc.screenplay_id === this.currentScreenplay?.id) {
@@ -2237,13 +2266,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
             };
 
             this.agentInstances.set(instance.id, instance);
-            console.log(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - CWD: ${instance.config?.cwd || 'não definido'}`);
+            this.logging.info(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - CWD: ${instance.config?.cwd || 'não definido'}`, 'ScreenplayInteractive');
           } else {
-            console.log(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`);
+            this.logging.debug(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
           }
         });
 
-        console.log(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`);
+        this.logging.info(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`, 'ScreenplayInteractive');
 
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
@@ -2251,7 +2280,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
         // Auto-select first agent after loading (universal solution)
         if (this.agentInstances.size > 0) {
-          console.log('🎯 [LOAD-AGENTS] Auto-selecting first agent after loading from MongoDB...');
+          this.logging.info('🎯 [LOAD-AGENTS] Auto-selecting first agent after loading from MongoDB...', 'ScreenplayInteractive');
           setTimeout(() => {
             this.autoSelectFirstAgent();
           }, 300);
@@ -2259,7 +2288,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
       },
       error: (error) => {
-        console.error('❌ [SCREENPLAY] Falha ao carregar do MongoDB:', error);
+        this.logging.error('❌ [SCREENPLAY] Falha ao carregar do MongoDB:', error, 'ScreenplayInteractive');
       }
     });
   }
@@ -2379,7 +2408,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
   onEscapeKey(event: Event): void {
     // ESC não desseleciona o agente para manter configurações e tarja amarela visíveis
     // O usuário pode clicar em outro agente ou fechar manualmente se desejar
-    console.log('⎋ ESC pressed - agent remains selected');
+    this.logging.debug('⎋ ESC pressed - agent remains selected', 'ScreenplayInteractive');
     
     // Don't prevent default or stop propagation to allow child components to handle ESC
     // This allows modals and dialogs to close properly
@@ -2392,16 +2421,15 @@ Aqui temos alguns agentes distribuídos pelo documento:
   handleSaveShortcut(event: Event): void {
     event.preventDefault();
     if (this.isDirty) {
-      console.log('💾 Ctrl/Cmd+S pressed - Saving screenplay');
+      this.logging.info('💾 Ctrl/Cmd+S pressed - Saving screenplay', 'ScreenplayInteractive');
       this.save();
     }
   }
 
-  @HostListener('document:keydown.control.o', ['$event'])
   @HostListener('document:keydown.meta.o', ['$event'])
   handleOpenShortcut(event: Event): void {
     event.preventDefault();
-    console.log('📚 Ctrl/Cmd+O pressed - Opening screenplay manager');
+    this.logging.info('📚 Ctrl/Cmd+O pressed - Opening screenplay manager', 'ScreenplayInteractive');
     this.openScreenplayManager();
   }
 
@@ -2409,7 +2437,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-006: Create default agent instance for new screenplays
    */
   private async createDefaultAgentInstance(): Promise<void> {
-    console.log('🤖 [DEFAULT AGENT] Creating default agent instance');
+    this.logging.info('🤖 [DEFAULT AGENT] Creating default agent instance', 'ScreenplayInteractive');
     
     try {
       // Check if we already have a default agent for this screenplay
@@ -2417,9 +2445,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
         .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
       
       if (existingDefaultAgent) {
-        console.log('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation');
-        console.log('   - Existing agent ID:', existingDefaultAgent.id);
-        console.log('   - Existing agent emoji:', existingDefaultAgent.emoji);
+        this.logging.warn('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation', 'ScreenplayInteractive', {
+          existingAgentId: existingDefaultAgent.id,
+          existingAgentEmoji: existingDefaultAgent.emoji
+        });
         return;
       }
       
@@ -2468,13 +2497,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
       // Auto-activate the default agent in chat
       this.activateDefaultAgent(defaultInstance);
       
-      console.log('✅ [DEFAULT AGENT] Default agent instance created and activated');
-      console.log('   - Instance ID:', defaultInstance.id);
-      console.log('   - Agent ID:', defaultInstance.agent_id);
-      console.log('   - Emoji:', defaultInstance.emoji);
+      this.logging.info('✅ [DEFAULT AGENT] Default agent instance created and activated', 'ScreenplayInteractive', {
+        instanceId: defaultInstance.id,
+        agentId: defaultInstance.agent_id,
+        emoji: defaultInstance.emoji
+      });
       
     } catch (error) {
-      console.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error);
+      this.logging.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error, 'ScreenplayInteractive');
     }
   }
 
@@ -2482,7 +2512,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * SAGA-006: Insert emoji into editor content
    */
   private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
-    console.log('📝 [DEFAULT AGENT] Inserting emoji into editor:', emoji);
+    this.logging.info('📝 [DEFAULT AGENT] Inserting emoji into editor:', 'ScreenplayInteractive', emoji);
     
     // Insert emoji at the beginning of the editor with a new line
     this.interactiveEditor.insertContent(emoji + '\n\n');
@@ -2490,14 +2520,14 @@ Aqui temos alguns agentes distribuídos pelo documento:
     // Update editor content to trigger sync
     this.editorContent = this.interactiveEditor.getMarkdown();
     
-    console.log('✅ [DEFAULT AGENT] Emoji inserted into editor');
+    this.logging.info('✅ [DEFAULT AGENT] Emoji inserted into editor', 'ScreenplayInteractive');
   }
 
   /**
    * SAGA-006: Activate default agent in chat panel
    */
   private activateDefaultAgent(agent: AgentInstance): void {
-    console.log('🎯 [DEFAULT AGENT] Activating default agent in chat');
+    this.logging.info('🎯 [DEFAULT AGENT] Activating default agent in chat', 'ScreenplayInteractive');
     
     // Set as active agent
     this.activeAgentId = agent.id;
@@ -2520,7 +2550,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
       this.autoSelectDefaultAgent(agent);
     }, 500); // Increased delay to ensure the agent is fully loaded and UI is ready
     
-    console.log('✅ [DEFAULT AGENT] Default agent activated in chat');
+    this.logging.info('✅ [DEFAULT AGENT] Default agent activated in chat', 'ScreenplayInteractive');
   }
 
   /**
@@ -2528,27 +2558,28 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * This simulates the user clicking on the dock-item
    */
   private autoSelectDefaultAgent(agent: AgentInstance): void {
-    console.log('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', agent.definition.title);
-    console.log('   - Agent ID:', agent.id);
-    console.log('   - Agent emoji:', agent.emoji);
-    console.log('   - Agent title:', agent.definition.title);
-    console.log('   - Agent agent_id:', agent.agent_id);
-    console.log('   - Agent cwd:', agent.config?.cwd);
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - ConductorChat available:', !!this.conductorChat);
+    this.logging.info('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', 'ScreenplayInteractive', {
+      title: agent.definition.title,
+      agentId: agent.id,
+      emoji: agent.emoji,
+      agent_agent_id: agent.agent_id,
+      cwd: agent.config?.cwd,
+      currentScreenplayId: this.currentScreenplay?.id,
+      conductorChatAvailable: !!this.conductorChat
+    });
     
     // Ensure the agent is in the contextual agents list
     if (!this.contextualAgents.find(a => a.id === agent.id)) {
-      console.log('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...');
+      this.logging.warn('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...', 'ScreenplayInteractive');
       this.updateAgentDockLists();
-      console.log('   - Contextual agents after update:', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
+      this.logging.debug('   - Contextual agents after update:', 'ScreenplayInteractive', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
     }
     
     // Simulate the dock click by calling the same function
-    console.log('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...');
+    this.logging.debug('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...', 'ScreenplayInteractive');
     this.onDockAgentClick(agent);
     
-    console.log('✅ [AUTO-SELECT] Default agent auto-selected in dock');
+    this.logging.info('✅ [AUTO-SELECT] Default agent auto-selected in dock', 'ScreenplayInteractive');
   }
 
   /**
@@ -2556,23 +2587,26 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * Universal solution that works for all flows
    */
   private autoSelectFirstAgent(): void {
-    console.log('🎯 [AUTO-SELECT-FIRST] Auto-selecting first available agent...');
-    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
-    console.log('   - Total agent instances:', this.agentInstances.size);
-    console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
+    this.logging.info('🎯 [AUTO-SELECT-FIRST] Auto-selecting first available agent...', 'ScreenplayInteractive', {
+      currentScreenplayId: this.currentScreenplay?.id,
+      totalInstances: this.agentInstances.size,
+      availableAgents: Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`)
+    });
     
     if (this.agentInstances.size === 0) {
-      console.log('⚠️ [AUTO-SELECT-FIRST] No agents available to select');
+      this.logging.warn('⚠️ [AUTO-SELECT-FIRST] No agents available to select', 'ScreenplayInteractive');
       return;
     }
     
     // Get the first agent from the instances
     const firstAgent = Array.from(this.agentInstances.values())[0];
     
-    console.log('✅ [AUTO-SELECT-FIRST] Selecting first agent:', firstAgent.definition.title);
-    console.log('   - Agent ID:', firstAgent.id);
-    console.log('   - Agent emoji:', firstAgent.emoji);
-    console.log('   - ConductorChat available:', !!this.conductorChat);
+    this.logging.info('✅ [AUTO-SELECT-FIRST] Selecting first agent:', 'ScreenplayInteractive', {
+      title: firstAgent.definition.title,
+      agentId: firstAgent.id,
+      emoji: firstAgent.emoji,
+      conductorChatAvailable: !!this.conductorChat
+    });
     
     // Auto-select the first agent
     this.autoSelectDefaultAgent(firstAgent);
