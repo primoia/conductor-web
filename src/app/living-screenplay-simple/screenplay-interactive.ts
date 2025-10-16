@@ -1404,6 +1404,32 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   /**
+   * Auto-select default agent after loading agents from MongoDB
+   * This is called when loading an existing screenplay
+   */
+  private autoSelectDefaultAgentAfterLoad(): void {
+    console.log('🔍 [AUTO-SELECT-LOAD] Looking for default agent to auto-select...');
+    
+    // Find the default agent for this screenplay
+    const defaultAgent = Array.from(this.agentInstances.values())
+      .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
+    
+    if (defaultAgent) {
+      console.log('✅ [AUTO-SELECT-LOAD] Default agent found:', defaultAgent.definition.title);
+      console.log('   - Agent ID:', defaultAgent.id);
+      console.log('   - Agent emoji:', defaultAgent.emoji);
+      
+      // Auto-select with a small delay to ensure UI is ready
+      setTimeout(() => {
+        this.autoSelectDefaultAgent(defaultAgent);
+      }, 300);
+    } else {
+      console.log('⚠️ [AUTO-SELECT-LOAD] No default agent found for this screenplay');
+      console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
+    }
+  }
+
+  /**
    * SAGA-006: Hide agent instead of deleting (for system default agents)
    */
   hideAgent(instanceId: string): void {
@@ -3455,6 +3481,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
 
+        // Auto-select default agent if available
+        this.autoSelectDefaultAgentAfterLoad();
+
         // Update localStorage as cache
         this.saveStateToLocalStorage();
       },
@@ -3464,6 +3493,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
         // Fallback to localStorage
         this.loadStateFromLocalStorage();
+        
+        // Auto-select default agent after fallback load
+        setTimeout(() => {
+          this.autoSelectDefaultAgentAfterLoad();
+        }, 200);
       }
     });
   }
@@ -3494,6 +3528,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
+        
+        // Auto-select default agent after loading from localStorage
+        setTimeout(() => {
+          this.autoSelectDefaultAgentAfterLoad();
+        }, 200);
       } catch (e) {
         console.error('Error loading state from LocalStorage:', e);
         this.agentInstances.clear();
