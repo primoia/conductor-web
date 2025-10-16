@@ -1410,6 +1410,33 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   /**
+   * Auto-select first agent after loading agents
+   * Universal solution that works for all flows
+   */
+  private autoSelectFirstAgent(): void {
+    console.log('🎯 [AUTO-SELECT-FIRST] Auto-selecting first available agent...');
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
+    console.log('   - Total agent instances:', this.agentInstances.size);
+    console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
+    
+    if (this.agentInstances.size === 0) {
+      console.log('⚠️ [AUTO-SELECT-FIRST] No agents available to select');
+      return;
+    }
+    
+    // Get the first agent from the instances
+    const firstAgent = Array.from(this.agentInstances.values())[0];
+    
+    console.log('✅ [AUTO-SELECT-FIRST] Selecting first agent:', firstAgent.definition.title);
+    console.log('   - Agent ID:', firstAgent.id);
+    console.log('   - Agent emoji:', firstAgent.emoji);
+    console.log('   - ConductorChat available:', !!this.conductorChat);
+    
+    // Auto-select the first agent
+    this.autoSelectDefaultAgent(firstAgent);
+  }
+
+  /**
    * Auto-select default agent after loading agents from MongoDB
    * This is called when loading an existing screenplay
    */
@@ -1426,8 +1453,21 @@ Aqui temos alguns agentes distribuídos pelo documento:
     })));
     
     // Find the default agent for this screenplay
-    const defaultAgent = Array.from(this.agentInstances.values())
+    // Look for ScreenplayAssistant_Agent first, then fallback to any agent with is_system_default
+    let defaultAgent = Array.from(this.agentInstances.values())
       .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
+    
+    // If no default agent found, look for any ScreenplayAssistant_Agent (fallback for old data)
+    if (!defaultAgent) {
+      defaultAgent = Array.from(this.agentInstances.values())
+        .find(agent => agent.agent_id === 'ScreenplayAssistant_Agent');
+    }
+    
+    // If still no default agent, select the first available agent
+    if (!defaultAgent && this.agentInstances.size > 0) {
+      defaultAgent = Array.from(this.agentInstances.values())[0];
+      console.log('🔄 [AUTO-SELECT-LOAD] No default agent found, selecting first available agent');
+    }
     
     if (defaultAgent) {
       console.log('✅ [AUTO-SELECT-LOAD] Default agent found:', defaultAgent.definition.title);
@@ -3515,10 +3555,12 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
 
-        // Auto-select default agent if available (only if we have a current screenplay)
-        if (this.currentScreenplay?.id) {
-          console.log('🎯 [LOAD-AGENTS] Auto-selecting default agent after loading from MongoDB...');
-          this.autoSelectDefaultAgentAfterLoad();
+        // Auto-select first agent after loading (universal solution)
+        if (this.agentInstances.size > 0) {
+          console.log('🎯 [LOAD-AGENTS] Auto-selecting first agent after loading from MongoDB...');
+          setTimeout(() => {
+            this.autoSelectFirstAgent();
+          }, 300);
         }
 
         // Update localStorage as cache
@@ -3530,11 +3572,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
         // Fallback to localStorage
         this.loadStateFromLocalStorage();
-        
-        // Auto-select default agent after fallback load
-        setTimeout(() => {
-          this.autoSelectDefaultAgentAfterLoad();
-        }, 200);
       }
     });
   }
@@ -3565,11 +3602,6 @@ Aqui temos alguns agentes distribuídos pelo documento:
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
-        
-        // Auto-select default agent after loading from localStorage
-        setTimeout(() => {
-          this.autoSelectDefaultAgentAfterLoad();
-        }, 200);
       } catch (e) {
         console.error('Error loading state from LocalStorage:', e);
         this.agentInstances.clear();
