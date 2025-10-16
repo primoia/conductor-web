@@ -1270,6 +1270,17 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('🤖 [DEFAULT AGENT] Creating default agent instance');
     
     try {
+      // Check if we already have a default agent for this screenplay
+      const existingDefaultAgent = Array.from(this.agentInstances.values())
+        .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
+      
+      if (existingDefaultAgent) {
+        console.log('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation');
+        console.log('   - Existing agent ID:', existingDefaultAgent.id);
+        console.log('   - Existing agent emoji:', existingDefaultAgent.emoji);
+        return;
+      }
+      
       // Generate instance ID
       const instanceId = this.generateUUID();
       
@@ -2465,6 +2476,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
       this.autoSaveTimeout = originalAutoSave;
     }, 100);
 
+    // Load agents specific to this screenplay
+    this.loadInstancesFromMongoDB();
+
     console.log(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`);
   }
 
@@ -3346,39 +3360,65 @@ Aqui temos alguns agentes distribuídos pelo documento:
   /**
    * Load agent instances from MongoDB (primary source)
    * Falls back to localStorage if MongoDB fails
+   * Only loads agents for the current screenplay
    */
   loadInstancesFromMongoDB(): void {
     console.log('📥 [SCREENPLAY] Carregando instâncias do MongoDB...');
 
+    // Only load agents if we have a current screenplay
+    if (!this.currentScreenplay?.id) {
+      console.log('⚠️ [SCREENPLAY] Nenhum roteiro carregado, não carregando agentes');
+      this.agentInstances.clear();
+      this.updateLegacyAgentsFromInstances();
+      this.updateAvailableEmojis();
+      return;
+    }
+
+    console.log(`📥 [SCREENPLAY] Carregando agentes para roteiro: ${this.currentScreenplay.id}`);
+
     this.agentService.loadAllInstances().subscribe({
       next: (instances: any[]) => {
         console.log(`✅ [SCREENPLAY] ${instances.length} instâncias carregadas do MongoDB`);
+        console.log('🔍 [DEBUG] Todas as instâncias:', instances.map(i => ({
+          id: i.instance_id,
+          emoji: i.emoji,
+          screenplay_id: i.screenplay_id,
+          cwd: i.cwd || i.config?.cwd || 'não definido'
+        })));
 
-        // Convert array to Map
+        // Convert array to Map and filter by screenplay_id
         this.agentInstances.clear();
 
         instances.forEach((doc: any) => {
-          const instance: AgentInstance = {
-            id: doc.instance_id,
-            agent_id: doc.agent_id,
-            emoji: doc.emoji,
-            definition: doc.definition || {
-              title: doc.agent_id,
-              description: '',
-              unicode: ''
-            },
-            status: doc.status || 'pending',
-            position: doc.position,
-            config: doc.config,
-            executionState: doc.execution_state,
-            is_system_default: doc.is_system_default || false, // SAGA-006: Load system default flag
-            is_hidden: doc.is_hidden || false // SAGA-006: Load hidden flag
-          };
+          console.log(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`);
+          
+          // Only load agents that belong to the current screenplay
+          if (doc.screenplay_id === this.currentScreenplay?.id) {
+            const instance: AgentInstance = {
+              id: doc.instance_id,
+              agent_id: doc.agent_id,
+              emoji: doc.emoji,
+              definition: doc.definition || {
+                title: doc.agent_id,
+                description: '',
+                unicode: ''
+              },
+              status: doc.status || 'pending',
+              position: doc.position,
+              config: doc.config,
+              executionState: doc.execution_state,
+              is_system_default: doc.is_system_default || false, // SAGA-006: Load system default flag
+              is_hidden: doc.is_hidden || false // SAGA-006: Load hidden flag
+            };
 
-          this.agentInstances.set(instance.id, instance);
+            this.agentInstances.set(instance.id, instance);
+            console.log(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - CWD: ${instance.config?.cwd || 'não definido'}`);
+          } else {
+            console.log(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`);
+          }
         });
 
-        console.log(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória`);
+        console.log(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`);
 
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
