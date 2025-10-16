@@ -1389,15 +1389,21 @@ Aqui temos alguns agentes distribuídos pelo documento:
     console.log('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', agent.definition.title);
     console.log('   - Agent ID:', agent.id);
     console.log('   - Agent emoji:', agent.emoji);
+    console.log('   - Agent title:', agent.definition.title);
+    console.log('   - Agent agent_id:', agent.agent_id);
+    console.log('   - Agent cwd:', agent.config?.cwd);
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
     console.log('   - ConductorChat available:', !!this.conductorChat);
     
     // Ensure the agent is in the contextual agents list
     if (!this.contextualAgents.find(a => a.id === agent.id)) {
       console.log('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...');
       this.updateAgentDockLists();
+      console.log('   - Contextual agents after update:', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
     }
     
     // Simulate the dock click by calling the same function
+    console.log('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...');
     this.onDockAgentClick(agent);
     
     console.log('✅ [AUTO-SELECT] Default agent auto-selected in dock');
@@ -1409,6 +1415,15 @@ Aqui temos alguns agentes distribuídos pelo documento:
    */
   private autoSelectDefaultAgentAfterLoad(): void {
     console.log('🔍 [AUTO-SELECT-LOAD] Looking for default agent to auto-select...');
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
+    console.log('   - Total agent instances:', this.agentInstances.size);
+    console.log('   - Agent instances:', Array.from(this.agentInstances.values()).map(a => ({
+      id: a.id,
+      emoji: a.emoji,
+      title: a.definition.title,
+      is_system_default: a.is_system_default,
+      agent_id: a.agent_id
+    })));
     
     // Find the default agent for this screenplay
     const defaultAgent = Array.from(this.agentInstances.values())
@@ -1418,14 +1433,16 @@ Aqui temos alguns agentes distribuídos pelo documento:
       console.log('✅ [AUTO-SELECT-LOAD] Default agent found:', defaultAgent.definition.title);
       console.log('   - Agent ID:', defaultAgent.id);
       console.log('   - Agent emoji:', defaultAgent.emoji);
+      console.log('   - ConductorChat available:', !!this.conductorChat);
       
       // Auto-select with a small delay to ensure UI is ready
       setTimeout(() => {
+        console.log('🎯 [AUTO-SELECT-LOAD] Executing auto-select for default agent...');
         this.autoSelectDefaultAgent(defaultAgent);
       }, 300);
     } else {
       console.log('⚠️ [AUTO-SELECT-LOAD] No default agent found for this screenplay');
-      console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`));
+      console.log('   - Available agents:', Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title} (default: ${a.is_system_default}, id: ${a.agent_id})`));
     }
   }
 
@@ -1852,12 +1869,10 @@ Aqui temos alguns agentes distribuídos pelo documento:
     switch (event.action) {
       case 'open':
         if (event.screenplay) {
+          console.log('🔄 [OPEN] Loading screenplay from database:', event.screenplay.name);
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
-          // Auto-select default agent after loading existing screenplay
-          setTimeout(() => {
-            this.autoSelectDefaultAgentAfterLoad();
-          }, 500);
+          // Auto-selection will be handled by loadInstancesFromMongoDB when agents are loaded
         }
         break;
       case 'create':
@@ -3385,16 +3400,31 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
-    console.log(`🔄 Dock: Carregando agente: ${agent.definition.title}`);
+    console.log(`🔄 [DOCK-CLICK] Carregando agente: ${agent.definition.title}`);
+    console.log('   - Agent ID:', agent.id);
+    console.log('   - Agent title:', agent.definition.title);
+    console.log('   - Agent emoji:', agent.emoji);
+    console.log('   - Agent agent_id:', agent.agent_id);
+    console.log('   - Agent cwd:', agent.config?.cwd);
+    console.log('   - Current screenplay ID:', this.currentScreenplay?.id);
+    console.log('   - ConductorChat available:', !!this.conductorChat);
+    
     this.activeAgentId = agent.id;
-    this.conductorChat.loadContextForAgent(
-      agent.id, 
-      agent.definition.title, 
-      agent.emoji, 
-      agent.agent_id, 
-      agent.config?.cwd,
-      this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
-    );
+    
+    if (this.conductorChat) {
+      console.log('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...');
+      this.conductorChat.loadContextForAgent(
+        agent.id, 
+        agent.definition.title, 
+        agent.emoji, 
+        agent.agent_id, 
+        agent.config?.cwd,
+        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
+      );
+      console.log('✅ [DOCK-CLICK] loadContextForAgent called successfully');
+    } else {
+      console.error('❌ [DOCK-CLICK] ConductorChat is not available!');
+    }
   }
 
   hasSomeAgentsForEmoji(emoji: string): boolean {
@@ -3485,8 +3515,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
 
-        // Auto-select default agent if available
-        this.autoSelectDefaultAgentAfterLoad();
+        // Auto-select default agent if available (only if we have a current screenplay)
+        if (this.currentScreenplay?.id) {
+          console.log('🎯 [LOAD-AGENTS] Auto-selecting default agent after loading from MongoDB...');
+          this.autoSelectDefaultAgentAfterLoad();
+        }
 
         // Update localStorage as cache
         this.saveStateToLocalStorage();
