@@ -1327,6 +1327,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
       this.activateDefaultAgent(defaultInstance);
       
       console.log('✅ [DEFAULT AGENT] Default agent instance created and activated');
+      console.log('   - Instance ID:', defaultInstance.id);
+      console.log('   - Agent ID:', defaultInstance.agent_id);
+      console.log('   - Emoji:', defaultInstance.emoji);
       
     } catch (error) {
       console.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error);
@@ -1369,7 +1372,35 @@ Aqui temos alguns agentes distribuídos pelo documento:
       );
     }
     
+    // Auto-select the agent in the dock to ensure chat is loaded
+    // This simulates clicking on the dock-item with class="dock-item active"
+    setTimeout(() => {
+      this.autoSelectDefaultAgent(agent);
+    }, 500); // Increased delay to ensure the agent is fully loaded and UI is ready
+    
     console.log('✅ [DEFAULT AGENT] Default agent activated in chat');
+  }
+
+  /**
+   * Auto-select the default agent in the dock to ensure chat is loaded
+   * This simulates the user clicking on the dock-item
+   */
+  private autoSelectDefaultAgent(agent: AgentInstance): void {
+    console.log('🔄 [AUTO-SELECT] Auto-selecting default agent in dock:', agent.definition.title);
+    console.log('   - Agent ID:', agent.id);
+    console.log('   - Agent emoji:', agent.emoji);
+    console.log('   - ConductorChat available:', !!this.conductorChat);
+    
+    // Ensure the agent is in the contextual agents list
+    if (!this.contextualAgents.find(a => a.id === agent.id)) {
+      console.log('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...');
+      this.updateAgentDockLists();
+    }
+    
+    // Simulate the dock click by calling the same function
+    this.onDockAgentClick(agent);
+    
+    console.log('✅ [AUTO-SELECT] Default agent auto-selected in dock');
   }
 
   /**
