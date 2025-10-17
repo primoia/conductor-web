@@ -70,6 +70,11 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
   }
 
+  // BUG FIX: Hide agent anchors in the editor view
+  .agent-anchor {
+    display: none !important;
+  }
+
   // Lists
   ul, ol {
     margin: 0.75rem 0;

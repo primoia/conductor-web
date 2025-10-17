@@ -40,58 +40,16 @@
         </div>
 
         <div class="agent-controls">
-          <h4>🤖 Agentes ({{ agents.length }})</h4>
-          <button (click)="openAgentCreator()" class="control-btn create-agent-btn">
-            ✨ Criar Agente Personalizado
-          </button>
+          <h4>🤖 Agentes</h4>
           <button (click)="openAgentSelector()" class="control-btn add-agent-btn">
-            ➕ Adicionar Agente
+            ➕ Adicionar Agente ao Roteiro
           </button>
-          <button (click)="resyncManually()" class="control-btn">
-            🔄 Ressincronizar com Texto
-          </button>
-          <button (click)="clearAllAgents()" class="control-btn" *ngIf="agents.length > 0">
-            🗑️ Limpar Todos
-          </button>
-
-          <!-- Agent execution status -->
-          <div class="execution-status" *ngIf="getRunningAgents().length > 0">
-            <small>Em execução:</small>
-            <div class="running-agents">
-              <div *ngFor="let agent of getRunningAgents()" class="running-agent">
-                {{ agent.emoji }} {{ agent.definition.title }}
-                <button (click)="cancelAgentExecution(agent.id)" class="cancel-btn" title="Cancelar">❌</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Queue status -->
-          <div class="queue-status" *ngIf="getQueuedAgents().length > 0">
-            <small>Na fila ({{ getQueuedAgents().length }}):</small>
-            <div class="queued-agents">
-              <div *ngFor="let agent of getQueuedAgents(); let i = index" class="queued-agent">
-                {{ agent.emoji }} {{ agent.definition.title }} ({{ i + 1 }})
-              </div>
-            </div>
-          </div>
-          <div class="emoji-list" *ngIf="availableEmojis.length > 0">
-            <small>Emojis encontrados:</small>
-            <div class="emoji-buttons">
-              <div *ngFor="let emojiInfo of availableEmojis" class="emoji-group">
-                <button
-                  (click)="createAgentsForEmoji(emojiInfo)"
-                  class="emoji-btn"
-                  [class.has-some-agents]="hasSomeAgentsForEmoji(emojiInfo.emoji)"
-                  [class.has-all-agents]="hasAllAgentsForEmoji(emojiInfo.emoji, emojiInfo.count)"
-                  [title]="getEmojiTooltip(emojiInfo)">
-                  {{ emojiInfo.emoji }}
-                </button>
-                <small class="emoji-count">{{ getAgentCountForEmoji(emojiInfo.emoji) }}/{{ emojiInfo.count }}</small>
-              </div>
-            </div>
-          </div>
+          <small style="color: #666; font-size: 11px; display: block; margin-top: 4px;">
+            Vincula um agente ao roteiro atual (aparece na dock lateral)
+          </small>
         </div>
 
+        <!-- DISABLED: View controls (not needed without visual circles)
         <div class="view-controls">
           <button
             [class.active]="currentView === 'clean'"
@@ -109,6 +67,7 @@
             🌐 Visão Completa
           </button>
         </div>
+        -->
       </div>
 
       <div class="screenplay-canvas" #canvas>
@@ -121,8 +80,11 @@
           </app-interactive-editor>
         </div>
 
+        <!-- DISABLED: Visual agent circles overlay
+             Agents are still created and managed in MongoDB
+             Access via the dock on the right side -->
+        <!--
         <div class="overlay-elements" *ngIf="currentView !== 'clean'">
-          <!-- Multiple draggable circles -->
           <draggable-circle
             *ngFor="let agent of getAgentInstancesAsArray()"
             [data]="{ id: agent.id, emoji: agent.emoji, title: agent.definition.title, description: agent.definition.description, category: 'auth' }"
@@ -138,7 +100,6 @@
             (positionChange)="onAgentInstancePositionChange($event, agent)">
           </draggable-circle>
 
-          <!-- Agent info badges (cwd only, no context menu button) -->
           <div
             *ngFor="let agent of getAgentInstancesAsArray()"
             class="agent-badge"
@@ -149,6 +110,7 @@
             </div>
           </div>
         </div>
+        -->
       </div>
 
       <!-- Popup para hover -->

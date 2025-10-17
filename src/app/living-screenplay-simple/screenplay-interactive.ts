@@ -156,45 +156,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   public contextualAgents: AgentInstance[] = [];
   public activeAgentId: string | null = null;
 
-  // Conteúdo do editor (fonte da verdade)
-  editorContent = `# 🎬 Roteiro Vivo Interativo
-
-## 📝 Sistema de Propostas IA
-
-Este é um ambiente onde você pode:
-
-- ✨ Criar propostas de IA interativas
-- ▶️ Definir gatilhos de execução
-- 📦 Incluir sub-roteiros
-- 🎯 Gerenciar agentes visuais
-
-### Demo com README Resume Agent
-
-Clique no agente abaixo para carregar o contexto e depois digite uma mensagem no chat:
-
-<!-- agent-instance: 8ea9e2b4-3458-48dd-9b90-382974c8d43e, agent-id: ReadmeResume_Agent -->
-📄 **README Resume Agent** - Analisa e resume arquivos README de projetos
-
-### Exemplo de Agentes
-
-Aqui temos alguns agentes distribuídos pelo documento:
-
-🚀 **Performance Agent** - Monitora performance da aplicação
-🔐 **Auth Agent** - Gerencia autenticação de usuários
-📊 **Analytics Agent** - Coleta métricas de uso
-🛡️ **Security Agent** - Verifica vulnerabilidades
-⚡ **Speed Agent** - Otimiza velocidade de resposta
-
-### Como usar
-
-1. **Clique** em um emoji para selecionar o agente e carregar seu contexto no chat
-2. **Digite** sua mensagem no chat para executar o agente diretamente
-3. **Arraste** os círculos dos agentes para reposicionar
-4. Use "➕ Adicionar Agente" no painel lateral para inserir novos agentes
-5. Salve e carregue diferentes arquivos markdown
-
-> 💡 **Dica**: Use "Roteiro Limpo" para ver apenas o texto!
-`;
+  // BUG FIX: Conteúdo do editor padrão agora é vazio para evitar agentes fantasma
+  // Quando um novo screenplay é criado, o agente padrão é adicionado automaticamente
+  editorContent = '';
 
   constructor(
     private agentExecutionService: AgentExecutionService,
@@ -300,6 +264,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
     try {
       const screenplayId = await this._saveScreenplayIfNeeded();
 
+      // Get the instance from memory to include emoji and definition
+      const instance = this.agentInstances.get(instanceId);
+      
       const baseUrl = this.agentService['baseUrl'] || '';
       const payload: any = {
         instance_id: instanceId,
@@ -308,7 +275,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
         created_at: new Date().toISOString(),
         is_system_default: isSystemDefault,
         is_hidden: false,
-        screenplay_id: screenplayId
+        screenplay_id: screenplayId,
+        emoji: instance?.emoji || '🎬', // BUG FIX: Include emoji
+        definition: instance?.definition || { // BUG FIX: Include definition
+          title: 'Assistente de Roteiro',
+          description: 'Agente especializado em ajudar com roteiros',
+          unicode: '\\u{1F3AC}'
+        }
       };
 
       if (cwd) {
@@ -1368,41 +1341,27 @@ Aqui temos alguns agentes distribuídos pelo documento:
       return '';
     }
 
-    // 1. Get current markdown content
-    let markdown = this.interactiveEditor.getMarkdown();
+    // BUG FIX: Get HTML first and convert spans to HTML comments before converting to markdown
+    let html = this.interactiveEditor.getHTML();
+    
+    // Replace invisible spans with HTML comments
+    // <span class="agent-anchor" data-instance-id="uuid" data-agent-id="name"></span>emoji
+    // becomes: <!-- agent-instance: uuid, agent-id: name -->
+    //          emoji
+    html = html.replace(
+      /<span class="agent-anchor" data-instance-id="([^"]+)" data-agent-id="([^"]+)"><\/span>/g,
+      '<!-- agent-instance: $1, agent-id: $2 -->\n'
+    );
+    
+    // Now convert the processed HTML to markdown
+    let markdown = this.interactiveEditor.convertHtmlToMarkdown(html);
     
     this.logging.debug('📝 [GENERATE] Generating markdown for save:', 'ScreenplayInteractive', {
       contentLength: markdown.length,
       preview: markdown.substring(0, 200),
       sourceOrigin: this.sourceOrigin,
-      isDirty: this.isDirty
-    });
-
-    // 2. Group instances by emoji for ordered processing
-    const instancesByEmoji = new Map<string, AgentInstance[]>();
-    this.agentInstances.forEach((instance) => {
-      const list = instancesByEmoji.get(instance.emoji) || [];
-      list.push(instance);
-      instancesByEmoji.set(instance.emoji, list);
-    });
-
-    // 3. For each emoji type, find occurrences and add anchors in order
-    instancesByEmoji.forEach((instances, emoji) => {
-      const escapedEmoji = emoji.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      let processedCount = 0;
-
-      // Replace each occurrence with anchor + emoji
-      markdown = markdown.replace(new RegExp(escapedEmoji, 'g'), (match, offset) => {
-        if (processedCount < instances.length) {
-          const instance = instances[processedCount];
-          processedCount++;
-          // SAGA-003 format: anchor on previous line
-          // Use agent_id if available, otherwise fallback to slug from title
-          const agentIdValue = instance.agent_id || instance.definition.title.toLowerCase().replace(/\s+/g, '-');
-          return `<!-- agent-instance: ${instance.id}, agent-id: ${agentIdValue} -->\n${emoji}`;
-        }
-        return match; // No instance for this occurrence, keep as-is
-      });
+      isDirty: this.isDirty,
+      hadSpans: html.includes('agent-anchor')
     });
 
     return markdown;
@@ -1468,6 +1427,13 @@ Aqui temos alguns agentes distribuídos pelo documento:
       const emoji = match[3];
       const definition = AGENT_DEFINITIONS[emoji];
 
+      // BUG FIX: When loading from database, only accept anchors that have corresponding agents in the database
+      // This prevents orphaned anchors from creating phantom instances
+      if (this.sourceOrigin === 'database' && !this.agentInstances.has(instanceId)) {
+        this.logging.warn(`⚠️ [SYNC] Ignorando âncora órfã: ${instanceId} (${agentIdOrSlug}) - agente não existe no banco de dados`, 'ScreenplayInteractive');
+        continue; // Skip this anchor - it's orphaned and not in the database
+      }
+
       foundAgentIds.add(instanceId);
 
       if (!this.agentInstances.has(instanceId)) {
@@ -1499,15 +1465,16 @@ Aqui temos alguns agentes distribuídos pelo documento:
       }
     }
 
-    // Segundo, processar emojis sem âncora (standalone)
-    // Construir regex dinamicamente com todos os emojis de AGENT_DEFINITIONS
+    // DISABLED: Automatic agent creation from standalone emojis
+    // Agents are now created manually via "Adicionar Agente" button
+    // This prevents unwanted agent creation from emojis in the text
+    /*
     const allEmojis = Object.keys(AGENT_DEFINITIONS).map(e => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
     const standaloneEmojiRegex = new RegExp(`(?<!<!--[^>]*>[\\s\\n]*)(${allEmojis})`, 'gu');
     const standaloneMatches = [...sourceText.matchAll(standaloneEmojiRegex)];
 
     this.logging.debug(`📋 Encontrados ${standaloneMatches.length} emojis standalone de ${Object.keys(AGENT_DEFINITIONS).length} possíveis`, 'ScreenplayInteractive');
 
-    // Group standalone matches by emoji
     const matchesByEmoji = new Map<string, Array<{ match: RegExpMatchArray; index: number }>>();
     standaloneMatches.forEach(match => {
       const emoji = match[1];
@@ -1516,25 +1483,20 @@ Aqui temos alguns agentes distribuídos pelo documento:
       matchesByEmoji.set(emoji, list);
     });
 
-    // Process each emoji type
     matchesByEmoji.forEach((matches, emoji) => {
       const definition = AGENT_DEFINITIONS[emoji];
       if (!definition) return;
 
-      // Get existing instances for this emoji (not already found by anchors)
       const existingInstances = Array.from(this.agentInstances.entries())
         .filter(([id, instance]) => instance.emoji === emoji && !foundAgentIds.has(id))
         .map(([id, instance]) => ({ id, instance }));
 
-      // Map existing instances to matches (first-to-first, second-to-second, etc.)
       for (let i = 0; i < matches.length; i++) {
         if (i < existingInstances.length) {
-          // Reuse existing instance
           const { id } = existingInstances[i];
           foundAgentIds.add(id);
           this.logging.debug(`♻️  Reutilizando instância ${id} para ${emoji} #${i}`, 'ScreenplayInteractive');
         } else {
-          // Create new instance for extra emoji
           const instanceId = this.generateUUID();
           const newInstance: AgentInstance = {
             id: instanceId,
@@ -1550,13 +1512,20 @@ Aqui temos alguns agentes distribuídos pelo documento:
         }
       }
     });
+    */
+    
+    this.logging.info('ℹ️ [SYNC] Automatic agent creation from emojis is disabled. Agents must be added manually.', 'ScreenplayInteractive');
 
-    // Limpeza de órfãos
+    // DISABLED: Orphan cleanup
+    // Since agents are no longer tied to emojis in the text, we don't clean them up
+    // Agents persist in the screenplay until manually removed
+    /*
     for (const id of this.agentInstances.keys()) {
       if (!foundAgentIds.has(id)) {
         this.agentInstances.delete(id);
       }
     }
+    */
 
     this.updateAgentPositionsFromText();
 
@@ -1960,30 +1929,25 @@ Aqui temos alguns agentes distribuídos pelo documento:
       }
     };
 
-    // Insert ONLY the emoji at cursor position (no anchor, no line breaks)
-    // The anchor will be added automatically during save in generateMarkdownForSave()
-    this.interactiveEditor.insertContent(agent.emoji);
-
-    // Add to instances map BEFORE positioning
+    // Add to instances map
     this.agentInstances.set(instanceId, newInstance);
 
-    // Create instance record in MongoDB via gateway
+    // Create instance record in MongoDB via gateway (linked to screenplay)
     this.createAgentInstanceInMongoDB(instanceId, agent.id, newInstance.position, cwd);
 
-    // Note: Conversation history is now stored in MongoDB
-
+    // Update structures to reflect new agent in dock
     this.updateLegacyAgentsFromInstances();
-
-    // CRITICAL: Position the agent circle over the emoji in the text
-    // Wait longer for TipTap to update the DOM completely
-    setTimeout(() => {
-      this.updateAgentPositionsFromText();
-      this.logging.info('📍 Agent positioned over emoji in text', 'ScreenplayInteractive');
-    }, 500);
+    this.updateAvailableEmojis();
+    this.updateAgentDockLists();
 
     this.closeAgentSelector();
 
-    this.logging.info('✅ Agente inserido:', 'ScreenplayInteractive', { name: agent.name, emoji: agent.emoji, id: instanceId });
+    this.logging.info('✅ Agente vinculado ao roteiro (disponível na dock lateral):', 'ScreenplayInteractive', { 
+      name: agent.name, 
+      emoji: agent.emoji, 
+      id: instanceId,
+      note: 'Agent does not appear in editor, only in dock'
+    });
   }
 
   // === Agent Execution with Preview ===
@@ -2157,9 +2121,16 @@ Aqui temos alguns agentes distribuídos pelo documento:
 
   private updateAgentDockLists(): void {
     // Popula agentes contextuais a partir das instâncias no documento
-    // SAGA-006: Filter out hidden agents
-    this.contextualAgents = this.getAgentInstancesAsArray().filter(agent => !agent.is_hidden);
-    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (${this.agentInstances.size - this.contextualAgents.length} ocultos)`, 'ScreenplayInteractive');
+    // SAGA-006: Filter out hidden agents and sort by creation date
+    this.contextualAgents = this.getAgentInstancesAsArray()
+      .filter(agent => !agent.is_hidden)
+      .sort((a, b) => {
+        // Sort by creation date (oldest first)
+        const dateA = a.config?.createdAt ? new Date(a.config.createdAt).getTime() : 0;
+        const dateB = b.config?.createdAt ? new Date(b.config.createdAt).getTime() : 0;
+        return dateA - dateB;
+      });
+    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (ordem por criação)`, 'ScreenplayInteractive');
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
@@ -2216,6 +2187,61 @@ Aqui temos alguns agentes distribuídos pelo documento:
    * Load agent instances from MongoDB
    * Only loads agents for the current screenplay
    */
+  /**
+   * BUG FIX: Clean orphaned agent anchors from markdown
+   * Removes HTML comments for agents that don't exist in the database
+   */
+  private cleanOrphanedAnchorsFromMarkdown(): void {
+    if (this.sourceOrigin !== 'database') {
+      return; // Only clean when loaded from database
+    }
+
+    const currentContent = this.interactiveEditor.getHTML();
+    const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n?(.)/gu;
+    const matches = [...currentContent.matchAll(anchorRegex)];
+    
+    let cleanedContent = currentContent;
+    let orphanCount = 0;
+
+    for (const match of matches) {
+      const instanceId = match[1].trim();
+      
+      // If this anchor's instance doesn't exist in our loaded agents, it's orphaned
+      if (!this.agentInstances.has(instanceId)) {
+        this.logging.warn(`🧹 [CLEAN] Removendo âncora órfã: ${instanceId}`, 'ScreenplayInteractive');
+        // Remove the entire anchor comment, keep only the emoji
+        cleanedContent = cleanedContent.replace(match[0], match[3]);
+        orphanCount++;
+      }
+    }
+
+    if (orphanCount > 0) {
+      this.logging.info(`🧹 [CLEAN] Removidas ${orphanCount} âncoras órfãs do markdown`, 'ScreenplayInteractive');
+      
+      // Update editor with cleaned content
+      const wasAutoSave = this.autoSaveTimeout;
+      this.autoSaveTimeout = null; // Temporarily disable auto-save
+      
+      this.interactiveEditor.setContent(cleanedContent, false);
+      
+      // Mark as dirty so it gets saved
+      this.isDirty = true;
+      
+      // Re-enable auto-save
+      setTimeout(() => {
+        this.autoSaveTimeout = wasAutoSave;
+      }, 100);
+      
+      // Save the cleaned content to database
+      setTimeout(() => {
+        if (this.isDirty) {
+          this.logging.info('💾 [CLEAN] Auto-salvando conteúdo limpo...', 'ScreenplayInteractive');
+          this.save();
+        }
+      }, 500);
+    }
+  }
+
   loadInstancesFromMongoDB(): void {
     this.logging.info('📥 [SCREENPLAY] Carregando instâncias do MongoDB...', 'ScreenplayInteractive');
 
@@ -2259,7 +2285,11 @@ Aqui temos alguns agentes distribuídos pelo documento:
               },
               status: doc.status || 'pending',
               position: doc.position,
-              config: doc.config,
+              config: {
+                cwd: doc.cwd || doc.config?.cwd,
+                createdAt: doc.created_at ? new Date(doc.created_at) : new Date(), // BUG FIX: Map created_at from MongoDB
+                updatedAt: doc.updated_at ? new Date(doc.updated_at) : new Date()
+              },
               executionState: doc.execution_state,
               is_system_default: doc.is_system_default || false, // SAGA-006: Load system default flag
               is_hidden: doc.is_hidden || false // SAGA-006: Load hidden flag
@@ -2273,6 +2303,9 @@ Aqui temos alguns agentes distribuídos pelo documento:
         });
 
         this.logging.info(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`, 'ScreenplayInteractive');
+
+        // BUG FIX: Clean orphaned anchors from markdown after loading agents from database
+        this.cleanOrphanedAnchorsFromMarkdown();
 
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
@@ -2460,10 +2493,8 @@ Aqui temos alguns agentes distribuídos pelo documento:
       const emoji = '🎬';
       const position: CirclePosition = { x: 100, y: 100 };
       
-      // SAGA-006: Insert emoji into editor content first
-      this.insertEmojiIntoEditor(emoji, instanceId);
-      
-      // Create agent instance in memory
+      // BUG FIX: Create agent instance in memory FIRST (before inserting emoji)
+      // This prevents syncAgentsWithMarkdown from creating a duplicate instance
       const defaultInstance: AgentInstance = {
         id: instanceId,
         agent_id: agentId,
@@ -2483,16 +2514,19 @@ Aqui temos alguns agentes distribuídos pelo documento:
         }
       };
       
-      // Add to agent instances
+      // Add to agent instances BEFORE inserting template
       this.agentInstances.set(instanceId, defaultInstance);
       
-      // Update legacy structures
+      // Create in MongoDB with system default flags (before template insertion)
+      this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+      
+      // Update structures BEFORE inserting template to ensure dock is ready
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
       this.updateAgentDockLists();
       
-      // Create in MongoDB with system default flags
-      this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
+      // SAGA-006: Insert template into editor AFTER everything is set up
+      this.insertEmojiIntoEditor(emoji, instanceId);
       
       // Auto-activate the default agent in chat
       this.activateDefaultAgent(defaultInstance);
@@ -2509,18 +2543,44 @@ Aqui temos alguns agentes distribuídos pelo documento:
   }
 
   /**
-   * SAGA-006: Insert emoji into editor content
+   * SAGA-006: Insert initial template for default agent
+   * Creates a clean screenplay with title and example text
    */
   private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
-    this.logging.info('📝 [DEFAULT AGENT] Inserting emoji into editor:', 'ScreenplayInteractive', emoji);
+    this.logging.info('📝 [DEFAULT AGENT] Inserting initial template into editor:', 'ScreenplayInteractive', {
+      emoji,
+      instanceId,
+      agentId: 'ScreenplayAssistant_Agent'
+    });
     
-    // Insert emoji at the beginning of the editor with a new line
-    this.interactiveEditor.insertContent(emoji + '\n\n');
+    // Get the agent_id from the instance that was just created
+    const instance = this.agentInstances.get(instanceId);
+    const agentId = instance?.agent_id || 'ScreenplayAssistant_Agent';
+    
+    // Insert a clean template with title and example text
+    // NO emojis in template to avoid confusion with syncAgentsWithMarkdown
+    const templateContent = `<h1>📝 Novo Roteiro</h1>
+
+<p>Bem-vindo ao seu roteiro! Use o chat à direita para interagir com o <strong>Assistente de Roteiro</strong>.</p>
+
+<h2>Como usar</h2>
+
+<ul>
+<li>Digite suas ideias e desenvolvimento do roteiro aqui</li>
+<li>Use o chat lateral para pedir ajuda ao assistente</li>
+<li>O assistente pode ajudar com estrutura, diálogos, e desenvolvimento de cenas</li>
+<li>Adicione mais agentes ao roteiro usando o botão "➕ Adicionar Agente"</li>
+</ul>
+
+<p><strong>Dica:</strong> Todos os agentes vinculados ao roteiro aparecem na barra lateral direita!</p>
+`;
+    
+    this.interactiveEditor.setContent(templateContent, false);
     
     // Update editor content to trigger sync
     this.editorContent = this.interactiveEditor.getMarkdown();
     
-    this.logging.info('✅ [DEFAULT AGENT] Emoji inserted into editor', 'ScreenplayInteractive');
+    this.logging.info('✅ [DEFAULT AGENT] Template inserted into editor', 'ScreenplayInteractive');
   }
 
   /**
