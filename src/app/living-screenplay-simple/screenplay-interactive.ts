@@ -812,12 +812,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         };
 
         this.loadScreenplayIntoEditor(screenplayWithDiskContent);
-
-        // Create default agent instance for imported screenplay (same as new screenplay)
-        setTimeout(async () => {
-          await this.createDefaultAgentInstance();
-          this.logging.info('✅ [AUTO] Agente padrão criado para screenplay importado', 'ScreenplayInteractive');
-        }, 100);
+        // Note: Default agent will be created automatically by loadInstancesFromMongoDB if needed
 
         // If backend didn't return content, update it asynchronously
         if (!newScreenplay.content || newScreenplay.content.length === 0) {
@@ -2272,8 +2267,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           cwd: i.cwd || i.config?.cwd || 'não definido'
         })));
 
-        // Convert array to Map and filter by screenplay_id
-        this.agentInstances.clear();
+        // BUG FIX: Instead of clearing all instances, merge with existing ones
+        // This prevents race conditions where newly created agents are cleared before MongoDB sync
+        const loadedInstanceIds = new Set<string>();
 
         instances.forEach((doc: any) => {
           this.logging.debug(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
@@ -2302,11 +2298,32 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
             };
 
             this.agentInstances.set(instance.id, instance);
+            loadedInstanceIds.add(instance.id);
             this.logging.info(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - CWD: ${instance.config?.cwd || 'não definido'}`, 'ScreenplayInteractive');
           } else {
             this.logging.debug(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
           }
         });
+        
+        // Remove only agents that are NOT in MongoDB and NOT just created
+        // Keep recently created agents that haven't synced to MongoDB yet
+        const idsToRemove: string[] = [];
+        for (const [id, instance] of this.agentInstances.entries()) {
+          if (!loadedInstanceIds.has(id)) {
+            // Check if this agent was recently created (within last 5 seconds)
+            const createdAt = instance.config?.createdAt;
+            const isRecent = createdAt && (new Date().getTime() - new Date(createdAt).getTime()) < 5000;
+            
+            if (!isRecent) {
+              idsToRemove.push(id);
+              this.logging.debug(`🗑️ [SCREENPLAY] Removendo agente não encontrado no MongoDB: ${id}`, 'ScreenplayInteractive');
+            } else {
+              this.logging.debug(`⏳ [SCREENPLAY] Mantendo agente recém-criado (aguardando sync): ${id}`, 'ScreenplayInteractive');
+            }
+          }
+        }
+        
+        idsToRemove.forEach(id => this.agentInstances.delete(id));
 
         this.logging.info(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`, 'ScreenplayInteractive');
 
@@ -2322,6 +2339,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           this.logging.info('🎯 [LOAD-AGENTS] Auto-selecting first agent after loading from MongoDB...', 'ScreenplayInteractive');
           setTimeout(() => {
             this.autoSelectFirstAgent();
+          }, 300);
+        } else {
+          // BUG FIX: If no agents found for this screenplay, create default agent
+          this.logging.info('🤖 [LOAD-AGENTS] No agents found for screenplay, creating default agent...', 'ScreenplayInteractive');
+          setTimeout(async () => {
+            await this.createDefaultAgentInstance();
+            this.logging.info('✅ [LOAD-AGENTS] Default agent created for screenplay without agents', 'ScreenplayInteractive');
           }, 300);
         }
 
@@ -2551,17 +2575,27 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   /**
    * SAGA-006: Insert initial template for default agent
    * Creates a clean screenplay with title and example text
+   * ONLY inserts template if editor is empty (for new screenplays)
    */
   private insertEmojiIntoEditor(emoji: string, instanceId: string): void {
-    this.logging.info('📝 [DEFAULT AGENT] Inserting initial template into editor:', 'ScreenplayInteractive', {
+    this.logging.info('📝 [DEFAULT AGENT] Checking if template should be inserted:', 'ScreenplayInteractive', {
       emoji,
       instanceId,
-      agentId: 'ScreenplayAssistant_Agent'
+      agentId: 'ScreenplayAssistant_Agent',
+      currentContentLength: this.editorContent.length
     });
     
-    // Get the agent_id from the instance that was just created
-    const instance = this.agentInstances.get(instanceId);
-    const agentId = instance?.agent_id || 'ScreenplayAssistant_Agent';
+    // BUG FIX: Only insert template if editor is empty
+    // For imported screenplays, keep the existing content
+    const currentContent = this.interactiveEditor.getMarkdown().trim();
+    if (currentContent && currentContent.length > 0) {
+      this.logging.info('ℹ️ [DEFAULT AGENT] Editor has content, skipping template insertion (imported screenplay)', 'ScreenplayInteractive', {
+        contentLength: currentContent.length
+      });
+      return;
+    }
+    
+    this.logging.info('📝 [DEFAULT AGENT] Editor is empty, inserting initial template...', 'ScreenplayInteractive');
     
     // Insert a clean template with title and example text
     // NO emojis in template to avoid confusion with syncAgentsWithMarkdown

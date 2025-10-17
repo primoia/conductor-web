@@ -108,6 +108,7 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
       editorProps: {
         attributes: {
           class: 'interactive-editor-content',
+          spellcheck: 'false', // Disable browser spellcheck (red underlines)
         },
         handleKeyDown: (view, event) => {
           return this.handleKeyDown(event);
