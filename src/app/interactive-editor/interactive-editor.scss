@@ -24,6 +24,13 @@
 ::ng-deep .interactive-editor-content {
   outline: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+  font-size: 12px; // Reduced from default 16px
+  
+  // Disable spellcheck red underlines
+  * {
+    -webkit-text-decoration-skip: none !important;
+    text-decoration-skip-ink: none !important;
+  }
 
   // Headings
   h1, h2, h3, h4, h5, h6 {

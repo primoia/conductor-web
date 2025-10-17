@@ -109,6 +109,7 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
         attributes: {
           class: 'interactive-editor-content',
           spellcheck: 'false', // Disable browser spellcheck (red underlines)
+          lang: 'pt-BR', // Set language to Portuguese-Brazil
         },
         handleKeyDown: (view, event) => {
           return this.handleKeyDown(event);
@@ -120,6 +121,16 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
         this.contentChange.emit(markdown);
       },
     });
+
+    // Disable spellcheck more aggressively after editor creation
+    setTimeout(() => {
+      const editorElement = this.editorRef.nativeElement.querySelector('.ProseMirror');
+      if (editorElement) {
+        editorElement.setAttribute('spellcheck', 'false');
+        editorElement.setAttribute('autocorrect', 'off');
+        editorElement.setAttribute('autocapitalize', 'off');
+      }
+    }, 0);
 
     // Set initial content if provided, defer to avoid ExpressionChangedAfterItHasBeenCheckedError
     if (this.content) {
