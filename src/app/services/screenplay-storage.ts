@@ -47,19 +47,10 @@ export interface ScreenplayPayload {
   providedIn: 'root'
 })
 export class ScreenplayStorage {
-  private baseUrl: string;
+  private baseUrl: string = '';
 
   constructor() {
-    // Auto-detect base URL based on environment (same pattern as agent.service.ts)
-    const currentHost = window.location.hostname;
-
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      this.baseUrl = 'http://localhost:5006';
-    } else {
-      this.baseUrl = `http://${currentHost}:5006`;
-    }
-
-    console.log(`[ScreenplayStorage] Using API Base URL: ${this.baseUrl}`);
+    console.log(`[ScreenplayStorage] Using API Base URL: ${this.baseUrl || 'empty (routes have /api/)'}`);
   }
 
   /**

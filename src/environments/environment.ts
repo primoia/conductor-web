@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiUrl: '/api'  // Usa proxy local em desenvolvimento
+  apiUrl: ''  // Usa proxy nginx - rotas já têm /api/
 };

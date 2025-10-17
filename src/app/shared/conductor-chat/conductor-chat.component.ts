@@ -12,7 +12,7 @@ import { AgentService, AgentContext, ChatMessage } from '../../services/agent.se
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
-    baseUrl: 'http://localhost:5006',
+    baseUrl: '',
     endpoint: '/execute',
     streamEndpoint: '/api/v1/stream-execute',
     apiKey: 'test-api-key-123',

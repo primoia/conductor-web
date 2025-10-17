@@ -44,7 +44,7 @@ export class AgentExecutionService {
 
   // Configuration
   private config: ConductorConfig = {
-    baseUrl: 'http://localhost:5006', // Porta corrigida para 5006
+    baseUrl: '',
     apiKey: 'test-api-key-123',
     streamEndpoint: '/api/v1/stream-execute'
   };

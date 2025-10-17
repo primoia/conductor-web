@@ -61,19 +61,10 @@ interface ExecutionRequest {
   providedIn: 'root'
 })
 export class AgentService {
-  private baseUrl: string;
+  private baseUrl: string = '';
 
   constructor() {
-    // Auto-detect base URL based on environment
-    const currentHost = window.location.hostname;
-
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      this.baseUrl = 'http://localhost:5006';
-    } else {
-      this.baseUrl = `http://${currentHost}:5006`;
-    }
-
-    console.log(`[AgentService] Using API Base URL: ${this.baseUrl}`);
+    console.log(`[AgentService] Using API Base URL: ${this.baseUrl || 'empty (routes have /api/)'}`);
   }
 
   /**

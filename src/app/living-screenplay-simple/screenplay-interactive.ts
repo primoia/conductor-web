@@ -300,7 +300,7 @@ Aqui temos alguns agentes distribuídos pelo documento:
     try {
       const screenplayId = await this._saveScreenplayIfNeeded();
 
-      const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
+      const baseUrl = this.agentService['baseUrl'] || '';
       const payload: any = {
         instance_id: instanceId,
         agent_id: agentId,

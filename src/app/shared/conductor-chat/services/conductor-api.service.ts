@@ -6,21 +6,10 @@ import { ApiConfig, StreamEvent, ApiResponse } from '../models/chat.models';
   providedIn: 'root'
 })
 export class ConductorApiService {
-  private baseUrl: string;
+  private baseUrl: string = '';
 
   constructor() {
-    // Detecta automaticamente a URL base dependendo do ambiente
-    const currentHost = window.location.hostname;
-
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      // Desenvolvimento local - usa proxy ou porta específica
-      this.baseUrl = 'http://localhost:5006';
-    } else {
-      // Acesso via rede - usa o mesmo host que a aplicação
-      this.baseUrl = `http://${currentHost}:5006`;
-    }
-
-    console.log(`[ConductorApiService] Detectado host: ${currentHost}, usando API Base URL: ${this.baseUrl}`);
+    console.log(`[ConductorApiService] Using API Base URL: ${this.baseUrl || 'empty (routes have /api/)'}`);
   }
 
   sendMessage(
