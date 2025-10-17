@@ -813,6 +813,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
         this.loadScreenplayIntoEditor(screenplayWithDiskContent);
 
+        // Create default agent instance for imported screenplay (same as new screenplay)
+        setTimeout(async () => {
+          await this.createDefaultAgentInstance();
+          this.logging.info('✅ [AUTO] Agente padrão criado para screenplay importado', 'ScreenplayInteractive');
+        }, 100);
+
         // If backend didn't return content, update it asynchronously
         if (!newScreenplay.content || newScreenplay.content.length === 0) {
           this.logging.warn('⚠️ [AUTO] Backend não retornou conteúdo, sincronizando em background...', 'ScreenplayInteractive');
