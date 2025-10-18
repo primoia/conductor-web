@@ -347,8 +347,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
     /* CWD Warning Banner */
     .cwd-warning-banner {
-      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-      border-bottom: 2px solid #f59e0b;
+      background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
+      border-bottom: 2px solid #29b6f6;
       padding: 12px 20px;
       animation: slideDown 0.3s ease;
     }
@@ -378,11 +378,11 @@ const DEFAULT_CONFIG: ConductorConfig = {
       flex: 1;
       font-size: 13px;
       font-weight: 500;
-      color: #92400e;
+      color: #0277bd;
     }
 
     .define-cwd-btn {
-      background: #f59e0b;
+      background: #29b6f6;
       color: white;
       border: none;
       padding: 6px 14px;
@@ -395,9 +395,9 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .define-cwd-btn:hover {
-      background: #d97706;
+      background: #0288d1;
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 4px 8px rgba(41, 182, 246, 0.3);
     }
 
     /* CWD Modal Styles */
@@ -491,14 +491,14 @@ const DEFAULT_CONFIG: ConductorConfig = {
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(33, 150, 243, 0.9);
       backdrop-filter: blur(2px);
       z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      border-top: 3px solid #f59e0b;
+      border-top: 3px solid #1976d2;
     }
 
     .blocked-message {
@@ -515,7 +515,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .blocked-btn {
-      background: #f59e0b;
+      background: #1976d2;
       color: white;
       border: none;
       padding: 8px 16px;
@@ -524,13 +524,13 @@ const DEFAULT_CONFIG: ConductorConfig = {
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
     }
 
     .blocked-btn:hover {
-      background: #d97706;
+      background: #1565c0;
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 4px 8px rgba(25, 118, 210, 0.4);
     }
   `]
 })

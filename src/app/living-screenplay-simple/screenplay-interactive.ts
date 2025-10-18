@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
+import { CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
 import { AgentCreatorComponent, AgentCreationData } from './agent-creator/agent-creator.component';
@@ -82,7 +82,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, FormsModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager, AgentGameComponent],
+  imports: [CommonModule, FormsModule, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager, AgentGameComponent],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [
     './screenplay-layout.css',
@@ -642,6 +642,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           }, 100);
         }
         break;
+      case 'delete':
+        // When a screenplay is deleted, clear the current content and agents
+        this.logging.info('🗑️ [DELETE] Screenplay deleted, clearing content and agents', 'ScreenplayInteractive');
+        this.loadDefaultContent();
+        this.clearInvalidUrl();
+        break;
     }
   }
 
@@ -778,6 +784,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // SAGA-005 v2: Clear chat when loading new screenplay
     this.clearChatState();
+    
+    // Reload agents in the game component
+    this.reloadAgentGame();
 
     // Set state for new screenplay
     this.sourceOrigin = 'new';
@@ -1358,6 +1367,31 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   private loadDefaultContent(): void {
     this.interactiveEditor.setContent(this.editorContent, true);
+    // Clear agents when loading default content
+    this.agentInstances.clear();
+    this.agents = [];
+    this.updateLegacyAgentsFromInstances();
+    this.updateAvailableEmojis();
+    this.reloadAgentGame();
+  }
+
+  /**
+   * Reload agents in the game component
+   */
+  private reloadAgentGame(): void {
+    if (this.agentGame) {
+      this.logging.info('🎮 [AGENT-GAME] Reloading agents in game component', 'ScreenplayInteractive');
+      
+      // First, clear all agents immediately to provide instant feedback
+      this.agentGame.clearAllAgents();
+      
+      // Then reload with a small delay to ensure API has processed the changes
+      setTimeout(() => {
+        this.agentGame.reloadAgents();
+      }, 500);
+    } else {
+      this.logging.warn('⚠️ [AGENT-GAME] Agent game component not available for reload', 'ScreenplayInteractive');
+    }
   }
 
   private clearInvalidUrl(): void {
@@ -1411,6 +1445,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Load agents specific to this screenplay
     this.loadInstancesFromMongoDB();
+
+    // Reload agents in the game component
+    this.reloadAgentGame();
 
     this.logging.info(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`, 'ScreenplayInteractive');
   }
@@ -1712,6 +1749,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     this.agentInstances.set(agentId, newInstance);
     this.updateLegacyAgentsFromInstances();
+
+    // Add agent to the game map
+    if (this.agentGame) {
+      this.agentGame.addAgent({
+        emoji: newInstance.emoji,
+        name: newInstance.definition.title,
+        agentId: newInstance.agent_id ?? 'unknown',
+        screenplayId: this.currentScreenplay?.id ?? 'unknown',
+        instanceId: newInstance.id
+      });
+      this.logging.info('🎮 [AGENT-GAME] Manual agent added to game map', 'ScreenplayInteractive');
+    }
 
     this.logging.info('➕ Agente manual adicionado:', 'ScreenplayInteractive', randomEmoji);
   }
@@ -2187,7 +2236,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     };
 
     // Use the MongoDB agent_id if available, fallback to instance id
-    const agentId = agent.agent_id || agent.id;
+    const agentId = agent.agent_id ?? agent.id;
 
     this.agentService.executeAgent(agentId, inputText, agent.id).subscribe({
       next: (result) => {
@@ -2389,6 +2438,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.agentInstances.clear();
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
+      this.reloadAgentGame();
       return;
     }
 
@@ -2470,6 +2520,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         // Update legacy structures for UI
         this.updateLegacyAgentsFromInstances();
         this.updateAvailableEmojis();
+
+        // Reload agents in the game component
+        this.reloadAgentGame();
 
         // Auto-select first agent after loading (universal solution)
         if (this.agentInstances.size > 0) {
@@ -2786,6 +2839,28 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
       this.updateAgentDockLists();
+      
+      // Add agent to the game map
+      this.logging.info('🎮 [AGENT-GAME] Checking if agentGame is available...', 'ScreenplayInteractive', {
+        agentGameExists: !!this.agentGame,
+        agentGameType: typeof this.agentGame,
+        defaultInstanceId: defaultInstance.id,
+        defaultInstanceEmoji: defaultInstance.emoji
+      });
+      
+      if (this.agentGame) {
+        this.logging.info('🎮 [AGENT-GAME] Adding default agent to game map...', 'ScreenplayInteractive');
+        this.agentGame.addAgent({
+          emoji: defaultInstance.emoji,
+          name: defaultInstance.definition.title,
+          agentId: defaultInstance.agent_id ?? 'unknown',
+          screenplayId: this.currentScreenplay?.id || 'unknown',
+          instanceId: defaultInstance.id
+        });
+        this.logging.info('🎮 [AGENT-GAME] Default agent added to game map successfully', 'ScreenplayInteractive');
+      } else {
+        this.logging.warn('⚠️ [AGENT-GAME] agentGame is not available, cannot add agent to game', 'ScreenplayInteractive');
+      }
       
       // SAGA-006: Insert template into editor AFTER everything is set up
       this.insertEmojiIntoEditor(emoji, instanceId);

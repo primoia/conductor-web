@@ -119,14 +119,14 @@
 </div>
 
 <!-- Delete Confirmation -->
-<div class="dialog-backdrop" *ngIf="showDeleteConfirm" (click)="cancelDialog()">
+<div class="dialog-backdrop" *ngIf="showDeleteConfirm" (click)="cancelDialog()" (keydown)="onDeleteModalKeydown($event)">
   <div class="dialog-container" (click)="$event.stopPropagation()">
     <h3>Confirmar Exclusão</h3>
     <p>Tem certeza que deseja deletar o roteiro "{{ selectedScreenplay?.name }}"?</p>
     <p class="warning-text">Esta ação não pode ser desfeita.</p>
     <div class="dialog-actions">
-      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar</button>
-      <button class="btn btn-danger" (click)="deleteScreenplay()">Deletar</button>
+      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar (Esc)</button>
+      <button class="btn btn-danger" (click)="deleteScreenplay()">Deletar (Enter)</button>
     </div>
   </div>
 </div>

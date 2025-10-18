@@ -18,6 +18,26 @@
   transition: width 0.1s ease-out;
 }
 
+.first-column {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8f9fa;
+  border-right: 1px solid #e1e4e8;
+}
+
+.top-section {
+  flex-shrink: 0;
+  padding: 16px;
+}
+
+.bottom-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .splitter {
   width: 6px;
   background: #e1e4e8;
@@ -68,7 +88,9 @@
   border-bottom: 1px solid #e1e4e8;
   flex-shrink: 0;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: 8px;
 }
 
 .toolbar-loading {

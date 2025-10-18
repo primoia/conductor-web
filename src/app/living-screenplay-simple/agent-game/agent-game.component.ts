@@ -36,6 +36,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private canvasWidth = 0;
   private canvasHeight = 0;
   private lastTime = 0;
+  private resizeObserver?: ResizeObserver;
 
   // Tooltip state
   selectedAgent: AgentCharacter | null = null;
@@ -52,11 +53,24 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.initCanvas();
     this.loadAgentsFromBFF();
     this.startGameLoop();
+    
+    // Force resize after a short delay to ensure container is properly sized
+    setTimeout(() => {
+      this.resizeCanvas();
+    }, 100);
+    
+    // Additional resize after longer delay to ensure full rendering
+    setTimeout(() => {
+      this.resizeCanvas();
+    }, 500);
   }
 
   ngOnDestroy(): void {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
     }
   }
 
@@ -65,22 +79,49 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.ctx = canvas.getContext('2d')!;
 
     // Set canvas size to match container (full height vertical rectangle)
+    this.resizeCanvas();
+
+    // Use ResizeObserver to detect container size changes
     const container = canvas.parentElement;
-    if (container) {
-      this.canvasWidth = canvas.width = container.clientWidth;
-      this.canvasHeight = canvas.height = container.clientHeight;
+    if (container && window.ResizeObserver) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.resizeCanvas();
+      });
+      this.resizeObserver.observe(container);
     }
 
-    // Handle window resize
-    window.addEventListener('resize', () => this.handleResize());
+    // Fallback: Handle window resize
+    window.addEventListener('resize', () => this.resizeCanvas());
   }
 
-  private handleResize(): void {
+  private resizeCanvas(): void {
     const canvas = this.canvasRef.nativeElement;
     const container = canvas.parentElement;
     if (container) {
-      this.canvasWidth = canvas.width = container.clientWidth;
-      this.canvasHeight = canvas.height = container.clientHeight;
+      const newWidth = container.clientWidth;
+      const newHeight = container.clientHeight;
+      
+      // Force minimum height to ensure canvas uses full container height
+      const minHeight = Math.max(newHeight, 200);
+      
+      // Only resize if dimensions actually changed
+      if (newWidth !== this.canvasWidth || newHeight !== this.canvasHeight) {
+        this.canvasWidth = canvas.width = newWidth;
+        this.canvasHeight = canvas.height = newHeight;
+        
+        // Set CSS dimensions to match canvas dimensions
+        canvas.style.width = `${newWidth}px`;
+        canvas.style.height = `${newHeight}px`;
+        
+        console.log(`🎮 [AGENT-GAME] Canvas resized to: ${newWidth}x${newHeight}`);
+        console.log(`🎮 [AGENT-GAME] Container dimensions: ${container.clientWidth}x${container.clientHeight}`);
+        
+        // Reposition agents if they're outside the new bounds
+        this.agents.forEach(agent => {
+          agent.position.x = Math.max(agent.radius, Math.min(this.canvasWidth - agent.radius, agent.position.x));
+          agent.position.y = Math.max(agent.radius, Math.min(this.canvasHeight - agent.radius, agent.position.y));
+        });
+      }
     }
   }
 
@@ -115,15 +156,17 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
         console.log(`✅ [AGENT-GAME] Successfully loaded ${this.agents.length} agents from BFF`);
       } else {
-        console.warn('⚠️ [AGENT-GAME] No agents found in BFF response, using test agents');
+        console.warn('⚠️ [AGENT-GAME] No agents found in BFF response, no agents will be displayed');
         console.log('Response was:', response);
-        this.createTestAgents();
+        // Clear existing agents instead of creating test agents
+        this.agents = [];
       }
     } catch (error) {
       console.error('❌ [AGENT-GAME] Error loading agents from BFF:', error);
       console.error('Error details:', error);
-      console.log('🎮 [AGENT-GAME] Falling back to test agents');
-      this.createTestAgents();
+      console.log('🎮 [AGENT-GAME] No agents will be displayed due to error');
+      // Clear existing agents instead of creating test agents
+      this.agents = [];
     }
   }
 
@@ -140,14 +183,14 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
     const agent: AgentCharacter = {
       id: agentData.instance_id || agentData.id || `agent_${Date.now()}_${Math.random()}`,
-      agentId: agentData.agent_id || 'unknown',
+      agentId: agentData.agent_id ?? 'unknown',
       screenplayId: agentData.screenplay_id || 'unknown',
       name: agentData.definition?.title || agentData.name || 'Unknown Agent',
       emoji: agentData.emoji || agentData.definition?.emoji || '🤖',
       position: position,
       velocity: {
-        x: (Math.random() - 0.5) * 1.5,
-        y: (Math.random() - 0.5) * 1.5
+        x: (Math.random() - 0.5) * 2.25,
+        y: (Math.random() - 0.5) * 2.25
       },
       isActive: false,  // Start inactive, will be updated by parent
       radius: this.AGENT_RADIUS,
@@ -192,35 +235,6 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  private createTestAgents(): void {
-    // Fallback test agents if BFF fails
-    const testAgents = [
-      { emoji: '🚀', name: 'Performance Agent', agentId: 'perf_1', color: '#FF6B6B' },
-      { emoji: '🔐', name: 'Auth Agent', agentId: 'auth_1', color: '#4ECDC4' },
-      { emoji: '📊', name: 'Analytics Agent', agentId: 'analytics_1', color: '#45B7D1' },
-    ];
-
-    this.agents = testAgents.map((agent, index) => {
-      const position = this.findNonOverlappingPosition();
-
-      return {
-        id: `agent_${index}`,
-        agentId: agent.agentId,
-        screenplayId: 'screenplay_test_1',
-        name: agent.name,
-        emoji: agent.emoji,
-        position: position,
-        velocity: {
-          x: (Math.random() - 0.5) * 1.5,
-          y: (Math.random() - 0.5) * 1.5
-        },
-        isActive: false,
-        radius: this.AGENT_RADIUS,
-        color: agent.color,
-        trail: []
-      };
-    });
-  }
 
   private startGameLoop(): void {
     const gameLoop = (timestamp: number) => {
@@ -295,7 +309,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
               } else {
                 // Active agent pushes inactive agent
                 // Apply temporary velocity to inactive agent for 1 second
-                const pushSpeed = 2.0; // Speed of push
+                const pushSpeed = 3.0; // Speed of push
                 other.pushedVelocity = {
                   x: cos * pushSpeed,
                   y: sin * pushSpeed
@@ -322,13 +336,13 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
         // Add some randomness to movement
         if (Math.random() < 0.02) {
-          agent.velocity.x += (Math.random() - 0.5) * 0.3;
-          agent.velocity.y += (Math.random() - 0.5) * 0.3;
+          agent.velocity.x += (Math.random() - 0.5) * 0.45;
+          agent.velocity.y += (Math.random() - 0.5) * 0.45;
         }
 
         // Limit speed
         const speed = Math.sqrt(agent.velocity.x ** 2 + agent.velocity.y ** 2);
-        const maxSpeed = 2.5;
+        const maxSpeed = 3.75;
         if (speed > maxSpeed) {
           agent.velocity.x = (agent.velocity.x / speed) * maxSpeed;
           agent.velocity.y = (agent.velocity.y / speed) * maxSpeed;
@@ -505,8 +519,8 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       emoji: agentData.emoji,
       position: position,
       velocity: {
-        x: (Math.random() - 0.5) * 1.5,
-        y: (Math.random() - 0.5) * 1.5
+        x: (Math.random() - 0.5) * 2.25,
+        y: (Math.random() - 0.5) * 2.25
       },
       isActive: false,
       radius: this.AGENT_RADIUS,
@@ -518,6 +532,12 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   // Public method to reload agents from BFF
   public async reloadAgents(): Promise<void> {
     await this.loadAgentsFromBFF();
+  }
+
+  // Public method to clear all agents immediately
+  public clearAllAgents(): void {
+    console.log('🎮 [AGENT-GAME] Clearing all agents immediately');
+    this.agents = [];
   }
 
   // Public method to remove an agent by instance ID

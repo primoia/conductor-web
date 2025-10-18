@@ -1,32 +1,156 @@
-.control-panel {
+.first-column {
   width: 420px;
+  height: 100vh;
   background: #fafbfc;
-  color: #2c3e50;
-  padding: 15px;
-  overflow-y: auto;
-  flex-shrink: 0;
-  border-right: 1px solid #e1e4e8;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  flex-shrink: 0;
+  border-right: 1px solid #e1e4e8;
+}
+
+.top-section {
+  flex: 1;
+  background: #fafbfc;
+  /* Área vazia no topo */
+}
+
+.bottom-section {
+  height: 50vh;
+  background: #fafbfc;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  min-height: 0;
+  overflow: hidden;
 
   /* Força fontes de emoji em todo o painel */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
 }
 
-.panel-container {
-  width: 100%;
-  height: calc(100% - 30px);
-  background: #ffffff;
-  border-radius: 12px;
-  border: 2px solid #e1e4e8;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.bottom-section app-agent-game {
+  flex: 1;
+  min-height: 0;
 }
+
+.bottom-section .editor-footer {
+  flex-shrink: 0;
+  height: 50px;
+  background: #f8f9fa;
+  border-top: 1px solid #e1e4e8;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 4px 12px;
+  color: #4a5568;
+  font-size: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+  min-height: 24px;
+}
+
+.bottom-section .editor-footer .footer-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bottom-section .editor-footer .footer-left {
+  justify-content: flex-start;
+}
+
+.bottom-section .editor-footer .footer-center {
+  justify-content: center;
+}
+
+.bottom-section .editor-footer .footer-right {
+  justify-content: flex-end;
+}
+
+.bottom-section .editor-footer .footer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.bottom-section .editor-footer .new-badge {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.bottom-section .editor-footer .badge-icon {
+  font-size: 10px;
+}
+
+.bottom-section .editor-footer .badge-text {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bottom-section .editor-footer .footer-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.bottom-section .editor-footer .footer-status.modified {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.bottom-section .editor-footer .footer-status.saved {
+  color: #10b981;
+}
+
+.bottom-section .editor-footer .status-spinner {
+  font-size: 11px;
+  animation: spin 1s linear infinite;
+}
+
+.bottom-section .editor-footer .status-indicator {
+  font-size: 12px;
+}
+
+.bottom-section .editor-footer .footer-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.bottom-section .editor-footer .shortcut-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bottom-section .editor-footer .footer-shortcuts kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  font-size: 8px;
+  font-family: 'Courier New', monospace;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+.bottom-section .editor-footer .footer-shortcuts .separator {
+  color: #d1d5db;
+  margin: 0 2px;
+  font-size: 8px;
+}
+
 
 .control-panel h3 {
   margin: 0 0 20px 0;

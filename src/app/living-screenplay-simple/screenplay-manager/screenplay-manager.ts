@@ -261,6 +261,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
         this.currentPage = 1;
         this.screenplays = [];
         this.loadScreenplays();
+        
+        // Emit delete event to parent component
+        this.action.emit({ action: 'delete' });
       },
       error: (error) => {
         this.loading = false;
@@ -291,6 +294,23 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     this.showDeleteConfirm = false;
     this.selectedScreenplay = null;
     this.error = null;
+  }
+
+  onDeleteModalKeydown(event: KeyboardEvent): void {
+    if (!this.showDeleteConfirm) return;
+
+    switch (event.key) {
+      case 'Enter':
+        event.preventDefault();
+        event.stopPropagation();
+        this.deleteScreenplay();
+        break;
+      case 'Escape':
+        event.preventDefault();
+        event.stopPropagation();
+        this.cancelDialog();
+        break;
+    }
   }
 
   /**
