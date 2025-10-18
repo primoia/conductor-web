@@ -1,14 +1,31 @@
 .control-panel {
-  width: 280px;
-  background: #f0f3f7;
+  width: 420px;
+  background: #fafbfc;
   color: #2c3e50;
-  padding: 20px;
+  padding: 15px;
   overflow-y: auto;
   flex-shrink: 0;
   border-right: 1px solid #e1e4e8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 
   /* Força fontes de emoji em todo o painel */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+}
+
+.panel-container {
+  width: 100%;
+  height: calc(100% - 30px);
+  background: #ffffff;
+  border-radius: 12px;
+  border: 2px solid #e1e4e8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .control-panel h3 {

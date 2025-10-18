@@ -1,8 +1,9 @@
 .dock-separator {
   width: 80%;
+  height: 1px;
+  background: #d1d5db;
+  margin: 8px auto;
   border: none;
-  border-top: 1px solid #4a5568;
-  margin: 10px 0;
 }
 
 .emoji-list {
@@ -299,4 +300,17 @@
   background: #dbeafe;
   border-color: #60a5fa;
   transform: scale(1.15);
+}
+
+.add-agent-dock-btn {
+  background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%) !important;
+  border-color: #68d391 !important;
+  color: #276749;
+  font-weight: bold;
+}
+
+.add-agent-dock-btn:hover {
+  background: linear-gradient(135deg, #9ae6b4 0%, #68d391 100%) !important;
+  border-color: #48bb78 !important;
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
 }

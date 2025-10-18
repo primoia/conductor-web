@@ -9,6 +9,7 @@ import { ConductorApiService } from './services/conductor-api.service';
 import { Message, ChatState, ChatMode, ApiConfig, ConductorConfig } from './models/chat.models';
 import { ScreenplayService } from '../../services/screenplay/screenplay.service';
 import { AgentService, AgentContext, ChatMessage } from '../../services/agent.service';
+import { AgentExecutionService, AgentExecutionState } from '../../services/agent-execution';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -568,7 +569,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   constructor(
     private apiService: ConductorApiService,
     private screenplayService: ScreenplayService,
-    private agentService: AgentService
+    private agentService: AgentService,
+    private agentExecutionService: AgentExecutionService
   ) { }
 
   ngOnInit(): void {
@@ -682,11 +684,27 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
       this.addProgressMessage('🚀 Executando agente...');
 
+      // Notify AgentExecutionService to update agent-game
+      const executionState: AgentExecutionState = {
+        id: this.activeAgentId,
+        emoji: this.selectedAgentEmoji || '🤖',
+        title: this.selectedAgentName || 'Unknown Agent',
+        prompt: content.trim(),
+        status: 'running',
+        logs: ['🚀 Agent execution started']
+      };
+      this.agentExecutionService.executeAgent(executionState);
+
       this.subscriptions.add(
         this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId, cwd, this.activeScreenplayId || undefined).subscribe({
           next: (result) => {
             console.log('✅ Agent execution result:', result);
             this.progressMessage = null;
+
+            // Update execution status to completed
+            if (this.activeAgentId) {
+              this.agentExecutionService.completeAgent(this.activeAgentId, result);
+            }
 
             // Extract response content and ensure it's a string
             let responseContent = result.result || result.data?.result || 'Execução concluída';
@@ -713,6 +731,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           error: (error) => {
             console.error('❌ Agent execution error:', error);
             this.progressMessage = null;
+
+            // Mark agent execution as failed
+            if (this.activeAgentId) {
+              this.agentExecutionService.cancelAgent(this.activeAgentId);
+            }
+
             this.handleError(error.error || error.message || 'Erro ao executar agente');
           }
         })

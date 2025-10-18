@@ -82,6 +82,18 @@ export class AgentExecutionService {
   }
 
   /**
+   * Mark an agent as completed (for external executions)
+   */
+  public completeAgent(agentId: string, result?: any): void {
+    this.updateAgentState(agentId, {
+      status: 'completed',
+      result: result,
+      endTime: new Date(),
+      logs: [...(this.getAgentState(agentId)?.logs || []), '✅ Agent execution completed']
+    });
+  }
+
+  /**
    * Cancel a running or queued agent
    */
   public cancelAgent(agentId: string): void {

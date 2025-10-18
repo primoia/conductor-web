@@ -84,17 +84,17 @@ import { marked } from 'marked';
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 20px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       background: #fafbfc;
     }
 
     .message {
-      padding: 12px 16px;
+      padding: 10px 12px;
       border-radius: 8px;
-      max-width: 85%;
+      max-width: 95%;
       word-wrap: break-word;
       animation: fadeIn 0.3s ease;
       font-size: 13px;
@@ -126,7 +126,7 @@ import { marked } from 'marked';
       border: 1px dashed #cbd5e0;
       font-size: 13px;
       text-align: center;
-      max-width: 70%;
+      max-width: 90%;
     }
 
     .system-message .message-content {

@@ -1,5 +1,7 @@
 import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListener, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DraggableCircle, CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
@@ -12,6 +14,7 @@ import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.
 import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
 import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
+import { AgentGameComponent } from './agent-game/agent-game.component';
 import { Subscription } from 'rxjs';
 import { LoggingService } from '../services/logging.service';
 
@@ -79,7 +82,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager],
+  imports: [CommonModule, FormsModule, DraggableCircle, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager, AgentGameComponent],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [
     './screenplay-layout.css',
@@ -93,6 +96,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(InteractiveEditor) private interactiveEditor!: InteractiveEditor;
   @ViewChild(ConductorChatComponent) conductorChat!: ConductorChatComponent;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('agentGame') agentGame!: AgentGameComponent;
 
   // Splitter state
   screenplayWidth = 70;
@@ -133,6 +137,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   previewLoading = false;
   previewError: string | null = null;
 
+  // Export modal state
+  showExportModal = false;
+  exportFilename = '';
+
   // Text selection context for agent execution
   private selectedText: string = '';
   private selectedTextRange: { start: number; end: number } | null = null;
@@ -152,6 +160,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private agentStateSubscription?: Subscription;
   public selectedAgent: AgentInstance | null = null;
 
+  // Task polling for agent movement
+  private taskPollingInterval?: any;
+
   // Agent Dock properties
   public contextualAgents: AgentInstance[] = [];
   public activeAgentId: string | null = null;
@@ -167,7 +178,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private screenplayStorage: ScreenplayStorage,
     private route: ActivatedRoute,
     private router: Router,
-    private logging: LoggingService
+    private logging: LoggingService,
+    private http: HttpClient
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -357,15 +369,21 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     
     // Remove from memory
     this.agentInstances.delete(instanceId);
-    
+
     // Update UI
     this.updateLegacyAgentsFromInstances();
     this.updateAvailableEmojis();
     this.updateAgentDockLists();
-    
+
     // Delete from MongoDB
     this.deleteAgentFromMongoDB(instanceId);
-    
+
+    // Remove from agent game map
+    if (this.agentGame) {
+      this.agentGame.removeAgent(instanceId);
+      this.logging.info('🎮 [AGENT-GAME] Agent removed from map', 'ScreenplayInteractive');
+    }
+
     this.logging.info('✅ [DELETE AGENT] Agent deleted successfully', 'ScreenplayInteractive');
   }
 
@@ -446,13 +464,21 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize agent dock lists
     this.updateAgentDockLists();
+
+    // Start polling for tasks to update agent movement
+    this.startTaskPolling();
   }
 
   ngOnDestroy(): void {
     if (this.agentStateSubscription) {
       this.agentStateSubscription.unsubscribe();
     }
-    
+
+    // Stop task polling
+    if (this.taskPollingInterval) {
+      clearInterval(this.taskPollingInterval);
+    }
+
     // Remove force save event listener
     document.removeEventListener('forceSaveScreenplay', this.handleForceSaveScreenplay);
   }
@@ -1025,6 +1051,92 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     URL.revokeObjectURL(url);
 
     this.logging.info('💾 Arquivo salvo no disco:', 'ScreenplayInteractive', filename);
+  }
+
+  /**
+   * Open export modal with default filename
+   */
+  openExportModal(): void {
+    // Set default filename
+    let filename = this.currentScreenplay?.name || this.currentFileName || 'roteiro-vivo';
+    if (filename.endsWith('.md')) {
+      filename = filename.slice(0, -3);
+    }
+    this.exportFilename = filename;
+    this.showExportModal = true;
+  }
+
+  /**
+   * Close export modal
+   */
+  closeExportModal(): void {
+    this.showExportModal = false;
+    this.exportFilename = '';
+  }
+
+  /**
+   * Export file with custom filename from modal using File System Access API
+   */
+  async confirmExport(): Promise<void> {
+    if (!this.exportFilename.trim()) {
+      alert('Por favor, insira um nome para o arquivo.');
+      return;
+    }
+
+    // Get current content
+    const content = this.generateMarkdownForSave();
+
+    // Ensure .md extension
+    let filename = this.exportFilename.trim();
+    if (!filename.endsWith('.md')) {
+      filename += '.md';
+    }
+
+    try {
+      // Check if File System Access API is supported
+      if ('showSaveFilePicker' in window) {
+        // Use File System Access API to let user choose location
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'Markdown Files',
+            accept: { 'text/markdown': ['.md'] }
+          }]
+        });
+
+        // Write content to the selected file
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+
+        this.logging.info('📤 Arquivo exportado com sucesso:', 'ScreenplayInteractive', filename);
+      } else {
+        // Fallback to traditional download (for older browsers)
+        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        // Cleanup
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.logging.info('📥 Arquivo exportado (modo compatibilidade):', 'ScreenplayInteractive', filename);
+      }
+
+      // Close modal
+      this.closeExportModal();
+    } catch (error: any) {
+      // User cancelled or error occurred
+      if (error.name !== 'AbortError') {
+        this.logging.error('❌ Erro ao exportar arquivo:', error, 'ScreenplayInteractive');
+        alert('Erro ao exportar arquivo. Tente novamente.');
+      }
+    }
   }
 
   /**
@@ -1882,6 +1994,19 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     this.agentInstances.set(agentId, newInstance);
     this.updateLegacyAgentsFromInstances();
+
+    // Add agent to the game map
+    if (this.agentGame) {
+      this.agentGame.addAgent({
+        emoji: agentData.emoji,
+        name: agentData.title,
+        agentId: agentId,
+        screenplayId: this.currentScreenplay?.id || 'unknown',
+        instanceId: agentId
+      });
+      this.logging.info('🎮 [AGENT-GAME] Custom agent added to map:', 'ScreenplayInteractive', { name: agentData.title });
+    }
+
     this.closeAgentCreator();
 
     this.logging.info('✨ Agente personalizado criado:', 'ScreenplayInteractive', { title: agentData.title, emoji: agentData.emoji });
@@ -1941,11 +2066,23 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.updateAvailableEmojis();
     this.updateAgentDockLists();
 
+    // Add agent to the game map
+    if (this.agentGame) {
+      this.agentGame.addAgent({
+        emoji: agent.emoji,
+        name: agent.name,
+        agentId: agent.id,
+        screenplayId: this.currentScreenplay?.id || 'unknown',
+        instanceId: instanceId
+      });
+      this.logging.info('🎮 [AGENT-GAME] Agent added to map:', 'ScreenplayInteractive', { name: agent.name });
+    }
+
     this.closeAgentSelector();
 
-    this.logging.info('✅ Agente vinculado ao roteiro (disponível na dock lateral):', 'ScreenplayInteractive', { 
-      name: agent.name, 
-      emoji: agent.emoji, 
+    this.logging.info('✅ Agente vinculado ao roteiro (disponível na dock lateral):', 'ScreenplayInteractive', {
+      name: agent.name,
+      emoji: agent.emoji,
       id: instanceId,
       note: 'Agent does not appear in editor, only in dock'
     });
@@ -2369,6 +2506,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       if (instance) {
         instance.executionState = executionState;
         instance.status = executionState.status;
+
+        // NOTE: Agent game movement is now controlled by task polling (checkProcessingTasks)
+        // which checks /api/tasks/processing every 2 seconds for accurate real-time status
       }
     }
 
@@ -2411,6 +2551,73 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   getQueuedAgents(): AgentInstance[] {
     return Array.from(this.agentInstances.values()).filter(agent => agent.status === 'queued');
+  }
+
+  /**
+   * Start polling for processing tasks to update agent movement
+   */
+  private startTaskPolling(): void {
+    // Poll every 2 seconds
+    this.taskPollingInterval = setInterval(() => {
+      this.checkProcessingTasks();
+    }, 2000);
+
+    // Execute immediately on start
+    this.checkProcessingTasks();
+  }
+
+  /**
+   * Check for processing tasks and update agent movement accordingly
+   */
+  private async checkProcessingTasks(): Promise<void> {
+    try {
+      const baseUrl = this.agentService['baseUrl'] || '';
+      const url = `${baseUrl}/api/tasks/processing`;
+
+      const response = await this.http.get<{
+        success: boolean;
+        count: number;
+        tasks: Array<{
+          _id: string;
+          instance_id: string;
+          agent_id: string;
+          status: string;
+          created_at: string;
+          started_at?: string;
+          prompt?: string;
+        }>;
+      }>(url).toPromise();
+
+      if (response && response.success && response.tasks) {
+        // Get all instance_ids that are currently processing
+        const processingInstanceIds = new Set(
+          response.tasks.map(task => task.instance_id)
+        );
+
+        // Update agent-game for all agents
+        if (this.agentGame) {
+          this.agentInstances.forEach((instance, instanceId) => {
+            const isProcessing = processingInstanceIds.has(instanceId);
+            this.agentGame.setAgentActive(instanceId, isProcessing);
+          });
+        }
+
+        // Log processing tasks (only if there are any)
+        if (processingInstanceIds.size > 0) {
+          this.logging.info(
+            `🎮 [TASK-POLLING] ${processingInstanceIds.size} agent(s) processing`,
+            'ScreenplayInteractive',
+            { instanceIds: Array.from(processingInstanceIds) }
+          );
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't spam logs on network errors
+      // Only log if it's not a common network issue
+      if (error && (error as any).status !== 0) {
+        this.logging.warn('⚠️ [TASK-POLLING] Error checking tasks:', 'ScreenplayInteractive', error);
+      }
+    }
   }
 
   /**
@@ -2489,11 +2696,36 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  @HostListener('document:keydown.control.o', ['$event'])
   @HostListener('document:keydown.meta.o', ['$event'])
   handleOpenShortcut(event: Event): void {
     event.preventDefault();
     this.logging.info('📚 Ctrl/Cmd+O pressed - Opening screenplay manager', 'ScreenplayInteractive');
     this.openScreenplayManager();
+  }
+
+  @HostListener('document:keydown.control.n', ['$event'])
+  @HostListener('document:keydown.meta.n', ['$event'])
+  handleNewShortcut(event: Event): void {
+    event.preventDefault();
+    this.logging.info('📝 Ctrl/Cmd+N pressed - Creating new screenplay', 'ScreenplayInteractive');
+    this.newScreenplayWithDefaultAgent();
+  }
+
+  @HostListener('document:keydown.control.shift.a', ['$event'])
+  @HostListener('document:keydown.meta.shift.a', ['$event'])
+  handleAddAgentShortcut(event: Event): void {
+    event.preventDefault();
+    this.logging.info('➕ Ctrl/Cmd+Shift+A pressed - Adding agent', 'ScreenplayInteractive');
+    this.openAgentSelector();
+  }
+
+  @HostListener('document:keydown.control.e', ['$event'])
+  @HostListener('document:keydown.meta.e', ['$event'])
+  handleExportShortcut(event: Event): void {
+    event.preventDefault();
+    this.logging.info('💾 Ctrl/Cmd+E pressed - Exporting to disk', 'ScreenplayInteractive');
+    this.exportToDisk();
   }
 
   /**

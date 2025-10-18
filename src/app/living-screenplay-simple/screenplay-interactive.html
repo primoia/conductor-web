@@ -1,76 +1,58 @@
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
         <div class="control-panel">
-        <h3>🎬 Roteiro Vivo</h3>
+          <div class="panel-container">
+            <app-agent-game #agentGame></app-agent-game>
+          </div>
+        </div>
 
-        <div class="file-controls">
-          <details class="file-controls-menu">
-            <summary>Arquivo</summary>
-            <menu>
-              <button (click)="newScreenplayWithDefaultAgent()">Novo Roteiro</button>
-              <button (click)="openScreenplayManager()">Abrir do Banco...</button>
-              <button (click)="importFromDisk()">Importar do Disco...</button>
-              <hr>
-              <button (click)="save()" [disabled]="!isDirty">Salvar</button>
-              <hr>
-              <button (click)="exportToDisk()">Exportar para Disco...</button>
-            </menu>
-          </details>
-          
+      <div class="screenplay-canvas" #canvas>
+        <!-- Editor Toolbar -->
+        <div class="editor-toolbar">
           <!-- Loading indicator -->
-          <div *ngIf="isLoading" class="loading-indicator">
-            <span>Carregando screenplay...</span>
+          <div *ngIf="isLoading" class="toolbar-loading">
+            <span>Carregando...</span>
           </div>
           <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
 
-          <!-- SAGA-005 v2: Simplified file indicator - only database and new -->
-          <div class="current-file" *ngIf="sourceOrigin === 'database' && currentScreenplay">
-            💾 {{ currentScreenplay.name }}
-            <span class="db-indicator" title="Vinculado ao MongoDB">🔗</span>
-            <span class="dirty-indicator" *ngIf="isDirty">●</span>
-            <span class="save-status" *ngIf="isSaving">Salvando...</span>
+          <!-- Toolbar Buttons -->
+          <div class="toolbar-buttons">
+            <button
+              class="toolbar-btn new-btn"
+              title="Novo Roteiro"
+              (click)="newScreenplayWithDefaultAgent()">
+              📄
+            </button>
+            <button
+              class="toolbar-btn open-btn"
+              title="Abrir do Banco..."
+              (click)="openScreenplayManager()">
+              📂
+            </button>
+            <button
+              class="toolbar-btn import-btn"
+              title="Importar do Disco..."
+              (click)="importFromDisk()">
+              📥
+            </button>
+            <button
+              class="toolbar-btn save-btn-toolbar"
+              [class.saving]="isSaving"
+              [class.dirty]="isDirty"
+              [title]="isSaving ? 'Salvando...' : (isDirty ? 'Salvar' : 'Salvo')"
+              [disabled]="!isDirty"
+              (click)="save()">
+              💾
+            </button>
+            <button
+              class="toolbar-btn export-btn"
+              title="Exportar para Disco..."
+              (click)="openExportModal()">
+              📤
+            </button>
           </div>
-
-          <!-- New file indicator -->
-          <div class="current-file new-file" *ngIf="sourceOrigin === 'new'">
-            📝 {{ sourceIdentifier || 'Novo Roteiro' }}
-            <span class="new-indicator" title="Roteiro novo - não salvo">✨</span>
-            <small class="new-hint">Não salvo</small>
-          </div>
         </div>
 
-        <div class="agent-controls">
-          <h4>🤖 Agentes</h4>
-          <button (click)="openAgentSelector()" class="control-btn add-agent-btn">
-            ➕ Adicionar Agente ao Roteiro
-          </button>
-          <small style="color: #666; font-size: 11px; display: block; margin-top: 4px;">
-            Vincula um agente ao roteiro atual (aparece na dock lateral)
-          </small>
-        </div>
-
-        <!-- DISABLED: View controls (not needed without visual circles)
-        <div class="view-controls">
-          <button
-            [class.active]="currentView === 'clean'"
-            (click)="switchView('clean')">
-            📝 Roteiro Limpo
-          </button>
-          <button
-            [class.active]="currentView === 'agents'"
-            (click)="switchView('agents')">
-            🤖 Com Agentes
-          </button>
-          <button
-            [class.active]="currentView === 'full'"
-            (click)="switchView('full')">
-            🌐 Visão Completa
-          </button>
-        </div>
-        -->
-      </div>
-
-      <div class="screenplay-canvas" #canvas>
         <div class="editor-content">
           <app-interactive-editor
             [content]="editorContent"
@@ -78,6 +60,50 @@
             (contentChange)="handleContentUpdate($event)"
             (blockCommand)="onBlockCommand($event)">
           </app-interactive-editor>
+        </div>
+
+        <!-- Editor Footer / Status Bar -->
+        <div class="editor-footer">
+          <div class="footer-section" *ngIf="sourceOrigin === 'database' && currentScreenplay">
+            <span class="footer-icon">📄</span>
+            <span class="footer-filename">{{ currentScreenplay.name }}</span>
+          </div>
+
+          <div class="footer-section" *ngIf="sourceOrigin === 'new'">
+            <span class="footer-icon">📝</span>
+            <span class="footer-filename">{{ sourceIdentifier || 'Novo Roteiro' }}</span>
+            <span class="footer-badge new-badge">
+              <span class="badge-icon">✨</span>
+              <span class="badge-text">Não salvo</span>
+            </span>
+          </div>
+
+          <div class="footer-section footer-center">
+            <span class="footer-shortcuts" title="Atalhos de teclado">
+              <kbd>Ctrl+S</kbd> Salvar
+              <span class="separator">•</span>
+              <kbd>Ctrl+N</kbd> Novo
+              <span class="separator">•</span>
+              <kbd>Ctrl+O</kbd> Abrir
+              <span class="separator">•</span>
+              <kbd>Ctrl+Shift+A</kbd> Agente
+            </span>
+          </div>
+
+          <div class="footer-section footer-right">
+            <span class="footer-status" *ngIf="isSaving">
+              <span class="status-spinner">⏳</span>
+              Salvando...
+            </span>
+            <span class="footer-status modified" *ngIf="isDirty && !isSaving">
+              <span class="status-indicator">●</span>
+              Modificado
+            </span>
+            <span class="footer-status saved" *ngIf="!isDirty && !isSaving && currentScreenplay">
+              <span class="status-indicator">✓</span>
+              Salvo
+            </span>
+          </div>
         </div>
 
         <!-- DISABLED: Visual agent circles overlay
@@ -153,6 +179,34 @@
         (close)="closeScreenplayManager()"
         (action)="onScreenplayManagerAction($event)">
       </app-screenplay-manager>
+
+      <!-- Export Modal -->
+      <div class="modal-overlay" *ngIf="showExportModal" (click)="closeExportModal()">
+        <div class="export-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>📤 Exportar Roteiro para Disco</h3>
+            <button class="close-btn" (click)="closeExportModal()">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="export-filename">Nome do arquivo:</label>
+              <input
+                type="text"
+                id="export-filename"
+                [(ngModel)]="exportFilename"
+                placeholder="roteiro-vivo.md"
+                class="filename-input"
+                (keydown.enter)="confirmExport()"
+              />
+              <small class="hint">Você poderá escolher onde salvar o arquivo</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" (click)="closeExportModal()">Cancelar</button>
+            <button class="btn-export" (click)="confirmExport()">Escolher Local e Exportar</button>
+          </div>
+        </div>
+      </div>
       </div>
 
       <!-- Resizable splitter -->
@@ -167,11 +221,23 @@
       <div class="agent-launcher-dock">
         <div class="dock-section">
           <div class="dock-section-title">Agents</div>
-          <button 
-            *ngFor="let agent of contextualAgents" 
-            class="dock-item" 
+
+          <!-- Add Agent Button -->
+          <button
+            class="dock-item add-agent-dock-btn"
+            title="Adicionar Agente"
+            (click)="openAgentSelector()">
+            ➕
+          </button>
+
+          <div class="dock-separator"></div>
+
+          <!-- Agent List -->
+          <button
+            *ngFor="let agent of contextualAgents"
+            class="dock-item"
             [class.active]="activeAgentId === agent.id"
-            [title]="agent.definition.description" 
+            [title]="agent.definition.description"
             (click)="onDockAgentClick(agent)">
             {{ agent.emoji }}
           </button>

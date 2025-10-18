@@ -1,0 +1,42 @@
+<div class="agent-game-container">
+  <canvas
+    #gameCanvas
+    class="game-canvas"
+    (click)="onCanvasClick($event)">
+  </canvas>
+
+  <!-- Agent Info Tooltip -->
+  <div
+    class="agent-tooltip"
+    *ngIf="showTooltip && selectedAgent"
+    [style.left.px]="tooltipX + 10"
+    [style.top.px]="tooltipY + 10">
+    <div class="tooltip-header">
+      <span class="tooltip-emoji">{{ selectedAgent.emoji }}</span>
+      <button class="tooltip-close" (click)="closeTooltip()">×</button>
+    </div>
+    <div class="tooltip-body">
+      <div class="tooltip-row">
+        <span class="tooltip-label">Nome:</span>
+        <span class="tooltip-value">{{ selectedAgent.name }}</span>
+      </div>
+      <div class="tooltip-row">
+        <span class="tooltip-label">Agent ID:</span>
+        <span class="tooltip-value">{{ selectedAgent.agentId }}</span>
+      </div>
+      <div class="tooltip-row">
+        <span class="tooltip-label">Screenplay:</span>
+        <span class="tooltip-value">{{ selectedAgent.screenplayId }}</span>
+      </div>
+      <div class="tooltip-row">
+        <span class="tooltip-label">Status:</span>
+        <span
+          class="tooltip-status"
+          [class.active]="selectedAgent.isActive"
+          [class.inactive]="!selectedAgent.isActive">
+          {{ selectedAgent.isActive ? '🟢 Trabalhando' : '🔴 Inativo' }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
