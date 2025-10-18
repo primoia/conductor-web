@@ -9,8 +9,8 @@
   <div
     class="agent-tooltip"
     *ngIf="showTooltip && selectedAgent"
-    [style.left.px]="tooltipX + 10"
-    [style.top.px]="tooltipY + 10">
+    [style.left.px]="tooltipX"
+    [style.top.px]="tooltipY">
     <div class="tooltip-header">
       <span class="tooltip-emoji">{{ selectedAgent.emoji }}</span>
       <button class="tooltip-close" (click)="closeTooltip()">×</button>
@@ -26,7 +26,13 @@
       </div>
       <div class="tooltip-row">
         <span class="tooltip-label">Screenplay:</span>
-        <span class="tooltip-value">{{ selectedAgent.screenplayId }}</span>
+        <a
+          [href]="getScreenplayUrl(selectedAgent.screenplayId)"
+          target="_blank"
+          class="screenplay-link"
+          title="Abrir screenplay em nova aba">
+          {{ selectedAgent.screenplayId }} 🔗
+        </a>
       </div>
       <div class="tooltip-row">
         <span class="tooltip-label">Status:</span>

@@ -479,8 +479,29 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
       if (distance < agent.radius) {
         this.selectedAgent = agent;
-        this.tooltipX = event.clientX;
-        this.tooltipY = event.clientY;
+
+        // Position tooltip to the top-right of the agent
+        // Offset by 20px to the right and tooltip height + 10px above
+        const tooltipWidth = 280; // Approximate tooltip width
+        const tooltipHeight = 160; // Approximate tooltip height
+
+        this.tooltipX = event.clientX + 20;
+        this.tooltipY = event.clientY - tooltipHeight - 10;
+
+        // Ensure tooltip stays within viewport bounds
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Adjust if tooltip goes beyond right edge
+        if (this.tooltipX + tooltipWidth > viewportWidth) {
+          this.tooltipX = event.clientX - tooltipWidth - 20;
+        }
+
+        // Adjust if tooltip goes beyond top edge
+        if (this.tooltipY < 0) {
+          this.tooltipY = event.clientY + 20;
+        }
+
         this.showTooltip = true;
         return;
       }
@@ -493,6 +514,12 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   closeTooltip(): void {
     this.showTooltip = false;
     this.selectedAgent = null;
+  }
+
+  getScreenplayUrl(screenplayId: string): string {
+    // Generate URL to open screenplay in a new tab
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/screenplay?screenplayId=${screenplayId}`;
   }
 
   // Public method to update agent status from parent component

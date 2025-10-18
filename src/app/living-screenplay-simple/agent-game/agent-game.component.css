@@ -125,3 +125,27 @@
   background: #fee2e2;
   color: #991b1b;
 }
+
+.screenplay-link {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: right;
+  word-break: break-all;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.screenplay-link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+  transform: translateX(2px);
+}
+
+.screenplay-link:active {
+  transform: scale(0.95);
+}
