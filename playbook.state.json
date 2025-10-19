@@ -1,0 +1,65 @@
+{
+  "saga": "Melhoria do Sistema de Informações dos Agentes",
+  "status": "inicializado",
+  "current_phase": "fase_1_analise",
+  "phases": {
+    "fase_1_analise": {
+      "name": "Análise e Estruturação",
+      "status": "pendente",
+      "description": "Analisar código existente e criar interfaces expandidas",
+      "tasks": [
+        "Analisar estrutura atual do game-canvas e tooltip",
+        "Criar interface AgentCharacter expandida com executionMetrics",
+        "Implementar ExecutionMetricsService básico"
+      ]
+    },
+    "fase_2_integracao": {
+      "name": "Integração de Métricas",
+      "status": "pendente", 
+      "description": "Conectar sistema de métricas com execução de agentes",
+      "tasks": [
+        "Integrar ExecutionMetricsService com AgentExecutionService",
+        "Implementar tracking de execuções em tempo real",
+        "Adicionar cálculos automáticos de tempo médio"
+      ]
+    },
+    "fase_3_tooltip": {
+      "name": "Redesign do Tooltip",
+      "status": "pendente",
+      "description": "Redesenhar tooltip com métricas de performance",
+      "tasks": [
+        "Redesenhar tooltip com seção de métricas",
+        "Implementar formatação de tempo e valores",
+        "Adicionar indicadores visuais de execução"
+      ]
+    },
+    "fase_4_finalizacao": {
+      "name": "Integração Final e Testes",
+      "status": "pendente",
+      "description": "Conectar tudo e validar funcionamento",
+      "tasks": [
+        "Conectar tooltip com dados de métricas",
+        "Testar funcionalidade completa",
+        "Otimizar performance do canvas"
+      ]
+    }
+  },
+  "dependencies": [
+    "AgentExecutionService",
+    "GameCanvasComponent", 
+    "AgentGameService",
+    "Sistema de execução existente"
+  ],
+  "risks": [
+    "Performance do canvas com métricas adicionais",
+    "Complexidade da integração com sistema existente",
+    "Dados inconsistentes se tracking falhar"
+  ],
+  "success_criteria": [
+    "Tooltip mostra número total de execuções",
+    "Tempo total e médio de execução exibidos",
+    "Métricas atualizadas em tempo real",
+    "Performance do canvas mantida",
+    "Interface intuitiva e responsiva"
+  ]
+}

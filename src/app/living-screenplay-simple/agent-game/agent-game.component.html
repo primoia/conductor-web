@@ -2,8 +2,48 @@
   <canvas
     #gameCanvas
     class="game-canvas"
-    (click)="onCanvasClick($event)">
+    (click)="onCanvasClick($event)"
+    (mousemove)="onCanvasMouseMove($event)"
+    (mouseleave)="onCanvasMouseLeave($event)">
   </canvas>
+
+  <!-- Debug Panel -->
+  <div class="debug-panel" *ngIf="showDebugPanel">
+    <div class="debug-header">
+      <span>🐛 DEBUG PANEL</span>
+      <button class="debug-close" (click)="toggleDebugPanel()">×</button>
+    </div>
+    <pre class="debug-content">{{ getDebugInfo() }}</pre>
+    <div class="debug-footer">
+      <small>Atualizado a cada 1s | Use toggleDebug() para fechar</small>
+    </div>
+  </div>
+
+  <!-- Mini Map Hover Popup -->
+  <div
+    class="mini-map-popup"
+    *ngIf="showMiniMapPopup && hoveredAgent"
+    [style.left.px]="miniMapPopupX"
+    [style.top.px]="miniMapPopupY">
+    <div class="popup-header">
+      <span class="popup-emoji">{{ hoveredAgent.emoji }}</span>
+      <span class="popup-name">{{ hoveredAgent.name }}</span>
+    </div>
+    <div class="popup-metrics">
+      <div class="popup-metric">
+        <span class="popup-metric-label">Execuções:</span>
+        <span class="popup-metric-value">{{ hoveredAgent.executionMetrics.totalExecutions }}</span>
+      </div>
+      <div class="popup-metric">
+        <span class="popup-metric-label">Tempo Total:</span>
+        <span class="popup-metric-value">{{ formatExecutionTime(hoveredAgent.executionMetrics.totalExecutionTime) }}</span>
+      </div>
+      <div class="popup-metric">
+        <span class="popup-metric-label">Tempo Médio:</span>
+        <span class="popup-metric-value">{{ formatExecutionTime(hoveredAgent.executionMetrics.averageExecutionTime) }}</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Agent Info Tooltip -->
   <div
@@ -25,6 +65,10 @@
         <span class="tooltip-value">{{ selectedAgent.agentId }}</span>
       </div>
       <div class="tooltip-row">
+        <span class="tooltip-label">Instance ID:</span>
+        <span class="tooltip-value" style="font-size: 11px; word-break: break-all;">{{ selectedAgent.id }}</span>
+      </div>
+      <div class="tooltip-row">
         <span class="tooltip-label">Screenplay:</span>
         <a
           [href]="getScreenplayUrl(selectedAgent.screenplayId)"
@@ -42,6 +86,121 @@
           [class.inactive]="!selectedAgent.isActive">
           {{ selectedAgent.isActive ? '🟢 Trabalhando' : '🔴 Inativo' }}
         </span>
+      </div>
+      
+      <!-- Seção de Métricas de Execução -->
+      <div class="tooltip-metrics">
+        <div class="tooltip-metrics-header">
+          <div class="metrics-title">
+            <i class="fas fa-chart-line"></i>
+            <span>Performance</span>
+          </div>
+          <div class="execution-indicator" [class.executing]="selectedAgent.executionMetrics.isCurrentlyExecuting">
+            <i class="fas fa-circle" [class.pulse]="selectedAgent.executionMetrics.isCurrentlyExecuting"></i>
+            <span>{{ selectedAgent.executionMetrics.isCurrentlyExecuting ? 'Ativo' : 'Inativo' }}</span>
+          </div>
+        </div>
+        
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-play-circle"></i>
+            </div>
+            <div class="metric-content">
+              <span class="metric-value">{{ selectedAgent.executionMetrics.totalExecutions }}</span>
+              <span class="metric-label">Execuções</span>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="metric-content">
+              <span class="metric-value">{{ formatExecutionTime(selectedAgent.executionMetrics.totalExecutionTime) }}</span>
+              <span class="metric-label">Tempo Total</span>
+            </div>
+          </div>
+          
+          <div class="metric-card">
+            <div class="metric-icon">
+              <i class="fas fa-stopwatch"></i>
+            </div>
+            <div class="metric-content">
+              <span class="metric-value">{{ formatExecutionTime(selectedAgent.executionMetrics.averageExecutionTime) }}</span>
+              <span class="metric-label">Tempo Médio</span>
+            </div>
+          </div>
+          
+          <div class="metric-card" *ngIf="selectedAgent.executionMetrics.lastExecutionTime">
+            <div class="metric-icon">
+              <i class="fas fa-history"></i>
+            </div>
+            <div class="metric-content">
+              <span class="metric-value">{{ formatLastExecution(selectedAgent.executionMetrics.lastExecutionTime) }}</span>
+              <span class="metric-label">Última Execução</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="metrics-footer">
+          <div class="performance-bar">
+            <div class="performance-fill" [style.width.%]="getPerformancePercentage(selectedAgent.executionMetrics)"></div>
+            <div class="performance-shimmer" [class.active]="selectedAgent.executionMetrics.isCurrentlyExecuting"></div>
+          </div>
+          <div class="performance-text">
+            <span>Eficiência: {{ getPerformancePercentage(selectedAgent.executionMetrics) }}%</span>
+            <span class="performance-trend" [class.positive]="getPerformanceTrend(selectedAgent.executionMetrics) > 0">
+              <i class="fas" [class.fa-arrow-up]="getPerformanceTrend(selectedAgent.executionMetrics) > 0" 
+                         [class.fa-arrow-down]="getPerformanceTrend(selectedAgent.executionMetrics) < 0"
+                         [class.fa-minus]="getPerformanceTrend(selectedAgent.executionMetrics) === 0"></i>
+              {{ getPerformanceTrend(selectedAgent.executionMetrics) > 0 ? '+' : '' }}{{ getPerformanceTrend(selectedAgent.executionMetrics) }}%
+            </span>
+          </div>
+        </div>
+        
+        <!-- Seção de Estatísticas Avançadas -->
+        <div class="advanced-stats" *ngIf="showAdvancedStats">
+          <div class="stats-header">
+            <i class="fas fa-chart-bar"></i>
+            <span>Estatísticas Avançadas</span>
+            <button class="stats-toggle" (click)="toggleAdvancedStats()">
+              <i class="fas fa-chevron-up"></i>
+            </button>
+          </div>
+          <div class="stats-content">
+            <div class="stat-item">
+              <span class="stat-label">Taxa de Sucesso:</span>
+              <span class="stat-value">{{ getSuccessRate(selectedAgent.executionMetrics) }}%</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Tempo de Ciclo:</span>
+              <span class="stat-value">{{ getCycleTime(selectedAgent.executionMetrics) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Produtividade:</span>
+              <span class="stat-value">{{ getProductivity(selectedAgent.executionMetrics) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics-actions">
+          <button
+            class="btn-test"
+            (click)="testAgentExecution(selectedAgent.id)"
+            [disabled]="selectedAgent.executionMetrics.isCurrentlyExecuting">
+            <i class="fas fa-play" [class.fa-spin]="selectedAgent.executionMetrics.isCurrentlyExecuting"></i>
+            {{ selectedAgent.executionMetrics.isCurrentlyExecuting ? 'Executando...' : 'Testar Execução' }}
+          </button>
+          <button class="btn-reset" (click)="resetAgentMetrics(selectedAgent.id)">
+            <i class="fas fa-undo"></i>
+            Resetar
+          </button>
+          <button class="btn-stats" (click)="toggleAdvancedStats()">
+            <i class="fas fa-chart-bar"></i>
+            {{ showAdvancedStats ? 'Ocultar' : 'Mostrar' }} Stats
+          </button>
+        </div>
       </div>
     </div>
   </div>

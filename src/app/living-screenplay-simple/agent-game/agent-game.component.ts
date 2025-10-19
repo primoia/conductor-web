@@ -1,7 +1,8 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, inject } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { AgentMetricsService, AgentExecutionMetrics } from '../../services/agent-metrics.service';
 
 interface AgentCharacter {
   id: string;
@@ -18,6 +19,14 @@ interface AgentCharacter {
   // Temporary push mechanics
   pushedUntil?: number; // Timestamp when push ends (null if not pushed)
   pushedVelocity?: { x: number, y: number }; // Velocity from being pushed
+  // Execution metrics
+  executionMetrics: {
+    totalExecutions: number;
+    totalExecutionTime: number; // em millisegundos
+    averageExecutionTime: number; // em millisegundos
+    lastExecutionTime?: Date;
+    isCurrentlyExecuting: boolean;
+  };
 }
 
 @Component({
@@ -43,26 +52,59 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   tooltipX = 0;
   tooltipY = 0;
   showTooltip = false;
+  showAdvancedStats = false;
+
+  // Mini map popup state
+  hoveredAgent: AgentCharacter | null = null;
+  miniMapPopupX = 0;
+  miniMapPopupY = 0;
+  showMiniMapPopup = false;
+  private popupTimeout: any = null;
+
+  // Periodic sync state
+  private syncInterval: any = null;
+  private readonly SYNC_INTERVAL_MS = 30000; // 30 segundos
 
   // Agent radius (smaller)
   private readonly AGENT_RADIUS = 12;
 
-  constructor(private http: HttpClient) {}
+  // Debug panel state
+  showDebugPanel = false;
+  debugRefreshInterval: any = null;
+
+  constructor(
+    private http: HttpClient,
+    private agentMetricsService: AgentMetricsService,
+    private cdr: ChangeDetectorRef
+  ) {
+    // Inicializar tracking automático
+    this.initializeMetricsTracking();
+  }
 
   ngAfterViewInit(): void {
     this.initCanvas();
     this.loadAgentsFromBFF();
     this.startGameLoop();
-    
+    this.startPeriodicSync();
+
     // Force resize after a short delay to ensure container is properly sized
     setTimeout(() => {
       this.resizeCanvas();
     }, 100);
-    
+
     // Additional resize after longer delay to ensure full rendering
     setTimeout(() => {
       this.resizeCanvas();
     }, 500);
+
+    // DEBUG: Expor métodos para debug no console
+    (window as any).debugAgentMetrics = () => this.debugAllAgentMetrics();
+    (window as any).debugAgent = (name: string) => this.debugSingleAgent(name);
+    (window as any).toggleDebug = () => this.toggleDebugPanel();
+    console.log('🐛 [DEBUG] Comandos disponíveis:');
+    console.log('   - toggleDebug() → Ativar/desativar painel de debug visual');
+    console.log('   - debugAgentMetrics() → Ver métricas de TODOS os agentes');
+    console.log('   - debugAgent("nome") → Ver métricas de UM agente específico');
   }
 
   ngOnDestroy(): void {
@@ -71,6 +113,15 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     }
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
+    }
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
+    if (this.popupTimeout) {
+      clearTimeout(this.popupTimeout);
+    }
+    if (this.debugRefreshInterval) {
+      clearInterval(this.debugRefreshInterval);
     }
   }
 
@@ -154,7 +205,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
           this.addAgentFromBFF(agentData);
         });
 
-        console.log(`✅ [AGENT-GAME] Successfully loaded ${this.agents.length} agents from BFF`);
+        console.log(`✅ [LOAD] Carregados ${this.agents.length} agentes. Use debugAgentMetrics() para ver detalhes.`);
       } else {
         console.warn('⚠️ [AGENT-GAME] No agents found in BFF response, no agents will be displayed');
         console.log('Response was:', response);
@@ -195,11 +246,185 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       isActive: false,  // Start inactive, will be updated by parent
       radius: this.AGENT_RADIUS,
       color: colors[this.agents.length % colors.length],
-      trail: []
+      trail: [],
+      // Inicializar métricas de execução
+      executionMetrics: {
+        totalExecutions: 0,
+        totalExecutionTime: 0,
+        averageExecutionTime: 0,
+        isCurrentlyExecuting: false
+      }
     };
 
     this.agents.push(agent);
-    console.log('🎮 [AGENT-GAME] Added agent:', agent.name, agent.emoji);
+
+    // Inicializar métricas do agente
+    this.initializeAgentMetrics(agent);
+
+    // console.log('🎮 [AGENT-GAME] Added agent:', agent.name, agent.emoji);
+  }
+
+  /**
+   * Inicializa as métricas de execução de um agente
+   */
+  private initializeAgentMetrics(agent: AgentCharacter): void {
+    // 1. Carregar métricas da API (backend)
+    this.loadAgentStatisticsFromAPI(agent);
+
+    // 2. Subscrever às atualizações de métricas em memória
+    // IMPORTANTE: usar agent.id (instance_id) ao invés de agent.agentId para instâncias únicas
+    this.agentMetricsService.getAgentMetrics(agent.id).subscribe(metrics => {
+      agent.executionMetrics = { ...metrics };
+      // console.log(`📊 [METRICS] Métricas atualizadas para ${agent.name}:`, metrics);
+
+      // Forçar detecção de mudanças no Angular
+      this.cdr.detectChanges();
+    });
+  }
+
+  /**
+   * Carrega estatísticas do agente da API do backend
+   */
+  private loadAgentStatisticsFromAPI(agent: AgentCharacter): void {
+    const instanceId = agent.id;
+    const baseUrl = this.getBaseUrl();
+    const apiUrl = `${baseUrl}/api/agents/instances/${instanceId}`;
+
+    console.log(`🔄 [API] Carregando stats para ${agent.name} (${instanceId})`);
+
+    this.http.get<any>(apiUrl).subscribe({
+      next: (response) => {
+        console.log(`📥 [API] Response para ${agent.name}:`, response);
+        // A API retorna { success: true, instance: { statistics: {...} } }
+        const statistics = response.instance?.statistics || response.statistics;
+
+        if (statistics) {
+          console.log(`✅ [API] Estatísticas para ${agent.name}:`, {
+            task_count: statistics.task_count,
+            total_time: statistics.total_execution_time,
+            avg_time: statistics.average_execution_time
+          });
+
+          // Atualizar métricas do agente com dados do backend
+          agent.executionMetrics = {
+            totalExecutions: statistics.task_count || 0,
+            totalExecutionTime: statistics.total_execution_time || 0,
+            averageExecutionTime: statistics.average_execution_time || 0,
+            lastExecutionTime: statistics.last_task_completed_at
+              ? new Date(statistics.last_task_completed_at)
+              : undefined,
+            isCurrentlyExecuting: false
+          };
+
+          // Sincronizar com o serviço de métricas em memória
+          // IMPORTANTE: usar agent.id (instance_id) para métricas únicas por instância
+          this.agentMetricsService.syncFromBackend(agent.id, agent.executionMetrics);
+
+          console.log(`✅ [SYNC] Agente atualizado:`, {
+            name: agent.name,
+            instance_id: agent.id,
+            agentId: agent.agentId,
+            metrics: agent.executionMetrics
+          });
+
+          // Forçar detecção de mudanças no Angular para atualizar tooltips/modals
+          this.cdr.detectChanges();
+        } else {
+          // console.warn(`⚠️ [API] Sem estatísticas para ${agent.name}`);
+        }
+      },
+      error: (error) => {
+        console.error(`❌ [API] Erro ao carregar estatísticas para ${agent.name}:`, error.message);
+
+        // Fallback para métricas em memória
+        // IMPORTANTE: usar agent.id (instance_id)
+        const currentMetrics = this.agentMetricsService.getCurrentMetrics(agent.id);
+        agent.executionMetrics = { ...currentMetrics };
+      }
+    });
+  }
+
+  /**
+   * Inicia sincronização periódica com o backend
+   */
+  private startPeriodicSync(): void {
+    // console.log(`🔄 [SYNC] Iniciando sincronização periódica (intervalo: ${this.SYNC_INTERVAL_MS / 1000}s)`);
+
+    // Sincronizar imediatamente
+    this.syncAllAgentsFromBackend();
+
+    // Configurar intervalo para sincronizações futuras
+    this.syncInterval = setInterval(() => {
+      this.syncAllAgentsFromBackend();
+    }, this.SYNC_INTERVAL_MS);
+  }
+
+  /**
+   * Sincroniza estatísticas de todos os agentes com o backend
+   */
+  private syncAllAgentsFromBackend(): void {
+    if (this.agents.length === 0) {
+      // console.log('ℹ️ [SYNC] Nenhum agente para sincronizar');
+      return;
+    }
+
+    // console.log(`🔄 [SYNC] Sincronizando ${this.agents.length} agentes com o backend...`);
+
+    this.agents.forEach(agent => {
+      this.loadAgentStatisticsFromAPI(agent);
+    });
+  }
+
+  /**
+   * Atualiza métricas de todos os agentes existentes
+   */
+  private updateAllAgentMetrics(): void {
+    this.agents.forEach(agent => {
+      // IMPORTANTE: usar agent.id (instance_id) para métricas únicas
+      const currentMetrics = this.agentMetricsService.getCurrentMetrics(agent.id);
+      agent.executionMetrics = { ...currentMetrics };
+    });
+
+    // Forçar detecção de mudanças após atualizar métricas de todos os agentes
+    // Mas só se o componente já foi inicializado (evita erro de null reference)
+    try {
+      this.cdr.detectChanges();
+    } catch (error) {
+      // Ignora erro se componente ainda não foi inicializado
+    }
+  }
+
+  /**
+   * Inicializa o tracking automático de métricas
+   */
+  private initializeMetricsTracking(): void {
+    // Subscrever às atualizações globais de métricas
+    this.agentMetricsService.metrics$.subscribe(() => {
+      this.updateAllAgentMetrics();
+    });
+    
+    console.log('🎯 [METRICS] Tracking automático de métricas inicializado');
+  }
+
+  /**
+   * Método de teste para simular execução de agente
+   * TODO: Remover após integração completa
+   */
+  testAgentExecution(agentId: string): void {
+    if (this.agentMetricsService.isAgentExecuting(agentId)) {
+      console.log('⚠️ [TEST] Agente já está executando:', agentId);
+      return;
+    }
+
+    console.log('🧪 [TEST] Simulando execução de agente:', agentId);
+    this.agentMetricsService.forceStartExecution(agentId);
+    
+    // Simula execução por 2-5 segundos (aleatório)
+    const executionTime = Math.random() * 3000 + 2000; // 2-5 segundos
+    setTimeout(() => {
+      this.agentMetricsService.forceEndExecution(agentId);
+      console.log('🧪 [TEST] Execução simulada finalizada:', agentId);
+    }, executionTime);
   }
 
   private findNonOverlappingPosition(): { x: number, y: number } {
@@ -457,11 +682,57 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
         this.ctx.globalAlpha = 1.0;
       }
 
+      // Add execution indicator if currently executing
+      if (agent.executionMetrics?.isCurrentlyExecuting) {
+        // Pulsing ring around agent
+        this.ctx.beginPath();
+        this.ctx.arc(agent.position.x, agent.position.y, agent.radius + 8, 0, Math.PI * 2);
+        this.ctx.strokeStyle = '#f59e0b';
+        this.ctx.lineWidth = 3;
+        this.ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.4;
+        this.ctx.stroke();
+        this.ctx.globalAlpha = 1.0;
+
+        // Spinning dots around agent
+        const time = Date.now() / 1000;
+        for (let i = 0; i < 3; i++) {
+          const angle = (time * 2 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
+          const dotX = agent.position.x + Math.cos(angle) * (agent.radius + 15);
+          const dotY = agent.position.y + Math.sin(angle) * (agent.radius + 15);
+          
+          this.ctx.beginPath();
+          this.ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+          this.ctx.fillStyle = '#f59e0b';
+          this.ctx.globalAlpha = 0.8;
+          this.ctx.fill();
+          this.ctx.globalAlpha = 1.0;
+        }
+      }
+
       // Draw emoji
       this.ctx.font = '16px Arial';
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(agent.emoji, agent.position.x, agent.position.y);
+
+      // Draw execution count badge if agent has executions
+      if (agent.executionMetrics?.totalExecutions > 0) {
+        const badgeText = agent.executionMetrics.totalExecutions.toString();
+        const badgeWidth = badgeText.length * 8 + 8;
+        const badgeHeight = 16;
+        const badgeX = agent.position.x + agent.radius - badgeWidth / 2;
+        const badgeY = agent.position.y - agent.radius - 8;
+
+        // Badge background
+        this.ctx.fillStyle = '#667eea';
+        this.ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
+
+        // Badge text
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2 + 3);
+      }
     });
   }
 
@@ -480,28 +751,43 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       if (distance < agent.radius) {
         this.selectedAgent = agent;
 
-        // Position tooltip to the top-right of the agent
-        // Offset by 20px to the right and tooltip height + 10px above
-        const tooltipWidth = 280; // Approximate tooltip width
-        const tooltipHeight = 160; // Approximate tooltip height
+        // DEBUG: Verificar vinculação
+        console.log(`👆 [CLICK] Agente clicado:`, {
+          name: agent.name,
+          instance_id: agent.id,
+          agentId: agent.agentId,
+          executions: agent.executionMetrics.totalExecutions
+        });
 
-        this.tooltipX = event.clientX + 20;
-        this.tooltipY = event.clientY - tooltipHeight - 10;
+        // Position tooltip - usar altura maior para incluir o instance_id
+        const tooltipWidth = 320;
+        const tooltipHeight = 500; // Aumentado para acomodar todo o conteúdo
 
-        // Ensure tooltip stays within viewport bounds
+        // Calcular posição inicial (à direita do cursor)
+        let tooltipX = event.clientX + 20;
+        let tooltipY = event.clientY - tooltipHeight / 2; // Centralizar verticalmente no cursor
+
+        // Obter dimensões da viewport
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Adjust if tooltip goes beyond right edge
-        if (this.tooltipX + tooltipWidth > viewportWidth) {
-          this.tooltipX = event.clientX - tooltipWidth - 20;
+        // Ajustar se ultrapassar borda direita
+        if (tooltipX + tooltipWidth > viewportWidth - 10) {
+          tooltipX = event.clientX - tooltipWidth - 20; // Posicionar à esquerda
         }
 
-        // Adjust if tooltip goes beyond top edge
-        if (this.tooltipY < 0) {
-          this.tooltipY = event.clientY + 20;
+        // Ajustar se ultrapassar borda superior
+        if (tooltipY < 10) {
+          tooltipY = 10;
         }
 
+        // Ajustar se ultrapassar borda inferior
+        if (tooltipY + tooltipHeight > viewportHeight - 10) {
+          tooltipY = viewportHeight - tooltipHeight - 10;
+        }
+
+        this.tooltipX = tooltipX;
+        this.tooltipY = tooltipY;
         this.showTooltip = true;
         return;
       }
@@ -516,6 +802,98 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.selectedAgent = null;
   }
 
+  onCanvasMouseMove(event: MouseEvent): void {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Check if mouse is over any agent
+    for (const agent of this.agents) {
+      const dx = x - agent.position.x;
+      const dy = y - agent.position.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < agent.radius) {
+        // Mouse is over an agent
+        if (this.hoveredAgent !== agent) {
+          this.hoveredAgent = agent;
+          this.showMiniMapPopup = true;
+
+          // DEBUG: Log agent metrics when hovering (comentado para reduzir poluição)
+          // console.log(`🖱️ [HOVER] Agent: ${agent.name}, Executions: ${agent.executionMetrics.totalExecutions}`);
+
+          // Position popup near the agent
+          this.miniMapPopupX = event.clientX + 15;
+          this.miniMapPopupY = event.clientY - 10;
+
+          // Clear existing timeout
+          if (this.popupTimeout) {
+            clearTimeout(this.popupTimeout);
+          }
+
+          // Set auto-hide timeout (3 seconds)
+          this.popupTimeout = setTimeout(() => {
+            this.showMiniMapPopup = false;
+            this.hoveredAgent = null;
+          }, 3000);
+        }
+        return;
+      }
+    }
+
+    // Mouse is not over any agent
+    if (this.hoveredAgent) {
+      this.hoveredAgent = null;
+      this.showMiniMapPopup = false;
+      if (this.popupTimeout) {
+        clearTimeout(this.popupTimeout);
+        this.popupTimeout = null;
+      }
+    }
+  }
+
+  onCanvasMouseLeave(event: MouseEvent): void {
+    // Hide popup when mouse leaves canvas
+    this.hoveredAgent = null;
+    this.showMiniMapPopup = false;
+    if (this.popupTimeout) {
+      clearTimeout(this.popupTimeout);
+      this.popupTimeout = null;
+    }
+  }
+
+  /**
+   * Formata tempo de execução para exibição
+   */
+  formatExecutionTime(milliseconds: number): string {
+    return this.agentMetricsService.formatExecutionTime(milliseconds);
+  }
+
+  /**
+   * Formata data da última execução para exibição
+   */
+  formatLastExecution(date: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h atrás`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes % 60}min atrás`;
+    } else if (minutes > 0) {
+      return `${minutes}min ${seconds % 60}s atrás`;
+    } else if (seconds > 10) {
+      return `${seconds}s atrás`;
+    } else {
+      return 'Agora mesmo';
+    }
+  }
+
   getScreenplayUrl(screenplayId: string): string {
     // Generate URL to open screenplay in a new tab
     const baseUrl = window.location.origin;
@@ -526,7 +904,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   public setAgentActive(instanceId: string, isActive: boolean): void {
     const agent = this.agents.find(a => a.id === instanceId);
     if (agent) {
-      console.log(`🎮 [AGENT-GAME] Setting agent ${agent.name} (${instanceId}) to ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
+      // console.log(`🎮 [AGENT-GAME] Setting agent ${agent.name} (${instanceId}) to ${isActive ? 'ACTIVE' : 'INACTIVE'}`);
       agent.isActive = isActive;
     } else {
       console.warn(`⚠️ [AGENT-GAME] Agent with instanceId ${instanceId} not found`);
@@ -538,7 +916,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9', '#74B9FF'];
     const position = this.findNonOverlappingPosition();
 
-    this.agents.push({
+    const newAgent: AgentCharacter = {
       id: agentData.instanceId || `agent_${Date.now()}`,
       agentId: agentData.agentId,
       screenplayId: agentData.screenplayId,
@@ -552,8 +930,19 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       isActive: false,
       radius: this.AGENT_RADIUS,
       color: colors[Math.floor(Math.random() * colors.length)],
-      trail: []
-    });
+      trail: [],
+      executionMetrics: {
+        totalExecutions: 0,
+        totalExecutionTime: 0,
+        averageExecutionTime: 0,
+        isCurrentlyExecuting: false
+      }
+    };
+
+    this.agents.push(newAgent);
+    
+    // Inicializar métricas do agente
+    this.initializeAgentMetrics(newAgent);
   }
 
   // Public method to reload agents from BFF
@@ -577,5 +966,228 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     } else {
       console.warn(`⚠️ [AGENT-GAME] Agent with instanceId ${instanceId} not found`);
     }
+  }
+
+  /**
+   * Calcula a porcentagem de performance baseada nas métricas
+   */
+  public getPerformancePercentage(metrics: any): number {
+    if (!metrics || metrics.totalExecutions === 0) {
+      return 0;
+    }
+    
+    // Fórmula simples: baseada no número de execuções e tempo médio
+    const executionScore = Math.min(metrics.totalExecutions * 10, 50); // Máximo 50 pontos por execuções
+    const timeScore = metrics.averageExecutionTime > 0 ? 
+      Math.max(0, 50 - (metrics.averageExecutionTime / 1000)) : 0; // Penaliza tempo alto
+    
+    return Math.min(100, Math.round(executionScore + timeScore));
+  }
+
+  /**
+   * Reseta as métricas de um agente específico
+   * @param instanceId - O instance_id do agente (não o agentId!)
+   */
+  public resetAgentMetrics(instanceId: string): void {
+    this.agentMetricsService.resetAgentMetrics(instanceId);
+
+    // Atualizar o agente no canvas
+    // IMPORTANTE: buscar por agent.id (instance_id)
+    const agent = this.agents.find(a => a.id === instanceId);
+    if (agent) {
+      agent.executionMetrics = {
+        totalExecutions: 0,
+        totalExecutionTime: 0,
+        averageExecutionTime: 0,
+        isCurrentlyExecuting: false
+      };
+    }
+
+    console.log(`🔄 [METRICS] Métricas resetadas para instância ${instanceId}`);
+
+    // Forçar detecção de mudanças para atualizar UI
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Alterna a exibição de estatísticas avançadas
+   */
+  toggleAdvancedStats(): void {
+    this.showAdvancedStats = !this.showAdvancedStats;
+  }
+
+  /**
+   * Calcula a taxa de sucesso baseada nas execuções
+   */
+  getSuccessRate(metrics: AgentExecutionMetrics): number {
+    if (metrics.totalExecutions === 0) return 0;
+    
+    // Simula taxa de sucesso baseada no tempo médio de execução
+    // Tempos menores indicam maior sucesso
+    const avgTime = metrics.averageExecutionTime;
+    if (avgTime === 0) return 100;
+    
+    // Taxa de sucesso inversamente proporcional ao tempo médio
+    const successRate = Math.max(0, Math.min(100, 100 - (avgTime / 1000) * 10));
+    return Math.round(successRate);
+  }
+
+  /**
+   * Calcula o tempo de ciclo (tempo entre execuções)
+   */
+  getCycleTime(metrics: AgentExecutionMetrics): string {
+    if (metrics.totalExecutions < 2) return 'N/A';
+    
+    // Simula tempo de ciclo baseado na última execução
+    const now = new Date();
+    const lastExec = metrics.lastExecutionTime;
+    
+    if (!lastExec) return 'N/A';
+    
+    const cycleTime = now.getTime() - lastExec.getTime();
+    return this.formatExecutionTime(cycleTime);
+  }
+
+  /**
+   * Calcula a produtividade (execuções por minuto)
+   */
+  getProductivity(metrics: AgentExecutionMetrics): string {
+    if (metrics.totalExecutions === 0) return '0/min';
+    
+    // Simula produtividade baseada no tempo total
+    const totalTimeMinutes = metrics.totalExecutionTime / (1000 * 60);
+    if (totalTimeMinutes === 0) return '∞/min';
+    
+    const productivity = metrics.totalExecutions / totalTimeMinutes;
+    return `${productivity.toFixed(1)}/min`;
+  }
+
+  /**
+   * Calcula a tendência de performance
+   */
+  getPerformanceTrend(metrics: AgentExecutionMetrics): number {
+    if (metrics.totalExecutions < 2) return 0;
+
+    // Simula tendência baseada na comparação entre tempo médio e tempo total
+    const avgTime = metrics.averageExecutionTime;
+    const totalTime = metrics.totalExecutionTime;
+    const expectedAvg = totalTime / metrics.totalExecutions;
+
+    if (expectedAvg === 0) return 0;
+
+    const trend = ((expectedAvg - avgTime) / expectedAvg) * 100;
+    return Math.round(trend);
+  }
+
+  /**
+   * DEBUG: Método para verificar métricas de UM agente específico
+   * Chame no console: debugAgent("Test Quick Validation")
+   */
+  debugSingleAgent(name: string): void {
+    const agent = this.agents.find(a => a.name.toLowerCase().includes(name.toLowerCase()));
+
+    if (!agent) {
+      console.log(`❌ Agente "${name}" não encontrado!`);
+      console.log(`📋 Agentes disponíveis: ${this.agents.map(a => a.name).join(', ')}`);
+      return;
+    }
+
+    console.log('🐛 ========== DEBUG: MÉTRICAS DO AGENTE ==========');
+    console.log(`🐛 Nome: ${agent.name}`);
+    console.log(`🐛 Agent ID: ${agent.agentId}`);
+    console.log(`🐛 Instance ID: ${agent.id}`);
+    console.log(`🐛 Emoji: ${agent.emoji}`);
+    console.log(`🐛 Is Active: ${agent.isActive}`);
+    console.log('🐛 ═══════════════════════════════════════════════');
+
+    console.log(`📊 executionMetrics (no objeto do agente):`);
+    console.log(agent.executionMetrics);
+
+    // IMPORTANTE: usar agent.id (instance_id)
+    const serviceMetrics = this.agentMetricsService.getCurrentMetrics(agent.id);
+    console.log(`🔄 Métricas no AgentMetricsService:`);
+    console.log(serviceMetrics);
+
+    if (agent.executionMetrics.totalExecutions !== serviceMetrics.totalExecutions) {
+      console.log(`⚠️ DIVERGÊNCIA DETECTADA!`);
+    } else {
+      console.log(`✅ Métricas sincronizadas corretamente`);
+    }
+
+    console.log('🐛 ═══════════════════════════════════════════════');
+    console.log('🐛 Recarregando estatísticas da API...');
+    this.loadAgentStatisticsFromAPI(agent);
+  }
+
+  /**
+   * DEBUG: Método para verificar métricas de todos os agentes
+   * Chame no console: debugAgentMetrics()
+   */
+  debugAllAgentMetrics(): void {
+    console.log('🐛 ========== DEBUG: MÉTRICAS DE TODOS OS AGENTES ==========');
+    console.log(`🐛 Total de agentes no canvas: ${this.agents.length}`);
+    console.log('🐛 ========================================================');
+
+    this.agents.forEach((agent, index) => {
+      // IMPORTANTE: usar agent.id (instance_id)
+      const serviceMetrics = this.agentMetricsService.getCurrentMetrics(agent.id);
+      const divergence = agent.executionMetrics.totalExecutions !== serviceMetrics.totalExecutions;
+
+      console.log(`\n[${index + 1}] ${agent.name} ${agent.emoji}`);
+      console.log(`   Instance: ${agent.id}`);
+      console.log(`   Canvas: ${agent.executionMetrics.totalExecutions} execs | Service: ${serviceMetrics.totalExecutions} execs ${divergence ? '⚠️' : '✅'}`);
+    });
+
+    console.log('\n🐛 ========================================================');
+    console.log('💡 Use debugAgent("nome") para ver detalhes de um agente específico');
+  }
+
+  /**
+   * Toggle do painel de debug visual
+   * Chame no console: toggleDebug()
+   */
+  toggleDebugPanel(): void {
+    this.showDebugPanel = !this.showDebugPanel;
+
+    if (this.showDebugPanel) {
+      console.log('🐛 Painel de debug ATIVADO - veja no canto superior esquerdo do canvas');
+      // Atualizar a cada 1 segundo
+      this.debugRefreshInterval = setInterval(() => {
+        this.cdr.detectChanges();
+      }, 1000);
+    } else {
+      console.log('🐛 Painel de debug DESATIVADO');
+      if (this.debugRefreshInterval) {
+        clearInterval(this.debugRefreshInterval);
+        this.debugRefreshInterval = null;
+      }
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Obtém informações de debug para exibição no painel
+   */
+  getDebugInfo(): string {
+    const info: string[] = [];
+    info.push(`📊 AGENTES (${this.agents.length})`);
+    info.push('─────────────────────');
+
+    this.agents.forEach((agent, index) => {
+      // IMPORTANTE: usar agent.id (instance_id)
+      const serviceMetrics = this.agentMetricsService.getCurrentMetrics(agent.id);
+      const divergence = agent.executionMetrics.totalExecutions !== serviceMetrics.totalExecutions;
+
+      info.push(`${index + 1}. ${agent.emoji} ${agent.name}`);
+      info.push(`   ID: ${agent.id.substring(0, 20)}...`); // Mostrar parte do instance_id
+      info.push(`   Canvas: ${agent.executionMetrics.totalExecutions} execs`);
+      info.push(`   Service: ${serviceMetrics.totalExecutions} execs ${divergence ? '⚠️ DIFF' : '✅'}`);
+      info.push(`   Total: ${this.formatExecutionTime(agent.executionMetrics.totalExecutionTime)}`);
+      info.push(`   Avg: ${this.formatExecutionTime(agent.executionMetrics.averageExecutionTime)}`);
+      info.push('');
+    });
+
+    return info.join('\n');
   }
 }

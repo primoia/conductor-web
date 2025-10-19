@@ -28,18 +28,19 @@
   padding: 0;
   z-index: 1000;
   min-width: 280px;
-  animation: tooltipFadeIn 0.2s ease-out;
+  animation: tooltipFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   border: 2px solid #e1e4e8;
+  transition: all 0.3s ease;
 }
 
 @keyframes tooltipFadeIn {
   from {
     opacity: 0;
-    transform: scale(0.9);
+    transform: scale(0.8) translateY(20px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -126,6 +127,470 @@
   color: #991b1b;
 }
 
+/* Seção de Teste */
+.tooltip-test-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e1e4e8;
+}
+
+.test-button {
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.test-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.test-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Seção de Métricas de Execução */
+.tooltip-metrics {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid #e1e4e8;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px -16px -16px -16px;
+}
+
+.tooltip-metrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.metrics-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.metrics-title i {
+  color: #667eea;
+  font-size: 16px;
+}
+
+.execution-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+
+.execution-indicator.executing {
+  background: #fef3c7;
+  color: #92400e;
+  animation: pulse 2s infinite;
+}
+
+.execution-indicator i {
+  font-size: 8px;
+  transition: all 0.3s ease;
+}
+
+.execution-indicator i.pulse {
+  animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+/* Indicadores visuais aprimorados */
+.metric-card.executing {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  animation: card-pulse 2s infinite;
+}
+
+.metric-card.executing .metric-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  animation: icon-spin 2s linear infinite;
+}
+
+@keyframes card-pulse {
+  0%, 100% {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+}
+
+@keyframes icon-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Barra de performance com animação */
+.performance-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.performance-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Animações de entrada para métricas */
+.metric-card {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.metric-card:nth-child(1) { animation-delay: 0.1s; }
+.metric-card:nth-child(2) { animation-delay: 0.2s; }
+.metric-card:nth-child(3) { animation-delay: 0.3s; }
+.metric-card:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover effects aprimorados */
+.metric-card:hover .metric-icon {
+  transform: scale(1.1) rotate(5deg);
+  transition: all 0.3s ease;
+}
+
+.metric-card:hover .metric-value {
+  color: #667eea;
+  transition: color 0.3s ease;
+}
+
+/* Botões com feedback visual melhorado */
+.btn-test:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Mini Map Hover Popup */
+.mini-map-popup {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  border-radius: 8px;
+  padding: 12px 16px;
+  z-index: 1001;
+  min-width: 200px;
+  animation: miniMapPopupFadeIn 0.2s ease-out;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+@keyframes miniMapPopupFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.popup-emoji {
+  font-size: 16px;
+}
+
+.popup-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+}
+
+.popup-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.popup-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-metric-label {
+  font-size: 11px;
+  color: #ccc;
+  font-weight: 500;
+}
+
+.popup-metric-value {
+  font-size: 11px;
+  color: #fff;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Hover effects para a popup */
+.mini-map-popup:hover {
+  background: rgba(0, 0, 0, 0.95);
+  transform: scale(1.02);
+  transition: all 0.2s ease;
+}
+
+.btn-reset:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Indicador de carregamento para botão de teste */
+.btn-test .fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metric-card {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metric-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.metric-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.metric-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.metrics-footer {
+  margin-bottom: 16px;
+}
+
+.performance-bar {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.performance-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.performance-text {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.metrics-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-test, .btn-reset {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-test::before, .btn-reset::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-test:hover::before, .btn-reset:hover::before {
+  left: 100%;
+}
+
+.btn-test {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-test:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-test:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-reset {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.btn-reset:hover {
+  background: #e5e7eb;
+  color: #374151;
+  transform: translateY(-1px);
+}
+
+.tooltip-status.executing {
+  background: #fef3c7;
+  color: #92400e;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
 .screenplay-link {
   font-size: 13px;
   color: #667eea;
@@ -148,4 +613,292 @@
 
 .screenplay-link:active {
   transform: scale(0.95);
+}
+
+/* Estatísticas Avançadas */
+.advanced-stats {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  animation: slideDown 0.3s ease-out;
+}
+
+.stats-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.stats-header i {
+  color: #6366f1;
+}
+
+.stats-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.stats-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.stats-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 12px;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Performance Trend */
+.performance-trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.performance-trend.positive {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.performance-trend.negative {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.performance-trend i {
+  font-size: 10px;
+}
+
+/* Shimmer Effect */
+.performance-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.performance-shimmer.active {
+  left: 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Botão de Estatísticas */
+.btn-stats {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.btn-stats:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+}
+
+.btn-stats:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Animações de entrada */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsividade para estatísticas avançadas */
+@media (max-width: 480px) {
+  .advanced-stats {
+    margin-top: 12px;
+    padding: 10px;
+  }
+  
+  .stats-content {
+    gap: 6px;
+  }
+  
+  .stat-item {
+    padding: 4px 0;
+  }
+  
+  .stat-label,
+  .stat-value {
+    font-size: 11px;
+  }
+}
+
+/* Debug Panel */
+.debug-panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.95);
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  border: 2px solid #00ff00;
+  border-radius: 8px;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
+  z-index: 2000;
+  animation: debugPanelSlideIn 0.3s ease-out;
+}
+
+@keyframes debugPanelSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 255, 0, 0.1);
+  border-bottom: 1px solid #00ff00;
+  font-weight: bold;
+}
+
+.debug-close {
+  background: transparent;
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  font-size: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.debug-close:hover {
+  background: #00ff00;
+  color: #000;
+}
+
+.debug-content {
+  padding: 12px;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+  white-space: pre;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.debug-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.debug-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.debug-content::-webkit-scrollbar-thumb {
+  background: #00ff00;
+  border-radius: 4px;
+}
+
+.debug-content::-webkit-scrollbar-thumb:hover {
+  background: #00cc00;
+}
+
+.debug-footer {
+  padding: 6px 12px;
+  background: rgba(0, 255, 0, 0.05);
+  border-top: 1px solid rgba(0, 255, 0, 0.3);
+  font-size: 10px;
+  color: rgba(0, 255, 0, 0.7);
+  text-align: center;
 }
