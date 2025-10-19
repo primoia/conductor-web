@@ -10,6 +10,8 @@ import { Message, ChatState, ChatMode, ApiConfig, ConductorConfig } from './mode
 import { ScreenplayService } from '../../services/screenplay/screenplay.service';
 import { AgentService, AgentContext, ChatMessage } from '../../services/agent.service';
 import { AgentExecutionService, AgentExecutionState } from '../../services/agent-execution';
+import { PersonaEditService } from '../../services/persona-edit.service';
+import { PersonaEditModalComponent } from '../persona-edit-modal/persona-edit-modal.component';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -34,26 +36,19 @@ const DEFAULT_CONFIG: ConductorConfig = {
     FormsModule,
     ChatMessagesComponent,
     ChatInputComponent,
-    StatusIndicatorComponent
+    StatusIndicatorComponent,
+    PersonaEditModalComponent
   ],
   template: `
     <div class="conductor-chat">
       <div class="chat-header">
         <div class="header-content">
-          <h3>🤖 Conductor Chat</h3>
           <div class="selected-agent" *ngIf="selectedAgentName">
             <span class="agent-emoji">{{ selectedAgentEmoji }}</span>
             <span class="agent-name">{{ selectedAgentName }}</span>
           </div>
         </div>
         <div class="header-actions">
-          <button
-            *ngIf="activeAgentContext"
-            class="settings-btn"
-            (click)="togglePersonaModal()"
-            title="Ver contexto do agente">
-            📋
-          </button>
           <button
             *ngIf="activeAgentId"
             class="settings-btn"
@@ -71,8 +66,14 @@ const DEFAULT_CONFIG: ConductorConfig = {
         <div
           *ngIf="showAgentOptionsMenu"
           class="agent-options-menu">
+          <button class="menu-item" (click)="viewAgentContext()">
+            📋 Ver Contexto
+          </button>
+          <button class="menu-item" (click)="editPersona()">
+            ✏️ Editar Persona
+          </button>
           <button class="menu-item" (click)="editAgentCwd()">
-            ✏️ Editar diretório
+            📁 Editar diretório
           </button>
           <button class="menu-item" (click)="viewAgentDetails()">
             ℹ️ Ver detalhes
@@ -89,8 +90,14 @@ const DEFAULT_CONFIG: ConductorConfig = {
           </div>
           <div class="modal-body">
             <div class="context-item">
-              <div class="context-label">👤 Persona</div>
-              <div class="context-content">{{ activeAgentContext?.persona }}</div>
+              <div class="context-label">
+                👤 Persona
+                <span class="edited-indicator" *ngIf="isPersonaEdited">(editada)</span>
+                <button class="restore-btn" *ngIf="isPersonaEdited" (click)="restorePersona()">
+                  🔄 Restaurar original
+                </button>
+              </div>
+              <div class="context-content">{{ getDisplayPersona() }}</div>
             </div>
             <div class="context-item">
               <div class="context-label">📜 Procedimento</div>
@@ -99,6 +106,15 @@ const DEFAULT_CONFIG: ConductorConfig = {
           </div>
         </div>
       </div>
+
+      <!-- Persona Edit Modal -->
+      <app-persona-edit-modal
+        [isVisible]="showPersonaEditModal"
+        [instanceId]="activeAgentId"
+        [currentPersona]="activeAgentContext?.persona || ''"
+        (closeModal)="closePersonaEditModal()"
+        (personaSaved)="onPersonaSaved($event)">
+      </app-persona-edit-modal>
 
       <!-- CWD Definition Modal -->
       <div class="modal-backdrop" *ngIf="showCwdModal" (click)="closeCwdModal()">
@@ -187,47 +203,55 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
     .chat-header {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-      padding: 16px 20px;
-      background: #f0f3f7;
+      padding: 12px 20px;
+      background: #f8f9fa;
       color: #2c3e50;
       border-bottom: 1px solid #e1e4e8;
+      flex-shrink: 0;
+      gap: 12px;
     }
 
     .header-content {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: center;
+      gap: 8px;
+      margin-right: auto;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
     }
 
     .settings-btn {
-      background: none;
-      border: none;
-      font-size: 20px;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e1e4e8;
       cursor: pointer;
-      opacity: 0.7;
-      transition: all 0.2s;
-      padding: 4px 8px;
-      border-radius: 4px;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
     }
 
     .settings-btn:hover {
-      opacity: 1;
-      background: rgba(0, 0, 0, 0.05);
+      background: #f8f9fa;
+      border-color: #d0d7de;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .chat-header h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 700;
-      color: #5a67d8;
+    .settings-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
     .selected-agent {
@@ -324,6 +348,36 @@ const DEFAULT_CONFIG: ConductorConfig = {
       font-weight: 600;
       color: #5a67d8;
       margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .edited-indicator {
+      font-size: 12px;
+      color: #28a745;
+      font-weight: 500;
+      background: #d4edda;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .restore-btn {
+      background: #ffc107;
+      color: #212529;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-left: auto;
+    }
+
+    .restore-btn:hover {
+      background: #e0a800;
+      transform: translateY(-1px);
     }
 
     .context-content {
@@ -563,6 +617,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   // Agent options menu
   showAgentOptionsMenu = false;
 
+  // Persona edit modal
+  showPersonaEditModal = false;
+
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
 
@@ -570,7 +627,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private apiService: ConductorApiService,
     private screenplayService: ScreenplayService,
     private agentService: AgentService,
-    private agentExecutionService: AgentExecutionService
+    private agentExecutionService: AgentExecutionService,
+    private personaEditService: PersonaEditService
   ) { }
 
   ngOnInit(): void {
@@ -1167,6 +1225,101 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Edit persona from menu
+   */
+  editPersona(): void {
+    this.showAgentOptionsMenu = false;
+    
+    // Verifica se há um agente ativo
+    if (!this.activeAgentId) {
+      console.warn('⚠️ [CHAT] Não é possível editar persona: nenhum agente ativo');
+      return;
+    }
+    
+    this.showPersonaEditModal = true;
+    console.log('✏️ [CHAT] Abrindo modal de edição de persona para agente:', this.activeAgentId);
+  }
+
+  /**
+   * Close persona edit modal
+   */
+  closePersonaEditModal(): void {
+    this.showPersonaEditModal = false;
+    console.log('✏️ [CHAT] Modal de edição de persona fechado');
+  }
+
+  /**
+   * Handle persona saved event
+   */
+  onPersonaSaved(editedPersona: string): void {
+    console.log('✅ [CHAT] Persona editada salva:', { 
+      instanceId: this.activeAgentId, 
+      personaLength: editedPersona.length 
+    });
+    
+    // Atualiza o contexto local se necessário
+    if (this.activeAgentContext) {
+      this.activeAgentContext.persona = editedPersona;
+    }
+    
+    this.closePersonaEditModal();
+  }
+
+  /**
+   * Verifica se a persona foi editada
+   */
+  get isPersonaEdited(): boolean {
+    return this.activeAgentId ? this.personaEditService.hasEditedPersona(this.activeAgentId) : false;
+  }
+
+  /**
+   * Obtém a persona para exibição (editada ou original)
+   */
+  getDisplayPersona(): string {
+    if (!this.activeAgentId || !this.activeAgentContext) {
+      return '';
+    }
+
+    const editedPersona = this.personaEditService.loadPersona(this.activeAgentId);
+    return editedPersona || this.activeAgentContext.persona;
+  }
+
+  /**
+   * Restaura a persona original
+   */
+  restorePersona(): void {
+    if (!this.activeAgentId) {
+      console.warn('⚠️ [ConductorChat] Tentativa de restaurar persona sem agente ativo');
+      return;
+    }
+
+    try {
+      this.personaEditService.restoreOriginalPersona(this.activeAgentId);
+      
+      // Atualiza o contexto ativo
+      if (this.activeAgentContext) {
+        const originalPersona = this.personaEditService.getOriginalPersona(this.activeAgentId);
+        if (originalPersona) {
+          this.activeAgentContext.persona = originalPersona;
+        }
+      }
+      
+      console.log('✅ [ConductorChat] Persona original restaurada');
+    } catch (error) {
+      console.error('❌ [ConductorChat] Erro ao restaurar persona:', error);
+    }
+  }
+
+  /**
+   * View agent context from menu
+   */
+  viewAgentContext(): void {
+    this.showAgentOptionsMenu = false;
+    this.showPersonaModal = true;
+    console.log('📋 [CHAT] Abrindo modal de contexto do agente');
+  }
+
+  /**
    * View agent details from menu
    */
   viewAgentDetails(): void {
@@ -1179,6 +1332,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 🤖 Agent ID: ${this.selectedAgentDbId || 'não definido'}
 ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhecido'}
 📁 Diretório: ${this.activeAgentCwd || 'não definido'}
+✏️ Persona editada: ${this.activeAgentId ? this.personaEditService.hasEditedPersona(this.activeAgentId) ? 'Sim' : 'Não' : 'N/A'}
     `.trim();
 
     alert(details);
@@ -1201,6 +1355,14 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
    */
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    // Close persona edit modal if open
+    if (this.showPersonaEditModal) {
+      this.closePersonaEditModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
     // Close persona modal if open
     if (this.showPersonaModal) {
       this.togglePersonaModal();

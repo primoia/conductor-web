@@ -50,9 +50,15 @@
     class="agent-tooltip"
     *ngIf="showTooltip && selectedAgent"
     [style.left.px]="tooltipX"
-    [style.top.px]="tooltipY">
+    [style.top.px]="tooltipY"
+    [class.dragging]="isDraggingTooltip"
+    (mousedown)="onTooltipMouseDown($event)"
+    (mousemove)="onTooltipMouseMove($event)"
+    (mouseup)="onTooltipMouseUp()"
+    (mouseleave)="onTooltipMouseUp()">
     <div class="tooltip-header">
       <span class="tooltip-emoji">{{ selectedAgent.emoji }}</span>
+      <span class="tooltip-drag-hint">🖐️ Arraste aqui</span>
       <button class="tooltip-close" (click)="closeTooltip()">×</button>
     </div>
     <div class="tooltip-body">

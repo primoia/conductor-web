@@ -31,6 +31,13 @@
   animation: tooltipFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   border: 2px solid #e1e4e8;
   transition: all 0.3s ease;
+  user-select: none;
+}
+
+.agent-tooltip.dragging {
+  cursor: grabbing;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  transition: none;
 }
 
 @keyframes tooltipFadeIn {
@@ -51,10 +58,26 @@
   padding: 12px 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 10px 10px 0 0;
+  cursor: grab;
+  position: relative;
+}
+
+.tooltip-header:active {
+  cursor: grabbing;
 }
 
 .tooltip-emoji {
   font-size: 32px;
+}
+
+.tooltip-drag-hint {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  pointer-events: none;
 }
 
 .tooltip-close {

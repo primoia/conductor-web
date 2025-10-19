@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, inject, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
@@ -101,6 +101,11 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   tooltipY = 0;
   showTooltip = false;
   showAdvancedStats = false;
+
+  // Drag state for tooltip
+  isDraggingTooltip = false;
+  dragOffsetX = 0;
+  dragOffsetY = 0;
 
   // Mini map popup state
   hoveredAgent: AgentCharacter | null = null;
@@ -1139,6 +1144,50 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   closeTooltip(): void {
     this.showTooltip = false;
     this.selectedAgent = null;
+    this.isDraggingTooltip = false;
+  }
+
+  /**
+   * Inicia o arraste do tooltip
+   */
+  onTooltipMouseDown(event: MouseEvent): void {
+    // Só permite arrastar se clicar no header
+    const target = event.target as HTMLElement;
+    if (target.classList.contains('tooltip-header') || target.classList.contains('tooltip-emoji')) {
+      this.isDraggingTooltip = true;
+      this.dragOffsetX = event.clientX - this.tooltipX;
+      this.dragOffsetY = event.clientY - this.tooltipY;
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * Durante o arraste do tooltip
+   */
+  onTooltipMouseMove(event: MouseEvent): void {
+    if (this.isDraggingTooltip) {
+      this.tooltipX = event.clientX - this.dragOffsetX;
+      this.tooltipY = event.clientY - this.dragOffsetY;
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * Finaliza o arraste do tooltip
+   */
+  onTooltipMouseUp(): void {
+    this.isDraggingTooltip = false;
+  }
+
+  /**
+   * Listener para tecla ESC - fecha o tooltip
+   */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: KeyboardEvent): void {
+    if (this.showTooltip) {
+      this.closeTooltip();
+      event.preventDefault();
+    }
   }
 
   onCanvasMouseMove(event: MouseEvent): void {

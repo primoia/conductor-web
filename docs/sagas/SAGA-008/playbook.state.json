@@ -1,0 +1,154 @@
+{
+  "saga": {
+    "id": "SAGA-008",
+    "title": "Permitir Edição da Persona do Agente",
+    "status": "in_progress",
+    "priority": "medium",
+    "created_at": "2024-12-19T10:00:00Z",
+    "updated_at": "2024-12-19T10:00:00Z"
+  },
+  "phases": [
+    {
+      "id": "fase-1",
+      "title": "Estrutura Base",
+      "status": "pending",
+      "estimated_hours": 3,
+      "complexity": "low",
+      "dependencies": [],
+      "deliverables": [
+        "Serviço de Gerenciamento de Persona",
+        "Item de Menu 'Editar Persona'",
+        "Modal Básico de Edição",
+        "Integração Inicial"
+      ],
+      "criteria": [
+        "Serviço Funcional",
+        "Menu Integrado",
+        "Modal Básico",
+        "Validação",
+        "Persistência"
+      ]
+    },
+    {
+      "id": "fase-2",
+      "title": "Funcionalidade Completa",
+      "status": "pending",
+      "estimated_hours": 5,
+      "complexity": "medium",
+      "dependencies": ["fase-1"],
+      "deliverables": [
+        "Editor de Texto com Suporte a Markdown",
+        "Validação e Feedback Visual",
+        "Integração com Exibição da Persona",
+        "Melhorias no Serviço de Gerenciamento"
+      ],
+      "criteria": [
+        "Editor Completo",
+        "Validação Robusta",
+        "Feedback Visual",
+        "Integração Total",
+        "Performance",
+        "Usabilidade"
+      ]
+    },
+    {
+      "id": "fase-3",
+      "title": "Polimento",
+      "status": "pending",
+      "estimated_hours": 4,
+      "complexity": "medium",
+      "dependencies": ["fase-2"],
+      "deliverables": [
+        "Estilos e Animações Avançadas",
+        "Testes de Usabilidade",
+        "Documentação Completa",
+        "Otimizações de Performance",
+        "Acessibilidade"
+      ],
+      "criteria": [
+        "Design Polido",
+        "Performance",
+        "Acessibilidade",
+        "Testes",
+        "Documentação",
+        "Usabilidade"
+      ]
+    }
+  ],
+  "current_phase": "fase-1",
+  "progress": {
+    "overall": 0,
+    "fase-1": 0,
+    "fase-2": 0,
+    "fase-3": 0
+  },
+  "risks": [
+    {
+      "id": "risk-1",
+      "title": "Perda de Dados",
+      "description": "Persona editada pode ser perdida ao recarregar página",
+      "mitigation": "Implementar armazenamento local persistente",
+      "status": "monitoring"
+    },
+    {
+      "id": "risk-2",
+      "title": "Conflito de Estado",
+      "description": "Persona editada pode conflitar com dados do backend",
+      "mitigation": "Manter estado local separado, priorizar edições locais",
+      "status": "monitoring"
+    },
+    {
+      "id": "risk-3",
+      "title": "Performance",
+      "description": "Editor pode ser lento para personas muito grandes",
+      "mitigation": "Implementar debounce e limitação de tamanho",
+      "status": "monitoring"
+    },
+    {
+      "id": "risk-4",
+      "title": "UX Confusa",
+      "description": "Usuários podem não entender que é edição local",
+      "mitigation": "Indicadores visuais claros e tooltips explicativos",
+      "status": "monitoring"
+    }
+  ],
+  "constraints": [
+    "Não modificar APIs do backend",
+    "Manter compatibilidade com estrutura existente",
+    "Preservar formatação markdown",
+    "Limitar tamanho da persona (máximo 10KB)"
+  ],
+  "success_criteria": [
+    "Usuário pode acessar edição de persona via menu de opções",
+    "Modal de edição abre com persona atual carregada",
+    "Editor permite modificação de texto com formatação",
+    "Salvamento atualiza exibição em tempo real",
+    "Persona editada persiste durante a sessão",
+    "Interface é intuitiva e responsiva",
+    "Não há impacto no backend existente"
+  ],
+  "metrics": {
+    "tempo_abertura_modal": "< 200ms",
+    "tempo_salvamento": "< 100ms",
+    "tamanho_maximo_persona": "10KB",
+    "compatibilidade_markdown": "100%"
+  },
+  "files_to_modify": [
+    "src/app/shared/conductor-chat/conductor-chat.component.ts",
+    "src/app/shared/conductor-chat/conductor-chat.component.html"
+  ],
+  "files_to_create": [
+    "src/app/services/persona-edit.service.ts",
+    "src/app/shared/persona-edit-modal/persona-edit-modal.component.ts",
+    "src/app/shared/persona-edit-modal/persona-edit-modal.component.html",
+    "src/app/shared/persona-edit-modal/persona-edit-modal.component.scss",
+    "src/app/shared/persona-edit-modal/persona-edit-modal.component.spec.ts",
+    "src/app/shared/persona-edit-modal/README.md"
+  ],
+  "next_actions": [
+    "Criar serviço de gerenciamento de persona",
+    "Adicionar item de menu 'Editar Persona'",
+    "Implementar modal básico de edição",
+    "Integrar com componente principal"
+  ]
+}
