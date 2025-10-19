@@ -1,106 +1,105 @@
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
+        <!-- Coluna 1: Mapa do Jogo (ampliado) -->
         <div class="first-column">
-          <div class="top-section">
-            <!-- Editor Toolbar -->
-            <div class="editor-toolbar">
-              <!-- Loading indicator -->
-              <div *ngIf="isLoading" class="toolbar-loading">
-                <span>Carregando...</span>
-              </div>
-              <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
-
-              <!-- Toolbar Buttons -->
-              <div class="toolbar-buttons">
-                <button
-                  class="toolbar-btn new-btn"
-                  title="Novo Roteiro"
-                  (click)="newScreenplayWithDefaultAgent()">
-                  📄
-                </button>
-                <button
-                  class="toolbar-btn open-btn"
-                  title="Abrir do Banco..."
-                  (click)="openScreenplayManager()">
-                  📂
-                </button>
-                <button
-                  class="toolbar-btn import-btn"
-                  title="Importar do Disco..."
-                  (click)="importFromDisk()">
-                  📥
-                </button>
-                <button
-                  class="toolbar-btn save-btn-toolbar"
-                  [class.saving]="isSaving"
-                  [class.dirty]="isDirty"
-                  [title]="isSaving ? 'Salvando...' : (isDirty ? 'Salvar' : 'Salvo')"
-                  [disabled]="!isDirty"
-                  (click)="save()">
-                  💾
-                </button>
-                <button
-                  class="toolbar-btn export-btn"
-                  title="Exportar para Disco..."
-                  (click)="openExportModal()">
-                  📤
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="bottom-section">
-            <app-agent-game #agentGame></app-agent-game>
-            
-            <!-- Editor Footer / Status Bar -->
-            <div class="editor-footer">
-              <div class="footer-section footer-left">
-                <span class="footer-status" *ngIf="isSaving">
-                  <span class="status-spinner">⏳</span>
-                  Salvando...
-                </span>
-                <span class="footer-status modified" *ngIf="isDirty && !isSaving">
-                  <span class="status-indicator">●</span>
-                  Modificado
-                </span>
-                <span class="footer-status saved" *ngIf="!isDirty && !isSaving && currentScreenplay">
-                  <span class="status-indicator">✓</span>
-                  Salvo
-                </span>
-                <span class="footer-badge new-badge" *ngIf="sourceOrigin === 'new'">
-                  <span class="badge-icon">✨</span>
-                  <span class="badge-text">Novo</span>
-                </span>
-              </div>
-
-              <div class="footer-section footer-center">
-                <span class="footer-shortcuts" title="Atalhos de teclado">
-                  <span class="shortcut-group">
-                    <kbd>Ctrl+S</kbd> Salvar
-                    <kbd>Ctrl+N</kbd> Novo
-                  </span>
-                  <span class="separator">•</span>
-                  <span class="shortcut-group">
-                    <kbd>Ctrl+O</kbd> Abrir
-                    <kbd>Ctrl+Shift+A</kbd> Agente
-                  </span>
-                </span>
-              </div>
-
-              <div class="footer-section footer-right">
-                <!-- Espaço reservado para futuras funcionalidades -->
-              </div>
-            </div>
-          </div>
+          <app-agent-game #agentGame></app-agent-game>
         </div>
 
         <div class="screenplay-canvas" #canvas>
-        <div class="editor-content">
-          <app-interactive-editor
-            [content]="editorContent"
-            [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
-            (contentChange)="handleContentUpdate($event)"
-            (blockCommand)="onBlockCommand($event)">
-          </app-interactive-editor>
+          <!-- Editor Toolbar movida para cima da coluna do meio -->
+          <div class="editor-toolbar">
+            <!-- Loading indicator -->
+            <div *ngIf="isLoading" class="toolbar-loading">
+              <span>Carregando...</span>
+            </div>
+            <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
+
+            <!-- Toolbar Buttons -->
+            <div class="toolbar-buttons">
+              <button
+                class="toolbar-btn new-btn"
+                title="Novo Roteiro"
+                (click)="newScreenplayWithDefaultAgent()">
+                📄
+              </button>
+              <button
+                class="toolbar-btn open-btn"
+                title="Abrir do Banco..."
+                (click)="openScreenplayManager()">
+                📂
+              </button>
+              <button
+                class="toolbar-btn import-btn"
+                title="Importar do Disco..."
+                (click)="importFromDisk()">
+                📥
+              </button>
+              <button
+                class="toolbar-btn save-btn-toolbar"
+                [class.saving]="isSaving"
+                [class.dirty]="isDirty"
+                [title]="isSaving ? 'Salvando...' : (isDirty ? 'Salvar' : 'Salvo')"
+                [disabled]="!isDirty"
+                (click)="save()">
+                💾
+              </button>
+              <button
+                class="toolbar-btn export-btn"
+                title="Exportar para Disco..."
+                (click)="openExportModal()">
+                📤
+              </button>
+            </div>
+          </div>
+
+          <div class="editor-content">
+            <app-interactive-editor
+              [content]="editorContent"
+              [placeholder]="'Digite / para comandos ou comece a escrever o seu roteiro vivo...'"
+              (contentChange)="handleContentUpdate($event)"
+              (blockCommand)="onBlockCommand($event)">
+            </app-interactive-editor>
+          </div>
+
+          <!-- Editor Footer / Status Bar -->
+          <div class="editor-footer">
+            <div class="footer-section footer-left">
+              <span class="footer-status" *ngIf="isSaving">
+                <span class="status-spinner">⏳</span>
+                Salvando...
+              </span>
+              <span class="footer-status modified" *ngIf="isDirty && !isSaving">
+                <span class="status-indicator">●</span>
+                Modificado
+              </span>
+              <span class="footer-status saved" *ngIf="!isDirty && !isSaving && currentScreenplay">
+                <span class="status-indicator">✓</span>
+                Salvo
+              </span>
+              <span class="footer-badge new-badge" *ngIf="sourceOrigin === 'new'">
+                <span class="badge-icon">✨</span>
+                <span class="badge-text">Novo</span>
+              </span>
+            </div>
+
+            <div class="footer-section footer-center">
+              <span class="footer-shortcuts" title="Atalhos de teclado">
+                <span class="shortcut-group">
+                  <kbd>Ctrl+S</kbd> Salvar
+                  <kbd>Ctrl+N</kbd> Novo
+                </span>
+                <span class="separator">•</span>
+                <span class="shortcut-group">
+                  <kbd>Ctrl+O</kbd> Abrir
+                  <kbd>Ctrl+Shift+A</kbd> Agente
+                </span>
+              </span>
+            </div>
+
+            <div class="footer-section footer-right">
+              <!-- Espaço reservado para futuras funcionalidades -->
+            </div>
+          </div>
         </div>
 
 
@@ -204,7 +203,6 @@
             <button class="btn-export" (click)="confirmExport()">Escolher Local e Exportar</button>
           </div>
         </div>
-      </div>
       </div>
 
       <!-- Resizable splitter -->
