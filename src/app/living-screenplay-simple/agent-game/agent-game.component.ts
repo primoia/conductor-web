@@ -256,87 +256,130 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Cria um sprite de personagem caminhando usando canvas
+   * Cria um sprite de personagem caminhando usando canvas (MINION)
    */
   private createWalkingCharacterSprite(): SpriteAnimation {
     const frameWidth = 32;
     const frameHeight = 32;
     const totalFrames = 5; // 4 frames de caminhada + 1 frame idle
-    
+
     // Criar canvas temporário para desenhar o sprite
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = frameWidth * totalFrames;
     tempCanvas.height = frameHeight;
     const tempCtx = tempCanvas.getContext('2d')!;
 
-    // Desenhar 5 frames: 1 idle + 4 de caminhada
+    // Desenhar 5 frames: 1 idle + 4 de caminhada (MINION style)
     for (let frame = 0; frame < totalFrames; frame++) {
       const x = frame * frameWidth;
-      
-      // Desenhar personagem baseado na referência
+
       tempCtx.save();
-      tempCtx.translate(x, 0); // Sem centralização para usar coordenadas absolutas
-      
-      // Corpo (Retângulo) - baseado na referência
-      tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-      tempCtx.fillRect(4, 12, 24, 16); // Retângulo 24x16px
-      
-      // Cabeça (Retângulo) - baseado na referência
-      tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-      tempCtx.fillRect(10, 2, 12, 8); // Retângulo 12x8px acima do corpo
-      
-      // Olhos - baseado na referência
-      tempCtx.fillStyle = '#000'; // Preto
-      tempCtx.fillRect(13, 4, 2, 2); // Olho esquerdo
-      tempCtx.fillRect(17, 4, 2, 2); // Olho direito
-      
+      tempCtx.translate(x, 0);
+
+      // === CORPO MINION (Cilindro amarelo) ===
+      tempCtx.fillStyle = '#FFD700'; // Amarelo Minion
+      // Corpo cilíndrico (retângulo arredondado)
+      tempCtx.beginPath();
+      tempCtx.roundRect(6, 8, 20, 20, 10);
+      tempCtx.fill();
+
+      // === MACACÃO AZUL ===
+      tempCtx.fillStyle = '#0066CC'; // Azul macacão
+      // Parte inferior do macacão
+      tempCtx.fillRect(8, 20, 16, 8);
+      // Alças do macacão
+      tempCtx.fillRect(10, 10, 3, 12); // Alça esquerda
+      tempCtx.fillRect(19, 10, 3, 12); // Alça direita
+
+      // === ÓCULOS MINION (olho único grande) ===
+      // Armação cinza
+      tempCtx.fillStyle = '#444444';
+      tempCtx.beginPath();
+      tempCtx.arc(16, 14, 6, 0, Math.PI * 2);
+      tempCtx.fill();
+
+      // Lente branca
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.beginPath();
+      tempCtx.arc(16, 14, 5, 0, Math.PI * 2);
+      tempCtx.fill();
+
+      // Íris marrom
+      tempCtx.fillStyle = '#8B4513';
+      tempCtx.beginPath();
+      tempCtx.arc(16, 14, 3, 0, Math.PI * 2);
+      tempCtx.fill();
+
+      // Pupila preta
+      tempCtx.fillStyle = '#000000';
+      tempCtx.beginPath();
+      tempCtx.arc(16, 14, 1.5, 0, Math.PI * 2);
+      tempCtx.fill();
+
+      // Brilho no olho
+      tempCtx.fillStyle = '#FFFFFF';
+      tempCtx.beginPath();
+      tempCtx.arc(17, 13, 1, 0, Math.PI * 2);
+      tempCtx.fill();
+
+      // === CABELO PRETO (poucos fios no topo) ===
+      tempCtx.fillStyle = '#000000';
+      tempCtx.fillRect(13, 3, 2, 4); // Fio 1
+      tempCtx.fillRect(16, 2, 2, 5); // Fio 2 (mais alto)
+      tempCtx.fillRect(19, 3, 2, 4); // Fio 3
+
+      // === BOCA ===
+      tempCtx.strokeStyle = '#000000';
+      tempCtx.lineWidth = 1;
+      tempCtx.beginPath();
+      tempCtx.arc(16, 22, 3, 0.2, Math.PI - 0.2);
+      tempCtx.stroke();
+
+      // === PERNAS E BRAÇOS (com animação) ===
       if (frame === 0) {
-        // Frame IDLE (parado) - baseado na referência
-        // Calção azul
-        tempCtx.fillStyle = '#4169E1'; // Azul
-        tempCtx.fillRect(8, 24, 16, 6); // Calção azul
-        
-        // Pernas amarelas separadas
-        tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-        tempCtx.fillRect(10, 30, 4, 8); // Perna esquerda
-        tempCtx.fillRect(18, 30, 4, 8); // Perna direita
-        
-        // Braços (idle) - baseado na referência
-        tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-        tempCtx.fillRect(2, 16, 4, 6); // Braço esquerdo
-        tempCtx.fillRect(26, 16, 4, 6); // Braço direito
+        // IDLE - Pernas paradas
+        tempCtx.fillStyle = '#0066CC'; // Azul macacão
+        tempCtx.fillRect(10, 28, 4, 6); // Perna esquerda
+        tempCtx.fillRect(18, 28, 4, 6); // Perna direita
+
+        // Sapatos pretos
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(9, 32, 6, 2); // Sapato esquerdo
+        tempCtx.fillRect(17, 32, 6, 2); // Sapato direito
+
+        // Braços parados (luvas pretas)
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(3, 18, 3, 6); // Braço esquerdo
+        tempCtx.fillRect(26, 18, 3, 6); // Braço direito
       } else {
-        // Frames de caminhada (1-4) - baseado na referência
-        const walkFrame = frame - 1; // Ajustar para 0-3
-        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 3; // Movimento das pernas
-        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 2; // Movimento dos braços
-        
-        // Calção azul
-        tempCtx.fillStyle = '#4169E1'; // Azul
-        tempCtx.fillRect(8, 24, 16, 6); // Calção azul
-        
-        // Pernas amarelas separadas com movimento
-        tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-        tempCtx.fillRect(10 - legOffset, 30, 4, 8); // Perna esquerda
-        tempCtx.fillRect(18 + legOffset, 30, 4, 8); // Perna direita
-        
-        // Braços com movimento - baseado na referência
-        tempCtx.fillStyle = '#FFD700'; // Amarelo dourado
-        
-        // Braço esquerdo com movimento
-        tempCtx.fillRect(2 - armOffset, 16, 4, 6);
-        
-        // Braço direito com movimento
-        tempCtx.fillRect(26 + armOffset, 16, 4, 6);
+        // CAMINHADA - Movimento alternado
+        const walkFrame = frame - 1;
+        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 3;
+        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 2;
+
+        // Pernas com movimento
+        tempCtx.fillStyle = '#0066CC'; // Azul macacão
+        tempCtx.fillRect(10 - legOffset, 28, 4, 6); // Perna esquerda
+        tempCtx.fillRect(18 + legOffset, 28, 4, 6); // Perna direita
+
+        // Sapatos pretos com movimento
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(9 - legOffset, 32, 6, 2); // Sapato esquerdo
+        tempCtx.fillRect(17 + legOffset, 32, 6, 2); // Sapato direito
+
+        // Braços com movimento (luvas pretas)
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(3 - armOffset, 18, 3, 6); // Braço esquerdo
+        tempCtx.fillRect(26 + armOffset, 18, 3, 6); // Braço direito
       }
-      
+
       tempCtx.restore();
     }
 
     // Criar imagem diretamente do canvas
     const img = new Image();
     img.src = tempCanvas.toDataURL();
-    
+
     return {
       image: img,
       frameWidth,
@@ -1182,9 +1225,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Listener para tecla ESC - fecha o tooltip
    */
-  @HostListener('document:keydown.escape', ['$event'])
+  @HostListener('document:keydown', ['$event'])
   onEscapeKey(event: KeyboardEvent): void {
-    if (this.showTooltip) {
+    if (event.key === 'Escape' && this.showTooltip) {
       this.closeTooltip();
       event.preventDefault();
     }

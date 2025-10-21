@@ -226,6 +226,15 @@
             ➕
           </button>
 
+          <!-- Delete Agent Button -->
+          <button
+            class="dock-item delete-agent-dock-btn"
+            title="Excluir Agente Selecionado"
+            [disabled]="!activeAgentId"
+            (click)="onDeleteAgentClick()">
+            🗑️
+          </button>
+
           <div class="dock-separator"></div>
 
           <!-- Agent List -->
@@ -237,6 +246,32 @@
             (click)="onDockAgentClick(agent)">
             {{ agent.emoji }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-backdrop" *ngIf="showDeleteConfirmModal" (click)="closeDeleteConfirmModal()">
+      <div class="modal-content delete-confirm-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>🗑️ Excluir Agente</h3>
+          <button class="close-btn" (click)="closeDeleteConfirmModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Agent Info Display -->
+          <div class="agent-display" *ngIf="agentToDelete">
+            <div class="agent-emoji-large">{{ agentToDelete.emoji }}</div>
+            <div class="agent-details">
+              <div class="agent-name-large">{{ agentToDelete.definition.title }}</div>
+              <div class="agent-description-large">{{ agentToDelete.definition.description || 'Sem descrição' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="closeDeleteConfirmModal()">Cancelar</button>
+          <button class="btn btn-danger" (click)="confirmDeleteAgent()">Excluir Agente</button>
         </div>
       </div>
     </div>

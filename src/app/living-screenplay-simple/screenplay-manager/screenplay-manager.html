@@ -1,5 +1,13 @@
 <div class="modal-backdrop" *ngIf="isVisible" (click)="closeModal()">
   <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Hidden file input for disk import -->
+    <input
+      #fileInput
+      type="file"
+      accept=".md,.txt"
+      style="display: none"
+      (change)="handleFileSelect($event)"
+    />
     <!-- Header -->
     <div class="modal-header">
       <h2>Gerenciar Roteiros</h2>
@@ -33,7 +41,7 @@
       </div>
 
       <div
-        *ngFor="let screenplay of screenplays"
+        *ngFor="let screenplay of screenplays; trackBy: trackByScreenplayId"
         class="screenplay-item"
         (click)="openScreenplay(screenplay)"
       >
@@ -76,6 +84,9 @@
 
     <!-- Footer -->
     <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="importFromDisk()">
+        📥 Importar do Disco
+      </button>
       <button class="btn btn-primary" (click)="showCreateScreen()">
         ➕ Criar Novo Roteiro
       </button>

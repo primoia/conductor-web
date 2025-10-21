@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, HostListener, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener, OnInit, OnDestroy, OnChanges, SimpleChanges, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
@@ -6,7 +6,7 @@ import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ScreenplayStorage, ScreenplayListItem, Screenplay } from '../../services/screenplay-storage';
 
 export interface ScreenplayManagerEvent {
-  action: 'open' | 'create' | 'rename' | 'delete';
+  action: 'open' | 'create' | 'rename' | 'delete' | 'import';
   screenplay?: Screenplay;
   newName?: string;
 }
@@ -44,7 +44,11 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
   private searchSubject = new Subject<string>();
   private searchSubscription?: Subscription;
 
-  constructor(private screenplayStorage: ScreenplayStorage) {}
+  constructor(
+    private screenplayStorage: ScreenplayStorage,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit(): void {
     // Setup search debounce (300ms)
@@ -83,13 +87,23 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
    * Load screenplays from API
    */
   loadScreenplays(): void {
-    if (this.loading) return;
+    if (this.loading) {
+      console.log('[ScreenplayManager] Already loading, skipping...');
+      return;
+    }
+
+    console.log('[ScreenplayManager] Starting to load screenplays...', {
+      searchQuery: this.searchQuery,
+      currentPage: this.currentPage
+    });
 
     this.loading = true;
     this.error = null;
 
     this.screenplayStorage.getScreenplays(this.searchQuery, this.currentPage, 20).subscribe({
       next: (response) => {
+        console.log('[ScreenplayManager] Received response:', response);
+        
         // Append to existing list for infinite scroll
         if (this.currentPage === 1) {
           this.screenplays = response.items;
@@ -102,11 +116,30 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
         this.loading = false;
 
         console.log(`[ScreenplayManager] Loaded ${response.items.length} screenplays (page ${this.currentPage}/${response.pages})`);
+        console.log('[ScreenplayManager] Current screenplays list:', this.screenplays.map(s => s.name));
       },
       error: (error) => {
         this.error = 'Falha ao carregar roteiros. Verifique sua conexão.';
         this.loading = false;
         console.error('[ScreenplayManager] Error loading screenplays:', error);
+        
+        // Se for erro 422, tentar com limite menor
+        if (error.message && error.message.includes('422')) {
+          console.log('[ScreenplayManager] Retrying with smaller limit...');
+          this.screenplayStorage.getScreenplays(this.searchQuery, 1, 10).subscribe({
+            next: (response) => {
+              this.screenplays = response.items;
+              this.totalPages = response.pages;
+              this.hasMore = this.currentPage < response.pages;
+              this.loading = false;
+              this.error = null;
+              console.log('[ScreenplayManager] Retry successful with smaller limit');
+            },
+            error: (retryError) => {
+              console.error('[ScreenplayManager] Retry also failed:', retryError);
+            }
+          });
+        }
       }
     });
   }
@@ -328,6 +361,13 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
   }
 
   /**
+   * TrackBy function for screenplay list to improve Angular change detection
+   */
+  trackByScreenplayId(index: number, screenplay: ScreenplayListItem): string {
+    return screenplay.id;
+  }
+
+  /**
    * Handle ESC key to close modals and dialogs
    */
   @HostListener('document:keydown.escape', ['$event'])
@@ -363,5 +403,113 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
       event.stopPropagation();
       return;
     }
+  }
+
+  // === Disk Import Methods ===
+
+  /**
+   * Trigger file input for disk import
+   */
+  importFromDisk(): void {
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  /**
+   * Handle file selection from disk
+   */
+  handleFileSelect(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      this.readFileAndImport(file);
+    }
+  }
+
+  /**
+   * Read file content and emit import action
+   */
+  private readFileAndImport(file: File): void {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+      
+      // Create the screenplay in MongoDB first
+      const newScreenplay = {
+        name: fileName,
+        content: content,
+        description: '',
+        tags: [],
+        version: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isDeleted: false
+      };
+      
+      this.screenplayStorage.createScreenplay(newScreenplay).subscribe({
+        next: (createdScreenplay) => {
+          console.log('✅ [IMPORT] Screenplay created in MongoDB:', createdScreenplay);
+          console.log('📊 [IMPORT] Before adding - Current list length:', this.screenplays.length);
+          console.log('📊 [IMPORT] Before adding - Current list:', this.screenplays.map(s => `${s.name} (${s.id})`));
+
+          // Run inside Angular zone to ensure change detection
+          this.ngZone.run(() => {
+            // Create screenplay item for the list
+            const newScreenplayItem: ScreenplayListItem = {
+              id: createdScreenplay.id,
+              name: createdScreenplay.name,
+              version: createdScreenplay.version,
+              updatedAt: createdScreenplay.updatedAt,
+              createdAt: createdScreenplay.createdAt,
+              isDeleted: false
+            };
+
+            console.log('➕ [IMPORT] New item to add:', newScreenplayItem);
+
+            // CRITICAL: Store old length for comparison
+            const oldLength = this.screenplays.length;
+
+            // Add new item at the beginning by creating a completely NEW array
+            this.screenplays = [newScreenplayItem, ...this.screenplays];
+
+            console.log('✅ [IMPORT] After adding - New list length:', this.screenplays.length);
+            console.log('✅ [IMPORT] Length changed from', oldLength, 'to', this.screenplays.length);
+            console.log('📋 [IMPORT] After adding - New list:', this.screenplays.map(s => `${s.name} (${s.id})`));
+            console.log('🔍 [IMPORT] First item in list:', this.screenplays[0]?.name);
+
+            // Emit action to parent component with the created screenplay
+            this.action.emit({
+              action: 'import',
+              screenplay: createdScreenplay
+            });
+          });
+        },
+        error: (error) => {
+          console.error('❌ [IMPORT] Error creating screenplay:', error);
+          // Fallback: emit with empty ID and let parent handle it
+          this.action.emit({
+            action: 'import',
+            screenplay: {
+              id: '',
+              name: fileName,
+              content: content,
+              version: 1,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            } as any
+          });
+        }
+      });
+    };
+    
+    reader.onerror = () => {
+      console.error('Error reading file');
+    };
+    
+    reader.readAsText(file);
   }
 }

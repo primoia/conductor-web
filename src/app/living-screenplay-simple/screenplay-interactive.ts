@@ -17,6 +17,7 @@ import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/
 import { AgentGameComponent } from './agent-game/agent-game.component';
 import { Subscription } from 'rxjs';
 import { LoggingService } from '../services/logging.service';
+import { environment } from '../../environments/environment';
 
 interface AgentConfig {
   id: string;
@@ -49,6 +50,8 @@ interface AgentInstance {
   executionState?: AgentExecutionState; // Link to execution service state
   is_system_default?: boolean; // SAGA-006: Flag for system default agents
   is_hidden?: boolean; // SAGA-006: Flag for hidden agents
+  isDeleted?: boolean; // Soft delete flag
+  deleted_at?: string; // Deletion timestamp
   config?: {
     cwd?: string; // Working directory for agent execution
     createdAt?: Date;
@@ -140,6 +143,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Export modal state
   showExportModal = false;
   exportFilename = '';
+
+  // Delete confirmation modal state
+  showDeleteConfirmModal = false;
+  agentToDelete: AgentInstance | null = null;
 
   // Text selection context for agent execution
   private selectedText: string = '';
@@ -648,6 +655,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.loadDefaultContent();
         this.clearInvalidUrl();
         break;
+      case 'import':
+        if (event.screenplay) {
+          this.logging.info('📥 [IMPORT] Importing screenplay from disk:', 'ScreenplayInteractive', event.screenplay.name);
+          this.loadScreenplayIntoEditor(event.screenplay);
+          // The screenplay will be automatically saved to MongoDB by the existing save logic
+        }
+        break;
     }
   }
 
@@ -693,7 +707,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         // Check if screenplay with same name exists in MongoDB
         // First, try to get all screenplays to see what's really there
         this.logging.info('🔍 [CONFLICT] Starting conflict check...', 'ScreenplayInteractive');
-        this.screenplayStorage.getScreenplays('', 1, 1000).subscribe({
+        this.screenplayStorage.getScreenplays('', 1, 100).subscribe({
           next: (response) => {
             this.logging.info('🔍 [CONFLICT] Checking for existing screenplays:', 'ScreenplayInteractive', {
               lookingFor: filename,
@@ -2308,9 +2322,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   private updateAgentDockLists(): void {
     // Popula agentes contextuais a partir das instâncias no documento
-    // SAGA-006: Filter out hidden agents and sort by creation date
+    // SAGA-006: Filter out hidden agents, deleted agents, and sort by creation date
     this.contextualAgents = this.getAgentInstancesAsArray()
-      .filter(agent => !agent.is_hidden)
+      .filter(agent => !agent.is_hidden && !agent.isDeleted)
       .sort((a, b) => {
         // Sort by creation date (oldest first)
         const dateA = a.config?.createdAt ? new Date(a.config.createdAt).getTime() : 0;
@@ -2330,16 +2344,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       currentScreenplayId: this.currentScreenplay?.id,
       conductorChatAvailable: !!this.conductorChat
     });
-    
+
     this.activeAgentId = agent.id;
-    
+
     if (this.conductorChat) {
       this.logging.debug('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...', 'ScreenplayInteractive');
       this.conductorChat.loadContextForAgent(
-        agent.id, 
-        agent.definition.title, 
-        agent.emoji, 
-        agent.agent_id, 
+        agent.id,
+        agent.definition.title,
+        agent.emoji,
+        agent.agent_id,
         agent.config?.cwd,
         this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
@@ -2347,6 +2361,106 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.logging.error('❌ [DOCK-CLICK] ConductorChat is not available!', undefined, 'ScreenplayInteractive');
     }
+  }
+
+  /**
+   * Handler para clique no botão de delete (deleta o agente ativo/selecionado)
+   */
+  public onDeleteAgentClick(): void {
+    if (!this.activeAgentId) {
+      this.logging.warn('⚠️ [DELETE] No active agent selected', 'ScreenplayInteractive');
+      return;
+    }
+
+    // Find the currently active agent
+    const agent = this.contextualAgents.find(a => a.id === this.activeAgentId);
+    if (!agent) {
+      this.logging.error('❌ [DELETE] Active agent not found in contextual agents', undefined, 'ScreenplayInteractive', {
+        activeAgentId: this.activeAgentId
+      });
+      return;
+    }
+
+    this.agentToDelete = agent;
+    this.showDeleteConfirmModal = true;
+    this.logging.info('🗑️ [DELETE] Opening delete confirmation modal', 'ScreenplayInteractive', {
+      agentId: agent.id,
+      agentTitle: agent.definition.title
+    });
+  }
+
+  /**
+   * Fecha o modal de confirmação de exclusão
+   */
+  public closeDeleteConfirmModal(): void {
+    this.showDeleteConfirmModal = false;
+    this.agentToDelete = null;
+  }
+
+  /**
+   * Confirma e executa a exclusão do agente
+   */
+  public async confirmDeleteAgent(): Promise<void> {
+    if (!this.agentToDelete) {
+      this.logging.warn('⚠️ [DELETE] No agent to delete', 'ScreenplayInteractive');
+      return;
+    }
+
+    const agent = this.agentToDelete;
+    const instanceId = agent.id;
+
+    try {
+      this.logging.info('🗑️ [DELETE] Soft deleting agent instance', 'ScreenplayInteractive', {
+        instanceId,
+        agentTitle: agent.definition.title
+      });
+
+      // Call DELETE endpoint (soft delete by default)
+      const baseUrl = this.getBaseUrl();
+      const deleteUrl = `${baseUrl}/api/agents/instances/${instanceId}`;
+
+      await this.http.delete(deleteUrl).toPromise();
+
+      this.logging.info('✅ [DELETE] Agent instance soft deleted successfully', 'ScreenplayInteractive', { instanceId });
+
+      // Remove from local contextualAgents array
+      this.contextualAgents = this.contextualAgents.filter(a => a.id !== instanceId);
+
+      // Remove from agentInstances map
+      this.agentInstances.delete(instanceId);
+
+      // Update agent game canvas
+      if (this.agentGame) {
+        this.agentGame.removeAgent(instanceId);
+      }
+
+      // Clear active agent if it was the deleted one
+      if (this.activeAgentId === instanceId) {
+        this.activeAgentId = null;
+        // Auto-select first agent if available
+        if (this.contextualAgents.length > 0) {
+          this.onDockAgentClick(this.contextualAgents[0]);
+        }
+      }
+
+      // Close modal
+      this.closeDeleteConfirmModal();
+
+      this.logging.info('🎯 [DELETE] Agent removed from UI and canvas', 'ScreenplayInteractive');
+    } catch (error: any) {
+      this.logging.error('❌ [DELETE] Error deleting agent instance', error, 'ScreenplayInteractive', {
+        instanceId,
+        error: error.message
+      });
+      alert(`Erro ao excluir agente: ${error.message || 'Erro desconhecido'}`);
+    }
+  }
+
+  /**
+   * Helper to get base URL
+   */
+  private getBaseUrl(): string {
+    return environment.apiUrl;
   }
 
   hasSomeAgentsForEmoji(emoji: string): boolean {
@@ -2729,10 +2843,17 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    // Close delete confirmation modal if open
+    if (this.showDeleteConfirmModal) {
+      this.closeDeleteConfirmModal();
+      event.preventDefault();
+      return;
+    }
+
     // ESC não desseleciona o agente para manter configurações e tarja amarela visíveis
     // O usuário pode clicar em outro agente ou fechar manualmente se desejar
     this.logging.debug('⎋ ESC pressed - agent remains selected', 'ScreenplayInteractive');
-    
+
     // Don't prevent default or stop propagation to allow child components to handle ESC
     // This allows modals and dialogs to close properly
   }
