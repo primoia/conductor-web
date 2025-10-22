@@ -4,7 +4,7 @@
     <input
       #fileInput
       type="file"
-      accept=".md,.txt"
+      accept=".md"
       style="display: none"
       (change)="handleFileSelect($event)"
     />
@@ -82,10 +82,25 @@
       </div>
     </div>
 
+    <!-- File Path Display -->
+    <div class="file-path-section" *ngIf="currentFilePath">
+      <div class="file-path-label">Caminho do arquivo:</div>
+      <div class="file-path-value">{{ currentFilePath }}</div>
+    </div>
+
+    <!-- File Path Section -->
+    <div class="file-path-section" *ngIf="currentFilePath">
+      <div class="file-path-label">Caminho do arquivo:</div>
+      <div class="file-path-value">{{ currentFilePath }}</div>
+    </div>
+
     <!-- Footer -->
     <div class="modal-footer">
       <button class="btn btn-secondary" (click)="importFromDisk()">
         📥 Importar do Disco
+      </button>
+      <button class="btn btn-secondary" (click)="exportToDisk()" [disabled]="!currentFilePath">
+        📤 Exportar para Disco
       </button>
       <button class="btn btn-primary" (click)="showCreateScreen()">
         ➕ Criar Novo Roteiro

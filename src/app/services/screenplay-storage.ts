@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, from, throwError } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { Observable, from, throwError, of } from 'rxjs';
+import { map, catchError, switchMap } from 'rxjs/operators';
 
 /**
  * Screenplay list item (lightweight for listing)
@@ -14,6 +14,10 @@ export interface ScreenplayListItem {
   createdAt: string;
   updatedAt: string;
   isDeleted: boolean;
+  filePath?: string; // Caminho do arquivo no disco (mantido para compatibilidade)
+  importPath?: string; // Novo: caminho de importação
+  exportPath?: string; // Novo: último caminho de exportação
+  fileKey?: string; // Novo: chave única para detecção de duplicatas
 }
 
 /**
@@ -41,6 +45,10 @@ export interface ScreenplayPayload {
   description?: string;
   tags?: string[];
   content?: string;
+  filePath?: string; // Caminho do arquivo no disco (mantido para compatibilidade)
+  importPath?: string; // Novo: caminho de importação
+  exportPath?: string; // Novo: último caminho de exportação
+  fileKey?: string; // Novo: chave única para detecção de duplicatas
 }
 
 @Injectable({
@@ -197,6 +205,69 @@ export class ScreenplayStorage {
       catchError(error => {
         console.error(`[ScreenplayStorage] Error deleting screenplay ${id}:`, error);
         return throwError(() => new Error('Failed to delete screenplay'));
+      })
+    );
+  }
+
+  /**
+   * Generate unique file key for duplicate detection
+   */
+  generateFileKey(filePath: string, fileName: string): string {
+    const keyData = `${filePath}:${fileName}`;
+    return btoa(keyData).replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+  /**
+   * Check if a screenplay exists by file key
+   */
+  getByFileKey(fileKey: string): Observable<Screenplay | null> {
+    return this.getScreenplays('', 1, 1000).pipe(
+      map(response => {
+        const screenplay = response.items.find(s => s.fileKey === fileKey);
+        return screenplay ? screenplay.id : null;
+      }),
+      switchMap(id => {
+        if (id) {
+          return this.getScreenplay(id).pipe(
+            catchError(() => of(null))
+          );
+        }
+        return of(null);
+      }),
+      catchError(() => of(null))
+    );
+  }
+
+  /**
+   * Check if a screenplay name exists
+   */
+  nameExists(name: string): Observable<boolean> {
+    return this.getScreenplays('', 1, 1000).pipe(
+      map(response => response.items.some(s => s.name === name))
+    );
+  }
+
+  /**
+   * Sync file path (import or export)
+   */
+  syncFilePath(screenplayId: string, type: 'import' | 'export', path: string): Observable<Screenplay> {
+    return this.getScreenplay(screenplayId).pipe(
+      switchMap(screenplay => {
+        const payload: Partial<ScreenplayPayload> = {
+          filePath: path
+        };
+
+        if (type === 'import') {
+          payload.importPath = path;
+        } else {
+          payload.exportPath = path;
+        }
+
+        return this.updateScreenplay(screenplayId, payload);
+      }),
+      catchError(error => {
+        console.error(`[ScreenplayStorage] Error syncing file path:`, error);
+        return throwError(() => new Error('Failed to sync file path'));
       })
     );
   }

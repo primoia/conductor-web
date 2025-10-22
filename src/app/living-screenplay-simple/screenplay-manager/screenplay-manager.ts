@@ -20,6 +20,7 @@ export interface ScreenplayManagerEvent {
 })
 export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
   @Input() isVisible = false;
+  @Input() currentFilePath: string | null = null;
   @Output() close = new EventEmitter<void>();
   @Output() action = new EventEmitter<ScreenplayManagerEvent>();
 
@@ -68,6 +69,11 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     if (changes['isVisible'] && changes['isVisible'].currentValue === true) {
       this.onModalOpen();
     }
+    
+    // Update current file path when input changes
+    if (changes['currentFilePath']) {
+      this.currentFilePath = changes['currentFilePath'].currentValue;
+    }
   }
 
   ngOnDestroy(): void {
@@ -81,6 +87,19 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
    */
   onModalOpen(): void {
     this.loadScreenplays();
+  }
+
+  /**
+   * Load current file path from the first screenplay that has a file path
+   */
+  private loadCurrentFilePath(): void {
+    // Find the first screenplay with a file path
+    const screenplayWithPath = this.screenplays.find(s => s.filePath);
+    if (screenplayWithPath) {
+      this.currentFilePath = screenplayWithPath.filePath || null;
+    } else {
+      this.currentFilePath = null;
+    }
   }
 
   /**
@@ -114,6 +133,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
         this.totalPages = response.pages;
         this.hasMore = this.currentPage < response.pages;
         this.loading = false;
+
+        // Load current file path after loading screenplays
+        this.loadCurrentFilePath();
 
         console.log(`[ScreenplayManager] Loaded ${response.items.length} screenplays (page ${this.currentPage}/${response.pages})`);
         console.log('[ScreenplayManager] Current screenplays list:', this.screenplays.map(s => s.name));
@@ -169,6 +191,8 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     this.screenplayStorage.getScreenplay(screenplay.id).subscribe({
       next: (fullScreenplay) => {
         this.loading = false;
+        // Set the current file path if available
+        this.currentFilePath = fullScreenplay.filePath || null;
         this.action.emit({
           action: 'open',
           screenplay: fullScreenplay
@@ -316,6 +340,7 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     this.showDeleteConfirm = false;
     this.selectedScreenplay = null;
     this.error = null;
+    this.currentFilePath = null;
   }
 
   /**
@@ -405,7 +430,7 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     }
   }
 
-  // === Disk Import Methods ===
+  // === Disk Import/Export Methods ===
 
   /**
    * Trigger file input for disk import
@@ -415,6 +440,117 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
     if (fileInput) {
       fileInput.click();
     }
+  }
+
+  /**
+   * Export current screenplay to disk
+   */
+  async exportToDisk(): Promise<void> {
+    if (!this.currentFilePath) {
+      this.error = 'Nenhum arquivo selecionado para exportar';
+      return;
+    }
+
+    // Find the screenplay with the current file path
+    const screenplayToExport = this.screenplays.find(s => s.filePath === this.currentFilePath);
+    if (!screenplayToExport) {
+      this.error = 'Roteiro não encontrado para exportar';
+      return;
+    }
+
+    try {
+      // Get the full screenplay content
+      this.loading = true;
+      this.screenplayStorage.getScreenplay(screenplayToExport.id).subscribe({
+        next: async (fullScreenplay) => {
+          this.loading = false;
+          await this.exportScreenplayToDisk(fullScreenplay);
+        },
+        error: (error) => {
+          this.loading = false;
+          this.error = 'Falha ao carregar o roteiro para exportação';
+          console.error('[ScreenplayManager] Error loading screenplay for export:', error);
+        }
+      });
+    } catch (error) {
+      this.loading = false;
+      this.error = 'Erro ao exportar roteiro';
+      console.error('[ScreenplayManager] Error exporting screenplay:', error);
+    }
+  }
+
+  /**
+   * Export screenplay to disk using File System Access API
+   */
+  private async exportScreenplayToDisk(screenplay: Screenplay): Promise<void> {
+    try {
+      // Check if File System Access API is supported
+      if ('showSaveFilePicker' in window) {
+        // Use File System Access API to let user choose location
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: screenplay.filePath || `${screenplay.name}.md`,
+          types: [{
+            description: 'Markdown Files',
+            accept: { 'text/markdown': ['.md'] }
+          }]
+        });
+
+        // Write content to the selected file
+        const writable = await handle.createWritable();
+        await writable.write(screenplay.content);
+        await writable.close();
+
+        // Update the file path in the database
+        const newFilePath = handle.name;
+        this.screenplayStorage.updateScreenplay(screenplay.id, {
+          filePath: newFilePath
+        }).subscribe({
+          next: () => {
+            console.log('✅ [EXPORT] File path updated in database:', newFilePath);
+            this.currentFilePath = newFilePath;
+            // Update the local list
+            const updatedScreenplay = this.screenplays.find(s => s.id === screenplay.id);
+            if (updatedScreenplay) {
+              updatedScreenplay.filePath = newFilePath;
+            }
+          },
+          error: (error) => {
+            console.error('❌ [EXPORT] Error updating file path:', error);
+          }
+        });
+
+        console.log('✅ [EXPORT] Screenplay exported successfully to:', newFilePath);
+      } else {
+        // Fallback: download file
+        this.downloadScreenplayAsFile(screenplay);
+      }
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Export cancelled by user');
+        return;
+      }
+      console.error('❌ [EXPORT] Error exporting screenplay:', error);
+      this.error = 'Erro ao exportar roteiro';
+    }
+  }
+
+  /**
+   * Fallback method to download screenplay as file
+   */
+  private downloadScreenplayAsFile(screenplay: Screenplay): void {
+    const filename = screenplay.filePath || `${screenplay.name}.md`;
+    const blob = new Blob([screenplay.content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log('✅ [EXPORT] Screenplay downloaded as:', filename);
   }
 
   /**
@@ -438,6 +574,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
       const content = e.target?.result as string;
       const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
       
+      // Store the file path
+      this.currentFilePath = file.name;
+      
       // Create the screenplay in MongoDB first
       const newScreenplay = {
         name: fileName,
@@ -447,7 +586,8 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
         version: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isDeleted: false
+        isDeleted: false,
+        filePath: file.name // Store the full file name with extension
       };
       
       this.screenplayStorage.createScreenplay(newScreenplay).subscribe({
@@ -465,7 +605,8 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
               version: createdScreenplay.version,
               updatedAt: createdScreenplay.updatedAt,
               createdAt: createdScreenplay.createdAt,
-              isDeleted: false
+              isDeleted: false,
+              filePath: createdScreenplay.filePath
             };
 
             console.log('➕ [IMPORT] New item to add:', newScreenplayItem);
@@ -480,6 +621,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
             console.log('✅ [IMPORT] Length changed from', oldLength, 'to', this.screenplays.length);
             console.log('📋 [IMPORT] After adding - New list:', this.screenplays.map(s => `${s.name} (${s.id})`));
             console.log('🔍 [IMPORT] First item in list:', this.screenplays[0]?.name);
+
+            // Set the current file path
+            this.currentFilePath = this.currentFilePath;
 
             // Emit action to parent component with the created screenplay
             this.action.emit({

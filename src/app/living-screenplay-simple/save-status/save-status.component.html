@@ -1,0 +1,12 @@
+<div class="save-status" [ngClass]="statusClass">
+  <i [ngClass]="statusIcon"></i>
+  <div class="status-content">
+    <span class="status-text">{{ statusText }}</span>
+    <span *ngIf="lastSaved && !isSaving && !isDirty && !error" class="last-saved">
+      {{ formattedLastSaved }}
+    </span>
+    <span *ngIf="error" class="error-message" [title]="error">
+      {{ error }}
+    </span>
+  </div>
+</div>

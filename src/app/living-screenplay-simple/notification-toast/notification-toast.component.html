@@ -1,0 +1,18 @@
+<div class="notification-container">
+  <div
+    *ngFor="let notification of notifications"
+    class="notification-toast"
+    [ngClass]="notification.type"
+    [@slideIn]>
+    <div class="notification-content">
+      <i [ngClass]="getIcon(notification.type)"></i>
+      <span class="notification-message">{{ notification.message }}</span>
+    </div>
+    <button
+      class="close-btn"
+      (click)="removeNotification(notification.id)"
+      title="Fechar">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>

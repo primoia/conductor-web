@@ -1,0 +1,29 @@
+<div class="file-path-info" *ngIf="hasPathInfo">
+  <div class="path-item" *ngIf="displayImportPath" [title]="displayImportPath">
+    <i class="fas fa-download"></i>
+    <div class="path-content">
+      <span class="path-label">Importado de:</span>
+      <span class="path-value">{{ getShortPath(displayImportPath) }}</span>
+    </div>
+    <button
+      class="btn-icon"
+      (click)="copyPath(displayImportPath, $event)"
+      title="Copiar caminho completo">
+      <i class="fas fa-copy"></i>
+    </button>
+  </div>
+
+  <div class="path-item" *ngIf="displayExportPath" [title]="displayExportPath">
+    <i class="fas fa-upload"></i>
+    <div class="path-content">
+      <span class="path-label">Exportado para:</span>
+      <span class="path-value">{{ getShortPath(displayExportPath) }}</span>
+    </div>
+    <button
+      class="btn-icon"
+      (click)="copyPath(displayExportPath, $event)"
+      title="Copiar caminho completo">
+      <i class="fas fa-copy"></i>
+    </button>
+  </div>
+</div>

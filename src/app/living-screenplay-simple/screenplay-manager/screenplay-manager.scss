@@ -214,6 +214,32 @@
   }
 }
 
+// File path section
+.file-path-section {
+  padding: 12px 24px;
+  background: #f8f9fa;
+  border-top: 1px solid #e1e4e8;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.file-path-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.file-path-value {
+  font-size: 13px;
+  color: #374151;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: white;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  word-break: break-all;
+}
+
 // Modal footer
 .modal-footer {
   padding: 16px 24px;

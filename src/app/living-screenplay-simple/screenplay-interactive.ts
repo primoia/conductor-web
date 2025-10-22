@@ -15,6 +15,11 @@ import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
 import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
 import { AgentGameComponent } from './agent-game/agent-game.component';
+import { SaveStatusComponent } from './save-status/save-status.component';
+import { FilePathInfoComponent } from './file-path-info/file-path-info.component';
+import { ConflictResolutionModalComponent, ConflictResolution } from './conflict-resolution-modal/conflict-resolution-modal.component';
+import { NotificationToastComponent } from './notification-toast/notification-toast.component';
+import { NotificationService } from '../services/notification.service';
 import { Subscription } from 'rxjs';
 import { LoggingService } from '../services/logging.service';
 import { environment } from '../../environments/environment';
@@ -85,13 +90,28 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
 @Component({
   selector: 'app-screenplay-interactive',
   standalone: true,
-  imports: [CommonModule, FormsModule, InteractiveEditor, AgentCreatorComponent, AgentSelectorModalComponent, AgentPreviewModalComponent, ConductorChatComponent, ScreenplayManager, AgentGameComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    InteractiveEditor,
+    AgentCreatorComponent,
+    AgentSelectorModalComponent,
+    AgentPreviewModalComponent,
+    ConductorChatComponent,
+    ScreenplayManager,
+    AgentGameComponent,
+    SaveStatusComponent,
+    FilePathInfoComponent,
+    ConflictResolutionModalComponent,
+    NotificationToastComponent
+  ],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [
     './screenplay-layout.css',
-    './screenplay-controls.css', 
+    './screenplay-controls.css',
     './screenplay-agents.css',
-    './screenplay-popup.css'
+    './screenplay-popup.css',
+    './screenplay-animations.css'
   ]
 })
 export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
@@ -144,6 +164,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   showExportModal = false;
   exportFilename = '';
 
+  // UI Enhancement: Conflict resolution modal
+  showConflictModal = false;
+  conflictExistingScreenplay: Screenplay | null = null;
+  conflictNewContent: string = '';
+  conflictNewFileName: string = '';
+
+  // UI Enhancement: Save status tracking
+  lastSavedAt: Date | null = null;
+  saveError: string | null = null;
+
   // Delete confirmation modal state
   showDeleteConfirmModal = false;
   agentToDelete: AgentInstance | null = null;
@@ -159,6 +189,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Timeout para debounce
   private updateTimeout: any;
   private autoSaveTimeout: any;
+  
+  // Auto-save configuration
+  private readonly AUTO_SAVE_DELAY = 3000; // 3 segundos
+  private autoSaveEnabled = true;
 
   // Simulates MongoDB 'agent_instances' collection
   private agentInstances = new Map<string, AgentInstance>();
@@ -186,7 +220,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private logging: LoggingService,
-    private http: HttpClient
+    private http: HttpClient,
+    private notificationService: NotificationService
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -455,6 +490,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Load instances from MongoDB
     this.loadInstancesFromMongoDB();
 
+    // Configure file input to accept only .md files
+    this.updateFileInput();
+
     // Define conteúdo inicial no editor, que disparará o evento de sincronização automaticamente
     setTimeout(() => {
       if (this.pendingScreenplayId) {
@@ -552,6 +590,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   async newScreenplayWithDefaultAgent(): Promise<void> {
     this.logging.info('📝 [NEW] Creating new screenplay with default agent', 'ScreenplayInteractive');
     
+    // Ensure current screenplay is saved before creating new one
+    await this.ensureCurrentScreenplaySaved();
+    
     // Clear editor content
     this.editorContent = '';
     this.interactiveEditor.setContent('', true);
@@ -566,22 +607,266 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.clearChatState();
     
     // Create new screenplay in database immediately
-    this.createNewScreenplayImmediately();
+    await this.createNewScreenplayImmediately();
     
     this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
   }
 
   /**
+   * Generate automatic screenplay name with timestamp
+   */
+  private generateScreenplayName(): string {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 19).replace(/[:.]/g, '-');
+    return `Novo Roteiro ${dateStr}`;
+  }
+
+  /**
+   * Schedule auto-save with debounce
+   */
+  private scheduleAutoSave(): void {
+    if (!this.autoSaveEnabled || this.sourceOrigin !== 'database') {
+      return;
+    }
+
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+    }
+    
+    this.autoSaveTimeout = window.setTimeout(() => {
+      if (this.isDirty && this.currentScreenplay) {
+        this.save();
+      }
+    }, this.AUTO_SAVE_DELAY);
+  }
+
+  /**
+   * Ensure current screenplay is saved before transitions
+   */
+  private async ensureCurrentScreenplaySaved(): Promise<void> {
+    if (this.isDirty && this.currentScreenplay && this.sourceOrigin === 'database') {
+      await this.save();
+    }
+  }
+
+  /**
+   * Validate markdown file
+   */
+  private validateMarkdownFile(file: File): boolean {
+    if (!file.name.endsWith('.md')) {
+      this.showError('Apenas arquivos .md são aceitos');
+      return false;
+    }
+    
+    // Validação adicional de conteúdo se necessário
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      this.showError('Arquivo muito grande. Tamanho máximo: 10MB');
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Show error message to user
+   */
+  private showError(message: string): void {
+    alert(message); // TODO: Replace with proper modal component
+  }
+
+  /**
+   * Update file input to accept only .md files
+   */
+  private updateFileInput(): void {
+    const fileInput = this.fileInput?.nativeElement;
+    if (fileInput) {
+      fileInput.accept = '.md';
+    }
+  }
+
+  /**
+   * Generate file key for duplicate detection
+   */
+  private generateFileKey(filePath: string, fileName: string): string {
+    const keyData = `${filePath}:${fileName}`;
+    return btoa(keyData).replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+  /**
+   * Check for duplicates using file key
+   */
+  private async checkForDuplicates(filePath: string, fileName: string): Promise<Screenplay | null> {
+    const fileKey = this.generateFileKey(filePath, fileName);
+    try {
+      const result = await this.screenplayStorage.getByFileKey(fileKey).toPromise();
+      return result || null;
+    } catch (error) {
+      this.logging.error('Error checking for duplicates:', error, 'ScreenplayInteractive');
+      return null;
+    }
+  }
+
+  /**
+   * Handle duplicate detection and resolution
+   */
+  private async handleDuplicateDetection(existingScreenplay: Screenplay, newContent: string, fileName: string): Promise<void> {
+    if (existingScreenplay.content === newContent) {
+      this.logging.info('🔄 [DUPLICATE] Same content detected, loading existing screenplay', 'ScreenplayInteractive');
+      this.loadScreenplayIntoEditor(existingScreenplay);
+    } else {
+      this.logging.warn('⚠️ [DUPLICATE] Different content detected, showing conflict resolution', 'ScreenplayInteractive');
+      this.showDuplicateResolutionModal(existingScreenplay, newContent, fileName);
+    }
+  }
+
+  /**
+   * Show duplicate resolution modal (UI Enhancement)
+   */
+  private showDuplicateResolutionModal(existingScreenplay: Screenplay, newContent: string, fileName: string): void {
+    this.conflictExistingScreenplay = existingScreenplay;
+    this.conflictNewContent = newContent;
+    this.conflictNewFileName = fileName;
+    this.showConflictModal = true;
+  }
+
+  /**
+   * Handle conflict resolution from modal
+   */
+  handleConflictResolution(resolution: ConflictResolution): void {
+    if (!this.conflictExistingScreenplay) return;
+
+    switch (resolution.action) {
+      case 'overwrite':
+        this.overwriteExistingScreenplay(this.conflictExistingScreenplay.id, this.conflictNewContent);
+        this.notificationService.showSuccess('Roteiro sobrescrito com sucesso');
+        break;
+
+      case 'keep-existing':
+        this.loadScreenplayIntoEditor(this.conflictExistingScreenplay);
+        this.notificationService.showInfo('Roteiro existente carregado');
+        break;
+
+      case 'rename':
+        if (resolution.newName) {
+          this.createAndLinkScreenplayAutomatically(this.conflictNewContent, resolution.newName);
+          this.notificationService.showSuccess(`Roteiro criado com o nome "${resolution.newName}"`);
+        }
+        break;
+
+      case 'cancel':
+        this.notificationService.showInfo('Importação cancelada');
+        break;
+    }
+
+    // Reset conflict state
+    this.showConflictModal = false;
+    this.conflictExistingScreenplay = null;
+    this.conflictNewContent = '';
+    this.conflictNewFileName = '';
+  }
+
+  /**
+   * Overwrite existing screenplay with new content
+   */
+  private overwriteExistingScreenplay(screenplayId: string, newContent: string): void {
+    this.screenplayStorage.updateScreenplay(screenplayId, {
+      content: newContent
+    }).subscribe({
+      next: (updatedScreenplay) => {
+        this.logging.info('✅ [OVERWRITE] Screenplay updated successfully', 'ScreenplayInteractive');
+        this.loadScreenplayIntoEditor(updatedScreenplay);
+      },
+      error: (error) => {
+        this.logging.error('❌ [OVERWRITE] Failed to update screenplay:', error, 'ScreenplayInteractive');
+        this.showError('Falha ao sobrescrever roteiro existente');
+      }
+    });
+  }
+
+  /**
+   * Show rename modal for current screenplay
+   */
+  showRenameModal(): void {
+    if (!this.currentScreenplay) {
+      this.showError('Nenhum roteiro carregado para renomear');
+      return;
+    }
+
+    const newName = prompt('Novo nome do roteiro:', this.currentScreenplay.name);
+    if (newName && newName.trim() && newName !== this.currentScreenplay.name) {
+      this.renameCurrentScreenplay(newName.trim());
+    }
+  }
+
+  /**
+   * Rename current screenplay
+   */
+  private renameCurrentScreenplay(newName: string): void {
+    if (!this.currentScreenplay) {
+      return;
+    }
+
+    // Check if name already exists
+    this.screenplayStorage.nameExists(newName).subscribe({
+      next: (exists) => {
+        if (exists) {
+          this.showError(`O nome "${newName}" já existe. Escolha outro nome.`);
+          return;
+        }
+
+        // Proceed with rename
+        this.screenplayStorage.updateScreenplay(this.currentScreenplay!.id, {
+          name: newName
+        }).subscribe({
+          next: (updatedScreenplay) => {
+            this.logging.info('✅ [RENAME] Screenplay renamed successfully', 'ScreenplayInteractive');
+            this.currentScreenplay = updatedScreenplay;
+            this.logging.info(`✅ [RENAME] Renamed to: ${newName}`, 'ScreenplayInteractive');
+          },
+          error: (error) => {
+            this.logging.error('❌ [RENAME] Failed to rename screenplay:', error, 'ScreenplayInteractive');
+            this.showError('Falha ao renomear roteiro');
+          }
+        });
+      },
+      error: (error) => {
+        this.logging.error('❌ [RENAME] Failed to check name existence:', error, 'ScreenplayInteractive');
+        this.showError('Falha ao verificar disponibilidade do nome');
+      }
+    });
+  }
+
+  /**
+   * Ensure unique name by checking against existing screenplays
+   */
+  private async ensureUniqueName(baseName: string): Promise<string> {
+    let name = baseName;
+    let counter = 1;
+    
+    // Check if name exists by trying to find screenplays with similar names
+    const existingScreenplays = await this.screenplayStorage.getScreenplays('', 1, 1000).toPromise();
+    if (existingScreenplays?.items) {
+      while (existingScreenplays.items.some(s => s.name === name)) {
+        const nameWithoutExt = baseName.replace('.md', '');
+        name = `${nameWithoutExt}-${counter}`;
+        counter++;
+      }
+    }
+    
+    return name;
+  }
+
+  /**
    * Create new screenplay in database immediately and update URL
    */
-  private createNewScreenplayImmediately(): void {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const defaultName = `novo-roteiro-${timestamp}`;
+  private async createNewScreenplayImmediately(): Promise<void> {
+    const baseName = this.generateScreenplayName();
+    const uniqueName = await this.ensureUniqueName(baseName);
     
-    this.logging.info(`💾 [IMMEDIATE] Creating new screenplay immediately: ${defaultName}`, 'ScreenplayInteractive');
+    this.logging.info(`💾 [IMMEDIATE] Creating new screenplay immediately: ${uniqueName}`, 'ScreenplayInteractive');
     
     this.screenplayStorage.createScreenplay({
-      name: defaultName,
+      name: uniqueName,
       content: '',
       description: `Criado em ${new Date().toLocaleDateString()}`
     }).subscribe({
@@ -619,7 +904,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  openScreenplayManager(): void {
+  async openScreenplayManager(): Promise<void> {
+    // Ensure current screenplay is saved before opening manager
+    await this.ensureCurrentScreenplaySaved();
+    
     this.showScreenplayManager = true;
   }
 
@@ -680,7 +968,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * SAGA-005 v2: Import markdown file from disk with automatic MongoDB creation
    * Files are automatically saved to MongoDB unless there's a conflict
    */
-  importFromDisk(): void {
+  async importFromDisk(): Promise<void> {
+    // Ensure current screenplay is saved before importing
+    await this.ensureCurrentScreenplaySaved();
+    
     this.fileInput.nativeElement.click();
   }
 
@@ -692,6 +983,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
+      
+      // Validate file before processing
+      if (!this.validateMarkdownFile(file)) {
+        return;
+      }
+      
       const reader = new FileReader();
 
       reader.onload = (e) => {
@@ -704,69 +1001,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           preview: content.substring(0, 100)
         });
 
-        // Check if screenplay with same name exists in MongoDB
-        // First, try to get all screenplays to see what's really there
-        this.logging.info('🔍 [CONFLICT] Starting conflict check...', 'ScreenplayInteractive');
-        this.screenplayStorage.getScreenplays('', 1, 100).subscribe({
-          next: (response) => {
-            this.logging.info('🔍 [CONFLICT] Checking for existing screenplays:', 'ScreenplayInteractive', {
-              lookingFor: filename,
-              totalFound: response.items.length,
-              existingNames: response.items.map(item => item.name)
-            });
-            
-            // More robust comparison - check exact match and also check for similar names
-            const existingScreenplay = response.items.find(item => {
-              const exactMatch = item.name === filename;
-              const similarMatch = item.name.toLowerCase() === filename.toLowerCase();
-              this.logging.debug(`   - Exact match "${item.name}" === "${filename}": ${exactMatch}`, 'ScreenplayInteractive');
-              this.logging.debug(`   - Similar match "${item.name.toLowerCase()}" === "${filename.toLowerCase()}": ${similarMatch}`, 'ScreenplayInteractive');
-              return exactMatch;
-            });
-            
-            this.logging.debug('   - Found existing?', 'ScreenplayInteractive', !!existingScreenplay);
-            if (existingScreenplay) {
-              this.logging.debug('   - Existing screenplay ID:', 'ScreenplayInteractive', existingScreenplay.id);
-              this.logging.debug('   - Existing screenplay name:', 'ScreenplayInteractive', existingScreenplay.name);
-            }
-
-            if (existingScreenplay) {
-              this.logging.info('⚠️ [CONFLICT] Potential conflict detected, loading full screenplay to verify...', 'ScreenplayInteractive', {
-                existingId: existingScreenplay.id,
-                existingName: existingScreenplay.name
-              });
-              
-              // Load full screenplay to check content
-              this.screenplayStorage.getScreenplay(existingScreenplay.id).subscribe({
-                next: (fullScreenplay) => {
-                  this.logging.debug('   - Full screenplay content length:', 'ScreenplayInteractive', fullScreenplay.content?.length || 0);
-                  this.logging.debug('   - Full screenplay content preview:', 'ScreenplayInteractive', fullScreenplay.content?.substring(0, 100));
-                  
-                  // Check if the existing screenplay is actually different
-                  if (fullScreenplay.content === content) {
-                    this.logging.info('🔄 [CONFLICT] Same content detected, loading existing screenplay', 'ScreenplayInteractive');
-                    this.loadScreenplayIntoEditor(fullScreenplay);
-                  } else {
-                    this.logging.warn('⚠️ [CONFLICT] Different content detected, showing conflict modal', 'ScreenplayInteractive');
-                    this.handleScreenplayConflict(fullScreenplay, content, filename);
-                  }
-                },
-                error: (error: any) => {
-                  this.logging.error('❌ Erro ao carregar roteiro completo:', error, 'ScreenplayInteractive');
-                  this.createAndLinkScreenplayAutomatically(content, filename);
-                }
-              });
-            } else {
-              this.logging.info('✅ [CONFLICT] No conflict detected, creating new screenplay', 'ScreenplayInteractive');
-              // No conflict - automatically create in MongoDB
-              this.createAndLinkScreenplayAutomatically(content, filename);
-            }
-          },
-          error: (error: any) => {
-            this.logging.error('❌ Erro ao verificar roteiros existentes:', error, 'ScreenplayInteractive');
-            // Fallback: create automatically
+        // Use new duplicate detection system
+        this.logging.info('🔍 [DUPLICATE] Starting duplicate detection...', 'ScreenplayInteractive');
+        this.checkForDuplicates(file.name, filename).then(existingScreenplay => {
+          if (existingScreenplay) {
+            this.logging.info('⚠️ [DUPLICATE] Duplicate detected, handling resolution...', 'ScreenplayInteractive');
+            this.handleDuplicateDetection(existingScreenplay, content, filename);
+          } else {
+            this.logging.info('✅ [DUPLICATE] No duplicates found, creating new screenplay', 'ScreenplayInteractive');
             this.createAndLinkScreenplayAutomatically(content, filename);
           }
+        }).catch(error => {
+          this.logging.error('❌ [DUPLICATE] Error checking for duplicates:', error, 'ScreenplayInteractive');
+          // Fallback: create automatically
+          this.createAndLinkScreenplayAutomatically(content, filename);
         });
       };
 
@@ -830,15 +1078,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Validate filename
     if (!cleanFilename || cleanFilename.length === 0) {
-      this.logging.error('❌ [AUTO] Nome de arquivo inválido após limpeza', undefined, 'ScreenplayInteractive');
+      this.logging.error('❌ [AUTO] Nome de arquivo inválido após limpeza', null, 'ScreenplayInteractive');
       this.loadAsNewScreenplay(content, 'arquivo-importado');
       return;
     }
 
+    // Generate file key for duplicate detection
+    const fileKey = this.generateFileKey(filename, cleanFilename);
+
     this.screenplayStorage.createScreenplay({
       name: cleanFilename,
       content: content,
-      description: `Importado do disco em ${new Date().toLocaleDateString()}`
+      description: `Importado do disco em ${new Date().toLocaleDateString()}`,
+      fileKey: fileKey,
+      importPath: filename
     }).subscribe({
       next: (newScreenplay) => {
         this.logging.info(`✅ [AUTO] Roteiro criado: ${newScreenplay.id}`, 'ScreenplayInteractive', {
@@ -857,7 +1110,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           version: newScreenplay.version || 1,
           createdAt: newScreenplay.createdAt || new Date().toISOString(),
           updatedAt: newScreenplay.updatedAt || new Date().toISOString(),
-          isDeleted: false
+          isDeleted: false,
+          fileKey: fileKey,
+          importPath: filename
         };
 
         this.loadScreenplayIntoEditor(screenplayWithDiskContent);
@@ -1049,7 +1304,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   /**
    * SAGA-005: Export current markdown content to disk as a file
    */
-  exportToDisk(): void {
+  async exportToDisk(): Promise<void> {
+    // Ensure current screenplay is saved before exporting
+    await this.ensureCurrentScreenplaySaved();
+    
     // Get current content
     const content = this.generateMarkdownForSave();
 
@@ -1069,6 +1327,22 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     document.body.appendChild(a);
     a.click();
 
+    // Store the file path for future reference
+    if (this.currentScreenplay) {
+      this.currentScreenplay.filePath = filename;
+      // Update the screenplay in the database with the file path
+      this.screenplayStorage.updateScreenplay(this.currentScreenplay.id, {
+        filePath: filename
+      }).subscribe({
+        next: () => {
+          this.logging.info('📁 Caminho do arquivo salvo no banco:', 'ScreenplayInteractive', filename);
+        },
+        error: (error) => {
+          this.logging.error('❌ Erro ao salvar caminho do arquivo:', error, 'ScreenplayInteractive');
+        }
+      });
+    }
+
     // Cleanup
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
@@ -1079,7 +1353,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Open export modal with default filename
    */
-  openExportModal(): void {
+  async openExportModal(): Promise<void> {
+    // Ensure current screenplay is saved before opening export modal
+    await this.ensureCurrentScreenplaySaved();
+    
     // Set default filename
     let filename = this.currentScreenplay?.name || this.currentFileName || 'roteiro-vivo';
     if (filename.endsWith('.md')) {
@@ -1131,6 +1408,22 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         const writable = await handle.createWritable();
         await writable.write(content);
         await writable.close();
+
+        // Store the file path for future reference
+        if (this.currentScreenplay) {
+          this.currentScreenplay.filePath = filename;
+          // Update the screenplay in the database with the file path
+          this.screenplayStorage.updateScreenplay(this.currentScreenplay.id, {
+            filePath: filename
+          }).subscribe({
+            next: () => {
+              this.logging.info('📁 Caminho do arquivo salvo no banco:', 'ScreenplayInteractive', filename);
+            },
+            error: (error) => {
+              this.logging.error('❌ Erro ao salvar caminho do arquivo:', error, 'ScreenplayInteractive');
+            }
+          });
+        }
 
         this.logging.info('📤 Arquivo exportado com sucesso:', 'ScreenplayInteractive', filename);
       } else {
@@ -1196,13 +1489,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   /**
    * SAGA-005 v2: Simplified save method - disk files are automatically converted to database
    */
-  save(): void {
+  async save(): Promise<void> {
     this.logging.info(`💾 [SAVE] Intelligent save - sourceOrigin: ${this.sourceOrigin}`, 'ScreenplayInteractive');
 
     if (!this.isDirty) {
       this.logging.info('⏭️ [SAVE] No changes to save', 'ScreenplayInteractive');
       return;
     }
+
+    // Ensure current screenplay is saved before any transitions
+    await this.ensureCurrentScreenplaySaved();
 
     switch (this.sourceOrigin) {
       case 'database':
@@ -1471,13 +1767,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.logging.info('⏭️ No screenplay loaded', 'ScreenplayInteractive');
       return;
     }
-    
+
     if (!this.isDirty) {
       this.logging.info('⏭️ No changes to save', 'ScreenplayInteractive');
       return;
     }
 
     this.isSaving = true;
+    this.saveError = null;
 
     // Get current content from editor
     const currentContent = this.generateMarkdownForSave();
@@ -1489,12 +1786,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.currentScreenplay = updatedScreenplay;
         this.isDirty = false;
         this.isSaving = false;
+        this.lastSavedAt = new Date();
+        this.saveError = null;
         this.logging.info(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`, 'ScreenplayInteractive');
+        this.notificationService.showSuccess(`Roteiro salvo com sucesso`);
       },
       error: (error) => {
         this.isSaving = false;
+        this.saveError = 'Falha ao salvar o roteiro';
         this.logging.error('❌ Failed to save screenplay:', error, 'ScreenplayInteractive');
-        alert('Falha ao salvar o roteiro. Tente novamente.');
+        this.notificationService.showError('Falha ao salvar o roteiro. Tente novamente.');
       }
     });
   }
@@ -1943,14 +2244,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       // Passa o conteúdo mais recente para a lógica de sincronização
       this.syncAgentsWithMarkdown(newContent);
 
-      // Auto-save: only for database-linked screenplays and only after user interaction
-      if (this.isDirty && this.sourceOrigin === 'database' && this.currentScreenplay) {
-        clearTimeout(this.autoSaveTimeout);
-        this.autoSaveTimeout = setTimeout(() => {
-          this.logging.info('💾 Auto-saving screenplay...', 'ScreenplayInteractive');
-          this.save();
-        }, 3000);
-      }
+      // Schedule auto-save using the new intelligent system
+      this.scheduleAutoSave();
     }, 1000);
   }
 
@@ -3144,7 +3439,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * SAGA-006: Hide agent instead of deleting (for system default agents)
    */
   hideAgent(instanceId: string): void {
-    // ... existing code ...
+    const instance = this.agentInstances.get(instanceId);
+    if (instance) {
+      instance.is_hidden = true;
+      this.logging.info('👻 Agent hidden:', 'ScreenplayInteractive', instanceId);
+    }
   }
-
 }

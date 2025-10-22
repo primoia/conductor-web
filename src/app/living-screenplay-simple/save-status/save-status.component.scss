@@ -1,0 +1,90 @@
+.save-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+
+  i {
+    font-size: 14px;
+  }
+
+  .status-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .status-text {
+    font-weight: 500;
+  }
+
+  .last-saved {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+
+  .error-message {
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  // Status states
+  &.saved {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+
+    i {
+      color: #10b981;
+    }
+  }
+
+  &.dirty {
+    color: #f59e0b;
+    background-color: rgba(245, 158, 11, 0.1);
+
+    i {
+      color: #f59e0b;
+    }
+  }
+
+  &.saving {
+    color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.1);
+
+    i {
+      color: #3b82f6;
+    }
+  }
+
+  &.error {
+    color: #ef4444;
+    background-color: rgba(239, 68, 68, 0.1);
+
+    i {
+      color: #ef4444;
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .save-status {
+    font-size: 12px;
+    padding: 4px 8px;
+
+    i {
+      font-size: 12px;
+    }
+
+    .last-saved,
+    .error-message {
+      font-size: 10px;
+    }
+  }
+}

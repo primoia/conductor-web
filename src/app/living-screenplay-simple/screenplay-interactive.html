@@ -12,7 +12,7 @@
             <div *ngIf="isLoading" class="toolbar-loading">
               <span>Carregando...</span>
             </div>
-            <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md,.txt" />
+            <input type="file" #fileInput hidden (change)="handleFileSelect($event)" accept=".md" />
 
             <!-- Toolbar Buttons -->
             <div class="toolbar-buttons">
@@ -49,6 +49,20 @@
                 (click)="openExportModal()">
                 📤
               </button>
+            </div>
+
+            <!-- UI Enhancement: Save Status and File Path Info -->
+            <div class="toolbar-status-section">
+              <app-save-status
+                [isDirty]="isDirty"
+                [isSaving]="isSaving"
+                [lastSaved]="lastSavedAt"
+                [error]="saveError">
+              </app-save-status>
+
+              <app-file-path-info
+                [screenplay]="currentScreenplay">
+              </app-file-path-info>
             </div>
           </div>
 
@@ -173,6 +187,7 @@
       <!-- Screenplay Manager Modal -->
       <app-screenplay-manager
         [isVisible]="showScreenplayManager"
+        [currentFilePath]="currentScreenplay?.filePath || null"
         (close)="closeScreenplayManager()"
         (action)="onScreenplayManagerAction($event)">
       </app-screenplay-manager>
@@ -275,3 +290,15 @@
         </div>
       </div>
     </div>
+
+    <!-- UI Enhancement: Conflict Resolution Modal -->
+    <app-conflict-resolution-modal
+      [isVisible]="showConflictModal"
+      [existingScreenplay]="conflictExistingScreenplay"
+      [newFileName]="conflictNewFileName"
+      [newContent]="conflictNewContent"
+      (resolve)="handleConflictResolution($event)">
+    </app-conflict-resolution-modal>
+
+    <!-- UI Enhancement: Notification Toast -->
+    <app-notification-toast></app-notification-toast>

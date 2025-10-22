@@ -1,0 +1,110 @@
+<div class="modal-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="header-content">
+        <i class="fas fa-exclamation-triangle"></i>
+        <h3>Conflito de Arquivo Detectado</h3>
+      </div>
+      <button class="close-btn" (click)="onCancel()" title="Fechar">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="conflict-info">
+        <p class="main-message">
+          Um roteiro com o mesmo nome já existe no sistema:
+        </p>
+
+        <div class="file-comparison">
+          <div class="file-info existing">
+            <div class="file-header">
+              <i class="fas fa-file-alt"></i>
+              <strong>Roteiro Existente</strong>
+            </div>
+            <div class="file-details">
+              <div class="detail-item">
+                <span class="label">Nome:</span>
+                <span class="value">{{ existingScreenplay?.name }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Tamanho:</span>
+                <span class="value">{{ existingContentLength }} caracteres</span>
+              </div>
+              <div class="detail-item" *ngIf="existingScreenplay?.updatedAt">
+                <span class="label">Modificado:</span>
+                <span class="value">{{ existingScreenplay?.updatedAt | date:'short' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="comparison-arrow">
+            <i class="fas fa-exchange-alt"></i>
+          </div>
+
+          <div class="file-info new">
+            <div class="file-header">
+              <i class="fas fa-file-import"></i>
+              <strong>Novo Arquivo</strong>
+            </div>
+            <div class="file-details">
+              <div class="detail-item">
+                <span class="label">Nome:</span>
+                <span class="value">{{ newFileName }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Tamanho:</span>
+                <span class="value">{{ newContentLength }} caracteres</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">Diferença:</span>
+                <span class="value">{{ contentDifference }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rename-section" *ngIf="showRenameInput">
+        <label for="rename-input">Novo nome para o arquivo:</label>
+        <input
+          id="rename-input"
+          type="text"
+          [(ngModel)]="newName"
+          placeholder="Digite o novo nome"
+          (keyup.enter)="onRename()"
+          (keyup.escape)="showRenameInput = false"
+          autofocus>
+      </div>
+
+      <div class="modal-actions" *ngIf="!showRenameInput">
+        <button class="btn btn-danger" (click)="onOverwrite()" title="Substituir o roteiro existente pelo novo">
+          <i class="fas fa-sync-alt"></i>
+          Sobrescrever
+        </button>
+
+        <button class="btn btn-secondary" (click)="onKeepExisting()" title="Manter o roteiro existente e descartar o novo">
+          <i class="fas fa-ban"></i>
+          Manter Existente
+        </button>
+
+        <button class="btn btn-primary" (click)="onShowRename()" title="Salvar com um nome diferente">
+          <i class="fas fa-edit"></i>
+          Renomear
+        </button>
+      </div>
+
+      <div class="modal-actions" *ngIf="showRenameInput">
+        <button class="btn btn-secondary" (click)="showRenameInput = false">
+          <i class="fas fa-arrow-left"></i>
+          Voltar
+        </button>
+
+        <button class="btn btn-primary" (click)="onRename()" [disabled]="!newName.trim()">
+          <i class="fas fa-check"></i>
+          Confirmar Renomeação
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,134 @@
+.file-path-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background-color: rgba(59, 130, 246, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+
+  .path-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+
+    > i {
+      font-size: 14px;
+      color: #3b82f6;
+      flex-shrink: 0;
+    }
+
+    .path-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+
+      .path-label {
+        font-size: 11px;
+        color: #6b7280;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .path-value {
+        font-size: 13px;
+        color: #1f2937;
+        font-family: 'Courier New', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+
+    .btn-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      background: transparent;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+
+      i {
+        font-size: 12px;
+        color: #3b82f6;
+      }
+
+      &:hover {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-color: #3b82f6;
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .file-path-info {
+    background-color: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+
+    .path-item {
+      background-color: rgba(0, 0, 0, 0.3);
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      .path-content {
+        .path-label {
+          color: #9ca3af;
+        }
+
+        .path-value {
+          color: #e5e7eb;
+        }
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .file-path-info {
+    padding: 10px;
+
+    .path-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+
+      .path-content {
+        width: 100%;
+
+        .path-value {
+          font-size: 12px;
+        }
+      }
+
+      .btn-icon {
+        align-self: flex-end;
+      }
+    }
+  }
+}
