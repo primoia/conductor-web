@@ -65,6 +65,19 @@
   overflow: hidden;
   transition: width 0.1s ease-out;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+}
+
+.chat-panel app-conductor-chat {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-panel .agent-launcher-dock {
+  position: static;
+  flex-shrink: 0;
 }
 
 .screenplay-canvas {

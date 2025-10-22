@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -31,31 +31,35 @@ import { ChatMode } from '../../models/chat.models';
       <!-- Input group -->
       <div class="chat-input-container">
         <div class="input-group">
-          <input
-            type="text"
+          <textarea
+            #messageInput
             [(ngModel)]="message"
-            (keypress)="onKeyPress($event)"
-            placeholder="Digite ou fale sua mensagem..."
+            (keydown)="onKeyDown($event)"
+            (input)="adjustTextareaHeight()"
+            placeholder="Digite ou fale sua mensagem... (Shift+Enter para nova linha)"
             [disabled]="isLoading"
             autocomplete="off"
-          />
-          <button
-            class="mic-button"
-            [class.recording]="isRecording"
-            (click)="toggleRecording()"
-            [disabled]="isLoading || !speechSupported"
-            [title]="getMicTitle()"
-          >
-            {{ isRecording ? '🔴' : '🎤' }}
-          </button>
-          <button
-            class="send-button"
-            (click)="sendMessage()"
-            [disabled]="isLoading || !message.trim()"
-          >
-            <span *ngIf="!isLoading">Enviar</span>
-            <span *ngIf="isLoading" class="spinner">⏳</span>
-          </button>
+            rows="1"
+          ></textarea>
+          <div class="button-group">
+            <button
+              class="mic-button"
+              [class.recording]="isRecording"
+              (click)="toggleRecording()"
+              [disabled]="isLoading || !speechSupported"
+              [title]="getMicTitle()"
+            >
+              {{ isRecording ? '🔴' : '🎤' }}
+            </button>
+            <button
+              class="send-button"
+              (click)="sendMessage()"
+              [disabled]="isLoading || !message.trim()"
+            >
+              <span *ngIf="!isLoading">Enviar</span>
+              <span *ngIf="isLoading" class="spinner">⏳</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -114,26 +118,39 @@ import { ChatMode } from '../../models/chat.models';
     .input-group {
       display: flex;
       gap: 8px;
-      align-items: center;
+      align-items: flex-end;
     }
 
-    .input-group input {
+    .input-group textarea {
       flex: 1;
       padding: 12px 16px;
       border: 2px solid #e1e4e8;
-      border-radius: 24px;
+      border-radius: 12px;
       font-size: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.5;
       outline: none;
       transition: border-color 0.2s;
+      resize: none;
+      min-height: 44px;
+      max-height: 200px;
+      overflow-y: auto;
     }
 
-    .input-group input:focus {
+    .input-group textarea:focus {
       border-color: #a8b9ff;
     }
 
-    .input-group input:disabled {
+    .input-group textarea:disabled {
       background: #f7fafc;
       cursor: not-allowed;
+    }
+
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-self: flex-end;
     }
 
     .mic-button,
@@ -207,11 +224,13 @@ import { ChatMode } from '../../models/chat.models';
     }
   `]
 })
-export class ChatInputComponent implements OnInit, OnDestroy {
+export class ChatInputComponent implements OnInit, OnDestroy, AfterViewInit {
   @Input() isLoading: boolean = false;
   @Input() mode: ChatMode = 'ask';
   @Output() messageSent = new EventEmitter<string>();
   @Output() modeChanged = new EventEmitter<ChatMode>();
+
+  @ViewChild('messageInput') messageInput!: ElementRef<HTMLTextAreaElement>;
 
   message: string = '';
   selectedMode: ChatMode = 'ask';
@@ -244,6 +263,13 @@ export class ChatInputComponent implements OnInit, OnDestroy {
     );
   }
 
+  ngAfterViewInit(): void {
+    // Initial height adjustment
+    setTimeout(() => {
+      this.adjustTextareaHeight();
+    }, 0);
+  }
+
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
@@ -252,14 +278,33 @@ export class ChatInputComponent implements OnInit, OnDestroy {
     if (this.message.trim() && !this.isLoading) {
       this.messageSent.emit(this.message.trim());
       this.message = '';
+      // Reset textarea height after sending
+      setTimeout(() => {
+        this.adjustTextareaHeight();
+      }, 0);
     }
   }
 
-  onKeyPress(event: KeyboardEvent): void {
+  onKeyDown(event: KeyboardEvent): void {
+    // Enter without Shift = send message
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.sendMessage();
     }
+    // Shift+Enter = new line (default behavior, no preventDefault needed)
+  }
+
+  adjustTextareaHeight(): void {
+    if (!this.messageInput) return;
+
+    const textarea = this.messageInput.nativeElement;
+
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+
+    // Set new height based on content, with min and max constraints
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, 44), 200);
+    textarea.style.height = `${newHeight}px`;
   }
 
   toggleRecording(): void {

@@ -205,13 +205,12 @@
       <!-- Resizable splitter -->
       <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
 
-      <!-- Chat component -->
+      <!-- Chat Panel with Agent Dock -->
       <div class="chat-panel" [style.width.%]="chatWidth">
         <app-conductor-chat #conductorChat></app-conductor-chat>
-      </div>
 
-      <!-- Agent Launcher Dock -->
-      <div class="agent-launcher-dock">
+        <!-- Agent Launcher Dock -->
+        <div class="agent-launcher-dock">
         <div class="dock-section">
           <div class="dock-section-title">Agents</div>
 
@@ -243,6 +242,7 @@
             (click)="onDockAgentClick(agent)">
             {{ agent.emoji }}
           </button>
+        </div>
         </div>
       </div>
     </div>
