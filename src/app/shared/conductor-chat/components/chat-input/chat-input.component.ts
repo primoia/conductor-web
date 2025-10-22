@@ -43,7 +43,7 @@ import { ChatMode } from '../../models/chat.models';
           ></textarea>
           <div class="button-group">
             <button
-              class="mic-button"
+              class="icon-button mic-button"
               [class.recording]="isRecording"
               (click)="toggleRecording()"
               [disabled]="isLoading || !speechSupported"
@@ -52,12 +52,13 @@ import { ChatMode } from '../../models/chat.models';
               {{ isRecording ? '🔴' : '🎤' }}
             </button>
             <button
-              class="send-button"
+              class="icon-button send-button"
               (click)="sendMessage()"
               [disabled]="isLoading || !message.trim()"
+              [title]="isLoading ? 'Enviando...' : 'Enviar mensagem'"
             >
-              <span *ngIf="!isLoading">Enviar</span>
-              <span *ngIf="isLoading" class="spinner">⏳</span>
+              <span *ngIf="!isLoading">▶️</span>
+              <span *ngIf="isLoading">⏳</span>
             </button>
           </div>
         </div>
@@ -149,31 +150,35 @@ import { ChatMode } from '../../models/chat.models';
     .button-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       align-self: flex-end;
+      margin-left: 4px;
     }
 
-    .mic-button,
-    .send-button {
-      padding: 10px 16px;
+    .icon-button {
+      width: 32px;
+      height: 32px;
+      padding: 0;
       border: none;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: 600;
+      border-radius: 50%;
+      font-size: 16px;
       cursor: pointer;
       transition: all 0.2s;
       outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
     .mic-button {
       background: #f0f0f0;
       color: #333;
-      min-width: 44px;
     }
 
     .mic-button:hover:not(:disabled) {
       background: #e0e0e0;
-      transform: scale(1.05);
+      transform: scale(1.1);
     }
 
     .mic-button.recording {
@@ -185,24 +190,17 @@ import { ChatMode } from '../../models/chat.models';
     .send-button {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      min-width: 80px;
     }
 
     .send-button:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     }
 
-    .mic-button:disabled,
-    .send-button:disabled {
+    .icon-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
-    }
-
-    .spinner {
-      display: inline-block;
-      animation: spin 1s linear infinite;
     }
 
     @keyframes pulse {
@@ -211,15 +209,6 @@ import { ChatMode } from '../../models/chat.models';
       }
       50% {
         opacity: 0.7;
-      }
-    }
-
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-      to {
-        transform: rotate(360deg);
       }
     }
   `]
