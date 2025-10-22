@@ -49,20 +49,12 @@
                 (click)="openExportModal()">
                 📤
               </button>
-            </div>
-
-            <!-- UI Enhancement: Save Status and File Path Info -->
-            <div class="toolbar-status-section">
-              <app-save-status
-                [isDirty]="isDirty"
-                [isSaving]="isSaving"
-                [lastSaved]="lastSavedAt"
-                [error]="saveError">
-              </app-save-status>
-
-              <app-file-path-info
-                [screenplay]="currentScreenplay">
-              </app-file-path-info>
+              <button
+                class="toolbar-btn settings-btn"
+                title="Informações e Atalhos"
+                (click)="toggleScreenplayInfoModal()">
+                ⚙️
+              </button>
             </div>
           </div>
 
@@ -97,21 +89,11 @@
             </div>
 
             <div class="footer-section footer-center">
-              <span class="footer-shortcuts" title="Atalhos de teclado">
-                <span class="shortcut-group">
-                  <kbd>Ctrl+S</kbd> Salvar
-                  <kbd>Ctrl+N</kbd> Novo
-                </span>
-                <span class="separator">•</span>
-                <span class="shortcut-group">
-                  <kbd>Ctrl+O</kbd> Abrir
-                  <kbd>Ctrl+Shift+A</kbd> Agente
-                </span>
-              </span>
+              <!-- Vazio por enquanto -->
             </div>
 
             <div class="footer-section footer-right">
-              <!-- Espaço reservado para futuras funcionalidades -->
+              <!-- Vazio por enquanto -->
             </div>
           </div>
         </div>
@@ -299,6 +281,49 @@
       [newContent]="conflictNewContent"
       (resolve)="handleConflictResolution($event)">
     </app-conflict-resolution-modal>
+
+    <!-- Screenplay Info Modal -->
+    <div class="modal-overlay" *ngIf="showScreenplayInfoModal" (click)="closeScreenplayInfoModal()" (keydown.escape)="closeScreenplayInfoModal()">
+      <div class="screenplay-info-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>⌨️ Atalhos de Teclado</h3>
+          <button class="close-btn" (click)="closeScreenplayInfoModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="shortcuts-grid">
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>S</kbd>
+              <span class="shortcut-desc">Salvar roteiro</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>N</kbd>
+              <span class="shortcut-desc">Novo roteiro</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>O</kbd>
+              <span class="shortcut-desc">Abrir roteiro do banco</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd>
+              <span class="shortcut-desc">Adicionar agente</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>E</kbd>
+              <span class="shortcut-desc">Exportar para disco</span>
+            </div>
+            <div class="shortcut-item">
+              <kbd>Ctrl</kbd> + <kbd>I</kbd>
+              <span class="shortcut-desc">Importar do disco</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary" (click)="closeScreenplayInfoModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
 
     <!-- UI Enhancement: Notification Toast -->
     <app-notification-toast></app-notification-toast>

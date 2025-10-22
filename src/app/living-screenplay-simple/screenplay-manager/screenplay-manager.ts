@@ -211,7 +211,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
    * Show create dialog
    */
   showCreateScreen(): void {
-    this.newScreenplayName = '';
+    // Generate a unique default name with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    this.newScreenplayName = `novo-roteiro-${timestamp}`;
     this.showCreateDialog = true;
   }
 

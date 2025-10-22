@@ -178,14 +178,14 @@
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 6px 16px;
+  padding: 8px 16px;
   background: #f8f9fa;
   color: #4a5568;
   border-top: 1px solid #e1e4e8;
   flex-shrink: 0;
   font-size: 11px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-  min-height: 28px;
+  min-height: 36px;
 }
 
 .footer-section {
@@ -559,6 +559,95 @@
 
 .btn-export:active {
   transform: translateY(0);
+}
+
+/* Settings Button (Engrenagem) */
+.toolbar-btn.settings-btn {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+
+.toolbar-btn.settings-btn:hover {
+  background: #bbdefb;
+  border-color: #42a5f5;
+  box-shadow: 0 4px 12px rgba(66, 165, 245, 0.3);
+}
+
+/* Screenplay Info Modal */
+.screenplay-info-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+}
+
+.screenplay-info-modal .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.info-section {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.info-section h4 {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e1e4e8;
+}
+
+.shortcut-item kbd {
+  display: inline-block;
+  padding: 4px 8px;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+  min-width: 32px;
+  text-align: center;
+}
+
+.shortcut-desc {
+  flex: 1;
+  font-size: 13px;
+  color: #4a5568;
 }
 
 /* Responsive adjustments */

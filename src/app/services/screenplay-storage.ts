@@ -221,7 +221,7 @@ export class ScreenplayStorage {
    * Check if a screenplay exists by file key
    */
   getByFileKey(fileKey: string): Observable<Screenplay | null> {
-    return this.getScreenplays('', 1, 1000).pipe(
+    return this.getScreenplays('', 1, 100).pipe(
       map(response => {
         const screenplay = response.items.find(s => s.fileKey === fileKey);
         return screenplay ? screenplay.id : null;
@@ -242,7 +242,7 @@ export class ScreenplayStorage {
    * Check if a screenplay name exists
    */
   nameExists(name: string): Observable<boolean> {
-    return this.getScreenplays('', 1, 1000).pipe(
+    return this.getScreenplays('', 1, 100).pipe(
       map(response => response.items.some(s => s.name === name))
     );
   }

@@ -164,6 +164,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   showExportModal = false;
   exportFilename = '';
 
+  // Screenplay info modal state
+  showScreenplayInfoModal = false;
+
   // UI Enhancement: Conflict resolution modal
   showConflictModal = false;
   conflictExistingScreenplay: Screenplay | null = null;
@@ -848,17 +851,26 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private async ensureUniqueName(baseName: string): Promise<string> {
     let name = baseName;
     let counter = 1;
-    
-    // Check if name exists by trying to find screenplays with similar names
-    const existingScreenplays = await this.screenplayStorage.getScreenplays('', 1, 1000).toPromise();
-    if (existingScreenplays?.items) {
-      while (existingScreenplays.items.some(s => s.name === name)) {
-        const nameWithoutExt = baseName.replace('.md', '');
-        name = `${nameWithoutExt}-${counter}`;
-        counter++;
+
+    try {
+      // Check if name exists by trying to find screenplays with similar names
+      // API limit is max 100, so we use that
+      const existingScreenplays = await this.screenplayStorage.getScreenplays('', 1, 100).toPromise();
+      if (existingScreenplays?.items) {
+        while (existingScreenplays.items.some(s => s.name === name)) {
+          const nameWithoutExt = baseName.replace('.md', '');
+          name = `${nameWithoutExt}-${counter}`;
+          counter++;
+        }
       }
+    } catch (error) {
+      // If the API call fails, just use the base name with a timestamp to ensure uniqueness
+      this.logging.warn('⚠️ [UNIQUE] Failed to check existing names, using timestamp fallback', 'ScreenplayInteractive', error);
+      const timestamp = new Date().getTime();
+      const nameWithoutExt = baseName.replace('.md', '');
+      name = `${nameWithoutExt}-${timestamp}`;
     }
-    
+
     return name;
   }
 
@@ -1381,6 +1393,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Toggle screenplay info modal
+   */
+  toggleScreenplayInfoModal(): void {
+    this.showScreenplayInfoModal = !this.showScreenplayInfoModal;
+  }
+
+  /**
+   * Close screenplay info modal
+   */
+  closeScreenplayInfoModal(): void {
+    this.showScreenplayInfoModal = false;
+  }
+
+  /**
    * Export file with custom filename from modal using File System Access API
    */
   async confirmExport(): Promise<void> {
@@ -1503,20 +1529,17 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Ensure current screenplay is saved before any transitions
-    await this.ensureCurrentScreenplaySaved();
-
     switch (this.sourceOrigin) {
       case 'database':
         // Update existing screenplay in database
         this.saveCurrentScreenplay();
         break;
-      
+
       case 'new':
         // Need to create new screenplay in database
         this.promptCreateNewScreenplay();
         break;
-      
+
       default:
         this.logging.warn('⚠️ [SAVE] Unknown sourceOrigin:', 'ScreenplayInteractive', this.sourceOrigin);
     }
@@ -3144,6 +3167,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    // Close screenplay info modal if open
+    if (this.showScreenplayInfoModal) {
+      this.closeScreenplayInfoModal();
+      event.preventDefault();
+      return;
+    }
+
     // Close delete confirmation modal if open
     if (this.showDeleteConfirmModal) {
       this.closeDeleteConfirmModal();
