@@ -588,28 +588,34 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * SAGA-006: Create a new screenplay with default agent - creates screenplay and instantiates default agent
    */
   async newScreenplayWithDefaultAgent(): Promise<void> {
-    this.logging.info('📝 [NEW] Creating new screenplay with default agent', 'ScreenplayInteractive');
-    
-    // Ensure current screenplay is saved before creating new one
-    await this.ensureCurrentScreenplaySaved();
-    
-    // Clear editor content
-    this.editorContent = '';
-    this.interactiveEditor.setContent('', true);
-    
-    // Clear agents
-    this.agentInstances.clear();
-    this.agents = [];
-    this.updateLegacyAgentsFromInstances();
-    this.updateAvailableEmojis();
-    
-    // SAGA-005 v2: Clear chat when creating new screenplay
-    this.clearChatState();
-    
-    // Create new screenplay in database immediately
-    await this.createNewScreenplayImmediately();
-    
-    this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
+    try {
+      this.logging.info('📝 [NEW] Creating new screenplay with default agent', 'ScreenplayInteractive');
+
+      // Ensure current screenplay is saved before creating new one
+      await this.ensureCurrentScreenplaySaved();
+
+      // Clear editor content
+      this.editorContent = '';
+      this.interactiveEditor.setContent('', true);
+
+      // Clear agents
+      this.agentInstances.clear();
+      this.agents = [];
+      this.updateLegacyAgentsFromInstances();
+      this.updateAvailableEmojis();
+
+      // SAGA-005 v2: Clear chat when creating new screenplay
+      this.clearChatState();
+
+      // Create new screenplay in database immediately
+      await this.createNewScreenplayImmediately();
+
+      this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
+    } catch (error) {
+      this.logging.error('❌ [NEW] Error creating new screenplay:', error, 'ScreenplayInteractive');
+      this.notificationService.showError('Erro ao criar novo roteiro. Verifique o console.');
+      throw error;
+    }
   }
 
   /**
