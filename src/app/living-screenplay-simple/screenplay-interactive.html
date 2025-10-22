@@ -23,6 +23,15 @@
                 📄
               </button>
               <button
+                class="toolbar-btn save-btn-toolbar"
+                [class.saving]="isSaving"
+                [class.dirty]="isDirty"
+                [title]="isSaving ? 'Salvando...' : (isDirty ? 'Salvar' : 'Salvo')"
+                [disabled]="!isDirty"
+                (click)="save()">
+                💾
+              </button>
+              <button
                 class="toolbar-btn open-btn"
                 title="Abrir do Banco..."
                 (click)="openScreenplayManager()">
@@ -33,15 +42,6 @@
                 title="Importar do Disco..."
                 (click)="importFromDisk()">
                 📥
-              </button>
-              <button
-                class="toolbar-btn save-btn-toolbar"
-                [class.saving]="isSaving"
-                [class.dirty]="isDirty"
-                [title]="isSaving ? 'Salvando...' : (isDirty ? 'Salvar' : 'Salvo')"
-                [disabled]="!isDirty"
-                (click)="save()">
-                💾
               </button>
               <button
                 class="toolbar-btn export-btn"
@@ -169,7 +169,6 @@
       <!-- Screenplay Manager Modal -->
       <app-screenplay-manager
         [isVisible]="showScreenplayManager"
-        [currentFilePath]="currentScreenplay?.filePath || null"
         (close)="closeScreenplayManager()"
         (action)="onScreenplayManagerAction($event)">
       </app-screenplay-manager>

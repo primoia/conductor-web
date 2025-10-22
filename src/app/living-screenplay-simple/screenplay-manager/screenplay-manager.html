@@ -54,6 +54,13 @@
         </div>
         <div class="screenplay-actions">
           <button
+            class="action-btn export-btn"
+            (click)="exportScreenplay(screenplay, $event)"
+            title="Exportar para Disco"
+          >
+            📤
+          </button>
+          <button
             class="action-btn rename-btn"
             (click)="showRenameScreen(screenplay, $event)"
             title="Renomear"
@@ -82,25 +89,11 @@
       </div>
     </div>
 
-    <!-- File Path Display -->
-    <div class="file-path-section" *ngIf="currentFilePath">
-      <div class="file-path-label">Caminho do arquivo:</div>
-      <div class="file-path-value">{{ currentFilePath }}</div>
-    </div>
-
-    <!-- File Path Section -->
-    <div class="file-path-section" *ngIf="currentFilePath">
-      <div class="file-path-label">Caminho do arquivo:</div>
-      <div class="file-path-value">{{ currentFilePath }}</div>
-    </div>
 
     <!-- Footer -->
     <div class="modal-footer">
       <button class="btn btn-secondary" (click)="importFromDisk()">
         📥 Importar do Disco
-      </button>
-      <button class="btn btn-secondary" (click)="exportToDisk()" [disabled]="!currentFilePath">
-        📤 Exportar para Disco
       </button>
       <button class="btn btn-primary" (click)="showCreateScreen()">
         ➕ Criar Novo Roteiro
