@@ -1146,29 +1146,28 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
           executions: agent.executionMetrics.totalExecutions
         });
 
-        // Position tooltip - usar altura maior para incluir o instance_id
+        // Position tooltip - centralizado na coluna do meio (screenplay), próximo ao topo
         const tooltipWidth = 320;
         const tooltipHeight = 500; // Aumentado para acomodar todo o conteúdo
-
-        // Calcular posição inicial (à direita do cursor)
-        let tooltipX = event.clientX + 20;
-        let tooltipY = event.clientY - tooltipHeight / 2; // Centralizar verticalmente no cursor
 
         // Obter dimensões da viewport
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Ajustar se ultrapassar borda direita
+        // Calcular posição: centralizado horizontalmente na viewport, próximo ao topo
+        // Assumindo que a coluna do meio ocupa aproximadamente o centro da tela
+        let tooltipX = (viewportWidth / 2) - (tooltipWidth / 2);
+        let tooltipY = 80; // Próximo ao topo, abaixo do header (~60px)
+
+        // Garantir que não ultrapasse as bordas
+        if (tooltipX < 10) {
+          tooltipX = 10;
+        }
         if (tooltipX + tooltipWidth > viewportWidth - 10) {
-          tooltipX = event.clientX - tooltipWidth - 20; // Posicionar à esquerda
+          tooltipX = viewportWidth - tooltipWidth - 10;
         }
 
-        // Ajustar se ultrapassar borda superior
-        if (tooltipY < 10) {
-          tooltipY = 10;
-        }
-
-        // Ajustar se ultrapassar borda inferior
+        // Garantir que não ultrapasse a borda inferior
         if (tooltipY + tooltipHeight > viewportHeight - 10) {
           tooltipY = viewportHeight - tooltipHeight - 10;
         }

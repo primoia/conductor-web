@@ -167,6 +167,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Screenplay info modal state
   showScreenplayInfoModal = false;
 
+  // Working Directory modal state
+  showWorkingDirModal = false;
+  tempWorkingDirectory = '';
+  currentWorkingDirectory: string | null = null;
+  showScreenplaySettings = false;
+
   // UI Enhancement: Conflict resolution modal
   showConflictModal = false;
   conflictExistingScreenplay: Screenplay | null = null;
@@ -1404,6 +1410,84 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   closeScreenplayInfoModal(): void {
     this.showScreenplayInfoModal = false;
+  }
+
+  /**
+   * Toggle screenplay settings menu
+   */
+  toggleScreenplaySettings(): void {
+    this.showScreenplaySettings = !this.showScreenplaySettings;
+  }
+
+  /**
+   * Open working directory modal
+   */
+  openWorkingDirModal(): void {
+    this.showScreenplaySettings = false;
+
+    // Load current working directory
+    if (this.currentScreenplay) {
+      this.currentWorkingDirectory = this.currentScreenplay.workingDirectory || null;
+      this.tempWorkingDirectory = this.currentWorkingDirectory || '';
+    }
+
+    this.showWorkingDirModal = true;
+  }
+
+  /**
+   * Close working directory modal
+   */
+  closeWorkingDirModal(): void {
+    this.showWorkingDirModal = false;
+    this.tempWorkingDirectory = '';
+  }
+
+  /**
+   * Save working directory
+   */
+  saveWorkingDirectory(): void {
+    if (!this.currentScreenplay) {
+      this.notificationService.showError('Nenhum roteiro carregado');
+      return;
+    }
+
+    const newWorkingDir = this.tempWorkingDirectory.trim();
+
+    if (!newWorkingDir) {
+      this.notificationService.showError('Digite um diretório válido');
+      return;
+    }
+
+    // Basic path validation
+    if (!newWorkingDir.startsWith('/')) {
+      this.notificationService.showError('O caminho deve ser absoluto (começar com /)');
+      return;
+    }
+
+    this.logging.info(`Salvando working directory: ${newWorkingDir}`, 'ScreenplayInteractive');
+
+    // Update via API
+    this.screenplayStorage.updateWorkingDirectory(
+      this.currentScreenplay.id,
+      newWorkingDir
+    ).subscribe({
+      next: (result) => {
+        this.logging.info('Working directory salvo com sucesso', 'ScreenplayInteractive');
+
+        // Update local state
+        if (this.currentScreenplay) {
+          this.currentScreenplay.workingDirectory = newWorkingDir;
+          this.currentWorkingDirectory = newWorkingDir;
+        }
+
+        this.notificationService.showSuccess('Diretório de trabalho salvo com sucesso');
+        this.closeWorkingDirModal();
+      },
+      error: (error) => {
+        this.logging.error('Erro ao salvar working directory', error, 'ScreenplayInteractive');
+        this.notificationService.showError('Erro ao salvar diretório de trabalho');
+      }
+    });
   }
 
   /**

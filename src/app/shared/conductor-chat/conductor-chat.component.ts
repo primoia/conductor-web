@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -42,41 +42,24 @@ const DEFAULT_CONFIG: ConductorConfig = {
   template: `
     <div class="conductor-chat">
       <div class="chat-header">
-        <div class="header-content">
+        <div class="header-actions-left">
           <div class="selected-agent" *ngIf="selectedAgentName">
+            <app-status-indicator
+              [isConnected]="chatState.isConnected"
+              [isLoading]="chatState.isLoading"
+            />
             <span class="agent-emoji">{{ selectedAgentEmoji }}</span>
             <span class="agent-name">{{ selectedAgentName }}</span>
           </div>
         </div>
-        <div class="header-actions">
-          <button
-            *ngIf="activeAgentId"
-            class="settings-btn"
-            (click)="toggleAgentOptionsMenu()"
-            title="Opções do agente">
-            ⚙️
-          </button>
-          <app-status-indicator
-            [isConnected]="chatState.isConnected"
-            [isLoading]="chatState.isLoading"
-          />
+        <div class="header-center">
         </div>
-
-        <!-- Agent Options Menu -->
-        <div
-          *ngIf="showAgentOptionsMenu"
-          class="agent-options-menu">
-          <button class="menu-item" (click)="viewAgentContext()">
-            📋 Ver Contexto
-          </button>
-          <button class="menu-item" (click)="editPersona()">
-            ✏️ Editar Persona
-          </button>
-          <button class="menu-item" (click)="editAgentCwd()">
-            📁 Editar diretório
-          </button>
-          <button class="menu-item" (click)="viewAgentDetails()">
-            ℹ️ Ver detalhes
+        <div class="header-actions-right">
+          <button
+            class="header-icon-btn header-info-btn"
+            (click)="toggleHeaderInfoModal()"
+            title="Ajuda e informações">
+            ?
           </button>
         </div>
       </div>
@@ -152,13 +135,80 @@ const DEFAULT_CONFIG: ConductorConfig = {
           </div>
         </div>
 
-        <app-chat-messages
-          [messages]="chatState.messages"
-          [isLoading]="chatState.isLoading"
-          [progressMessage]="progressMessage"
-          [streamingMessage]="streamingMessage"
-          [autoScroll]="config.autoScroll"
-        />
+        <div class="chat-body-content">
+          <app-chat-messages
+            [messages]="chatState.messages"
+            [isLoading]="chatState.isLoading"
+            [progressMessage]="progressMessage"
+            [streamingMessage]="streamingMessage"
+            [autoScroll]="config.autoScroll"
+          />
+
+          <!-- Agent Launcher Dock -->
+          <div class="agent-launcher-dock">
+            <!-- Agent List (scrollable) -->
+            <div class="dock-agents-list">
+              <button
+                *ngFor="let agent of contextualAgents"
+                class="dock-item"
+                [class.active]="activeAgentId === agent.id"
+                [title]="agent.definition?.description || ''"
+                (click)="onDockAgentClick(agent)">
+                {{ agent.emoji }}
+              </button>
+            </div>
+
+            <!-- Separator -->
+            <div class="dock-separator"></div>
+
+            <!-- Action Buttons -->
+            <button
+              class="dock-action-btn add-agent-btn"
+              (click)="onAddAgentClick()"
+              title="Adicionar Agente">
+              ➕
+            </button>
+            <button
+              class="dock-action-btn delete-agent-btn"
+              [disabled]="!activeAgentId"
+              (click)="onDeleteAgentClick()"
+              title="Excluir Agente Selecionado">
+              🗑️
+            </button>
+
+            <!-- Settings Button -->
+            <button
+              class="dock-action-btn settings-btn"
+              *ngIf="activeAgentId"
+              (click)="toggleAgentOptionsMenu()"
+              title="Opções do agente">
+              ⚙️
+            </button>
+
+            <!-- Info Button (ancorado no final) -->
+            <button
+              class="dock-info-btn"
+              (click)="toggleDockInfoModal()"
+              title="O que é a dock de agentes?">
+              ?
+            </button>
+
+            <!-- Agent Options Menu -->
+            <div
+              *ngIf="showAgentOptionsMenu"
+              class="agent-options-menu">
+              <button class="menu-item" (click)="viewAgentContext()">
+                📋 Ver Contexto
+              </button>
+              <button class="menu-item" (click)="editPersona()">
+                ✏️ Editar Persona
+              </button>
+              <button class="menu-item" (click)="editAgentCwd()">
+                📁 Editar diretório
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="chat-footer">
@@ -179,6 +229,116 @@ const DEFAULT_CONFIG: ConductorConfig = {
           (messageSent)="handleSendMessage($event)"
           (modeChanged)="handleModeChange($event)"
         />
+      </div>
+
+      <!-- Dock Info Modal -->
+      <div class="modal-backdrop" *ngIf="showDockInfoModal" (click)="toggleDockInfoModal()">
+        <div class="modal-content dock-info-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h4>📚 Dock de Agentes</h4>
+            <button class="close-btn" (click)="toggleDockInfoModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>A dock lateral exibe todos os agentes instanciados no roteiro.</p>
+
+            <h5>Como Usar</h5>
+            <ul>
+              <li><strong>Clique</strong> em um emoji para ver o histórico do agente</li>
+              <li><strong>Botões do topo:</strong>
+                <ul>
+                  <li>⚙️ Opções do agente ativo</li>
+                </ul>
+              </li>
+              <li><strong>Botões da dock:</strong>
+                <ul>
+                  <li>➕ Adicionar novo agente</li>
+                  <li>🗑️ Excluir agente selecionado</li>
+                  <li>? Informações sobre a dock</li>
+                </ul>
+              </li>
+              <li><strong>Borda roxa:</strong> agente ativo</li>
+            </ul>
+
+            <div class="nerd-section">
+              <h5>🤓 Estatísticas Nerds</h5>
+              <div class="nerd-stats">
+                <div class="stat-item">
+                  <span class="stat-label">Total de agentes:</span>
+                  <span class="stat-value">{{ contextualAgents.length }}</span>
+                </div>
+                <div class="stat-item" *ngIf="activeAgentId">
+                  <span class="stat-label">Agente ativo:</span>
+                  <span class="stat-value">{{ selectedAgentName || 'N/A' }}</span>
+                </div>
+                <div class="stat-item" *ngIf="contextualAgents.length > 0">
+                  <span class="stat-label">Lista de IDs:</span>
+                  <div class="stat-list">
+                    <code *ngFor="let agent of contextualAgents" class="stat-list-item">
+                      {{ agent.emoji }} {{ agent.id }}
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Header Info Modal -->
+      <div class="modal-backdrop" *ngIf="showHeaderInfoModal" (click)="toggleHeaderInfoModal()">
+        <div class="modal-content dock-info-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h4>💬 Conductor Chat - Ajuda</h4>
+            <button class="close-btn" (click)="toggleHeaderInfoModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <h5>Modos de Chat</h5>
+            <ul>
+              <li><strong>💬 Ask:</strong> Apenas perguntas e respostas</li>
+              <li><strong>🤖 Agent:</strong> Pode modificar o roteiro</li>
+            </ul>
+
+            <h5>Controles</h5>
+            <ul>
+              <li><strong>Enter:</strong> Enviar mensagem</li>
+              <li><strong>Shift+Enter:</strong> Nova linha</li>
+              <li><strong>🎤:</strong> Gravação de voz</li>
+            </ul>
+
+            <h5>Indicadores</h5>
+            <ul>
+              <li><strong>🟢 Verde:</strong> Conectado</li>
+              <li><strong>🟠 Laranja:</strong> Processando</li>
+              <li><strong>🔴 Vermelho:</strong> Desconectado</li>
+            </ul>
+
+            <div *ngIf="activeAgentId" class="nerd-section">
+              <h5>🤓 Estatísticas Nerds</h5>
+              <div class="nerd-stats">
+                <div class="stat-item">
+                  <span class="stat-label">Instance ID:</span>
+                  <code class="stat-value">{{ activeAgentId }}</code>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Agent ID:</span>
+                  <code class="stat-value">{{ selectedAgentDbId || 'N/A' }}</code>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Nome:</span>
+                  <span class="stat-value">{{ selectedAgentEmoji }} {{ selectedAgentName }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Diretório:</span>
+                  <code class="stat-value">{{ activeAgentCwd || 'não definido' }}</code>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Persona editada:</span>
+                  <span class="stat-value">{{ isPersonaEdited ? 'Sim' : 'Não' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -201,9 +361,62 @@ const DEFAULT_CONFIG: ConductorConfig = {
       overflow: hidden;
     }
 
+    .chat-body-content {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+    }
+
+    .chat-body-content app-chat-messages {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chat-body-content .agent-launcher-dock {
+      flex-shrink: 0;
+      width: 60px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      height: 100%;
+      position: relative;
+    }
+
+    .dock-agents-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 0;
+    }
+
+    .dock-agents-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .dock-agents-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .dock-agents-list::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 2px;
+    }
+
+    .dock-agents-list::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+
     .chat-header {
       display: flex;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
       padding: 12px 20px;
       background: #f8f9fa;
@@ -211,29 +424,36 @@ const DEFAULT_CONFIG: ConductorConfig = {
       border-bottom: 1px solid #e1e4e8;
       flex-shrink: 0;
       gap: 12px;
+      position: relative;
     }
 
-    .header-content {
+    .header-actions-left {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-right: auto;
+      flex: 1;
     }
 
-    .header-actions {
+    .header-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .header-actions-right {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .settings-btn {
-      width: 44px;
-      height: 44px;
+    .header-icon-btn {
+      width: 36px;
+      height: 36px;
       border-radius: 8px;
       background: #ffffff;
       border: 1px solid #e1e4e8;
       cursor: pointer;
-      font-size: 22px;
+      font-size: 18px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -242,33 +462,85 @@ const DEFAULT_CONFIG: ConductorConfig = {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
     }
 
-    .settings-btn:hover {
+    .header-icon-btn:hover:not(:disabled) {
       background: #f8f9fa;
       border-color: #d0d7de;
       transform: translateY(-1px);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .settings-btn:active {
+    .header-icon-btn:active:not(:disabled) {
       transform: translateY(0);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-icon-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .add-agent-btn {
+      background: #e8f5e9;
+      border-color: #a5d6a7;
+    }
+
+    .add-agent-btn:hover:not(:disabled) {
+      background: #c8e6c9;
+      border-color: #81c784;
+    }
+
+    .delete-agent-btn {
+      background: #ffebee;
+      border-color: #ffcdd2;
+    }
+
+    .delete-agent-btn:hover:not(:disabled) {
+      background: #ffcdd2;
+      border-color: #ef9a9a;
+    }
+
+    .settings-btn {
+      background: #e3f2fd;
+      border-color: #bbdefb;
+    }
+
+    .settings-btn:hover:not(:disabled) {
+      background: #bbdefb;
+      border-color: #90caf9;
+    }
+
+    .header-info-btn {
+      background: #f5f5f5;
+      border-color: #e0e0e0;
+      color: #757575;
+      font-size: 18px;
+      font-weight: 700;
+      font-family: Georgia, serif;
+    }
+
+    .header-info-btn:hover:not(:disabled) {
+      background: #e0e0e0;
+      border-color: #bdbdbd;
+      color: #424242;
+      transform: translateY(-1px) scale(1.05);
     }
 
     .selected-agent {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: #48bb78;
+      gap: 8px;
+      font-size: 14px;
       font-weight: 500;
+      color: #424242;
     }
 
     .agent-emoji {
-      font-size: 16px;
+      font-size: 20px;
     }
 
     .agent-name {
-      color: #48bb78;
+      color: #37474f;
+      font-weight: 500;
     }
 
     /* Modal styles */
@@ -504,31 +776,54 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
     /* Agent Options Menu */
     .agent-options-menu {
-      position: absolute;
-      top: 60px;
-      right: 20px;
+      position: fixed;
+      bottom: 120px;
+      right: 80px;
       background: white;
       border: 1px solid #e1e4e8;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
       z-index: 1001;
-      min-width: 200px;
+      min-width: 220px;
       overflow: hidden;
-      animation: fadeIn 0.2s ease;
+      animation: fadeInLeft 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
 
     .agent-options-menu .menu-item {
       display: block;
       width: 100%;
-      padding: 12px 16px;
+      padding: 14px 18px;
       background: white;
       border: none;
       text-align: left;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
       color: #2c3e50;
-      transition: background 0.2s;
+      transition: all 0.2s;
       border-bottom: 1px solid #f0f3f7;
+      font-weight: 500;
     }
 
     .agent-options-menu .menu-item:last-child {
@@ -536,7 +831,115 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .agent-options-menu .menu-item:hover {
-      background: #f7fafc;
+      background: linear-gradient(90deg, #f0f4ff 0%, #f7fafc 100%);
+      padding-left: 22px;
+      color: #667eea;
+    }
+
+    /* Dock Info Modal */
+    .dock-info-modal {
+      max-width: 500px;
+    }
+
+    .dock-info-modal .modal-body {
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .dock-info-modal h5 {
+      margin: 20px 0 10px 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #667eea;
+      border-bottom: 2px solid #e3f2fd;
+      padding-bottom: 6px;
+    }
+
+    .dock-info-modal h5:first-child {
+      margin-top: 0;
+    }
+
+    .dock-info-modal ul {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+
+    .dock-info-modal li {
+      margin-bottom: 10px;
+    }
+
+    .dock-info-modal ul ul {
+      margin-top: 8px;
+      margin-bottom: 0;
+    }
+
+    /* Nerd Section Styles */
+    .nerd-section {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 2px dashed #e3f2fd;
+    }
+
+    .nerd-section h5 {
+      color: #9c27b0;
+      border-bottom-color: #f3e5f5;
+    }
+
+    .nerd-stats {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .stat-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .stat-label {
+      font-weight: 600;
+      color: #616161;
+      min-width: 120px;
+    }
+
+    .stat-value {
+      color: #424242;
+      word-break: break-all;
+    }
+
+    .stat-value code,
+    code.stat-value {
+      background: #fff3e0;
+      color: #e65100;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .stat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .stat-list-item {
+      background: #fff3e0;
+      color: #e65100;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      display: block;
     }
 
     /* Input Blocked Overlay */
@@ -586,9 +989,134 @@ const DEFAULT_CONFIG: ConductorConfig = {
       transform: translateY(-1px);
       box-shadow: 0 4px 8px rgba(25, 118, 210, 0.4);
     }
+
+    /* Agent Dock Styles */
+    .dock-info-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: Georgia, serif;
+      color: #757575;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      margin: 0 auto 12px auto;
+      flex-shrink: 0;
+    }
+
+    .dock-info-btn:hover {
+      background: #e0e0e0;
+      border-color: #bdbdbd;
+      color: #424242;
+      transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .dock-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      margin: 4px auto;
+      flex-shrink: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+    }
+
+    .dock-action-btn:hover:not(:disabled) {
+      transform: scale(1.1);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .dock-action-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .dock-action-btn.add-agent-btn:hover:not(:disabled) {
+      background: #c8e6c9;
+      border-color: #81c784;
+    }
+
+    .dock-action-btn.delete-agent-btn:hover:not(:disabled) {
+      background: #ffcdd2;
+      border-color: #ef9a9a;
+    }
+
+    .dock-separator {
+      width: 30px;
+      height: 1px;
+      background: #d1d5db;
+      margin: 8px auto;
+      flex-shrink: 0;
+    }
+
+    .dock-item {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      min-height: 40px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e1e4e8;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      position: relative;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+    }
+
+    .dock-item:hover {
+      background: #f7fafc;
+      border-color: #a8b9ff;
+      transform: translateX(-2px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .dock-item.active {
+      background: #e8eaf6;
+      border: 2px solid #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .dock-item.active::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 24px;
+      background: #667eea;
+      border-radius: 2px;
+    }
   `]
 })
 export class ConductorChatComponent implements OnInit, OnDestroy {
+  @Input() contextualAgents: any[] = [];
+  @Output() addAgentRequested = new EventEmitter<void>();
+  @Output() deleteAgentRequested = new EventEmitter<void>();
+  @Output() agentDockClicked = new EventEmitter<any>();
+
   chatState: ChatState = {
     messages: [],
     isConnected: false,
@@ -619,6 +1147,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   // Persona edit modal
   showPersonaEditModal = false;
+
+  // Dock info modal
+  showDockInfoModal = false;
+
+  // Header info modal
+  showHeaderInfoModal = false;
 
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
@@ -1217,6 +1751,41 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Emit event to request adding a new agent
+   */
+  onAddAgentClick(): void {
+    this.addAgentRequested.emit();
+  }
+
+  /**
+   * Emit event to request deleting the active agent
+   */
+  onDeleteAgentClick(): void {
+    this.deleteAgentRequested.emit();
+  }
+
+  /**
+   * Emit event when an agent is clicked in the dock
+   */
+  onDockAgentClick(agent: any): void {
+    this.agentDockClicked.emit(agent);
+  }
+
+  /**
+   * Toggle dock info modal
+   */
+  toggleDockInfoModal(): void {
+    this.showDockInfoModal = !this.showDockInfoModal;
+  }
+
+  /**
+   * Toggle header info modal
+   */
+  toggleHeaderInfoModal(): void {
+    this.showHeaderInfoModal = !this.showHeaderInfoModal;
+  }
+
+  /**
    * Edit agent CWD from menu
    */
   editAgentCwd(): void {
@@ -1355,6 +1924,22 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
    */
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    // Close header info modal if open
+    if (this.showHeaderInfoModal) {
+      this.toggleHeaderInfoModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // Close dock info modal if open
+    if (this.showDockInfoModal) {
+      this.toggleDockInfoModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Close persona edit modal if open
     if (this.showPersonaEditModal) {
       this.closePersonaEditModal();
@@ -1362,7 +1947,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
       event.stopPropagation();
       return;
     }
-    
+
     // Close persona modal if open
     if (this.showPersonaModal) {
       this.togglePersonaModal();
@@ -1370,7 +1955,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
       event.stopPropagation();
       return;
     }
-    
+
     // Close CWD modal if open
     if (this.showCwdModal) {
       this.closeCwdModal();
@@ -1378,7 +1963,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
       event.stopPropagation();
       return;
     }
-    
+
     // Close agent options menu if open
     if (this.showAgentOptionsMenu) {
       this.showAgentOptionsMenu = false;

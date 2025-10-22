@@ -6,29 +6,31 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="status">
+    <div class="status" [title]="getStatusText()">
       <span
         class="status-indicator"
         [class.connected]="isConnected && !isLoading"
         [class.loading]="isLoading"
         [class.disconnected]="!isConnected && !isLoading"
       ></span>
-      <span class="status-text">{{ getStatusText() }}</span>
     </div>
   `,
   styles: [`
     .status {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 14px;
+      cursor: help;
     }
 
     .status-indicator {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      transition: background-color 0.3s ease;
+      transition: all 0.3s ease;
+    }
+
+    .status:hover .status-indicator {
+      transform: scale(1.3);
     }
 
     .status-indicator.connected {
@@ -45,11 +47,6 @@ import { CommonModule } from '@angular/common';
     .status-indicator.disconnected {
       background-color: #f44336;
       box-shadow: 0 0 8px rgba(244, 67, 54, 0.6);
-    }
-
-    .status-text {
-      color: #4a5568;
-      font-weight: 500;
     }
 
     @keyframes pulse {

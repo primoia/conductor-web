@@ -11,23 +11,6 @@ import { ChatMode } from '../../models/chat.models';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="chat-input-wrapper">
-      <!-- Mode selector -->
-      <div class="mode-selector">
-        <label for="chatMode">Modo:</label>
-        <select
-          id="chatMode"
-          [(ngModel)]="selectedMode"
-          (ngModelChange)="onModeChange($event)"
-          [disabled]="isLoading"
-        >
-          <option value="ask">Ask - Apenas perguntas</option>
-          <option value="agent">Agent - Pode modificar screenplay</option>
-        </select>
-        <span class="mode-info">
-          {{ selectedMode === 'ask' ? '💬 Modo consulta' : '🤖 Modo agente' }}
-        </span>
-      </div>
-
       <!-- Input group -->
       <div class="chat-input-container">
         <div class="input-group">
@@ -42,6 +25,17 @@ import { ChatMode } from '../../models/chat.models';
             rows="1"
           ></textarea>
           <div class="button-group">
+            <!-- Send button (primeiro) -->
+            <button
+              class="icon-button send-button"
+              (click)="sendMessage()"
+              [disabled]="isLoading || !message.trim()"
+              [title]="isLoading ? 'Enviando...' : 'Enviar mensagem'"
+            >
+              <span *ngIf="!isLoading">⬆️</span>
+              <span *ngIf="isLoading">⏳</span>
+            </button>
+            <!-- Mic button (meio) -->
             <button
               class="icon-button mic-button"
               [class.recording]="isRecording"
@@ -51,14 +45,15 @@ import { ChatMode } from '../../models/chat.models';
             >
               {{ isRecording ? '🔴' : '🎤' }}
             </button>
+            <!-- Mode toggle switch (último) -->
             <button
-              class="icon-button send-button"
-              (click)="sendMessage()"
-              [disabled]="isLoading || !message.trim()"
-              [title]="isLoading ? 'Enviando...' : 'Enviar mensagem'"
+              class="icon-button mode-toggle"
+              [class.agent-mode]="selectedMode === 'agent'"
+              (click)="toggleMode()"
+              [disabled]="isLoading"
+              [title]="selectedMode === 'ask' ? 'Modo Ask (consulta)' : 'Modo Agent (modificar)'"
             >
-              <span *ngIf="!isLoading">▶️</span>
-              <span *ngIf="isLoading">⏳</span>
+              {{ selectedMode === 'ask' ? '💬' : '🤖' }}
             </button>
           </div>
         </div>
@@ -71,49 +66,8 @@ import { ChatMode } from '../../models/chat.models';
       background: white;
     }
 
-    .mode-selector {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: #fafbfc;
-      border-bottom: 1px solid #e1e4e8;
-    }
-
-    .mode-selector label {
-      font-weight: 600;
-      font-size: 14px;
-      color: #4a5568;
-    }
-
-    .mode-selector select {
-      padding: 6px 12px;
-      border: 1px solid #cbd5e0;
-      border-radius: 6px;
-      font-size: 14px;
-      background: white;
-      cursor: pointer;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .mode-selector select:hover:not(:disabled) {
-      border-color: #a8b9ff;
-    }
-
-    .mode-selector select:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .mode-info {
-      font-size: 13px;
-      color: #6b7280;
-      font-weight: 500;
-    }
-
     .chat-input-container {
-      padding: 16px;
+      padding: 12px 16px;
     }
 
     .input-group {
@@ -133,7 +87,7 @@ import { ChatMode } from '../../models/chat.models';
       outline: none;
       transition: border-color 0.2s;
       resize: none;
-      min-height: 44px;
+      min-height: 144px;
       max-height: 200px;
       overflow-y: auto;
     }
@@ -151,7 +105,7 @@ import { ChatMode } from '../../models/chat.models';
       display: flex;
       flex-direction: column;
       gap: 4px;
-      align-self: flex-end;
+      align-self: flex-start;
       margin-left: 4px;
     }
 
@@ -171,6 +125,29 @@ import { ChatMode } from '../../models/chat.models';
       flex-shrink: 0;
     }
 
+    .mode-toggle {
+      background: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+
+    .mode-toggle:hover:not(:disabled) {
+      background: #bbdefb;
+      border-color: #90caf9;
+      transform: scale(1.1);
+    }
+
+    .mode-toggle.agent-mode {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: 1px solid #5a67d8;
+    }
+
+    .mode-toggle.agent-mode:hover:not(:disabled) {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+      transform: scale(1.1);
+    }
+
     .mic-button {
       background: #f0f0f0;
       color: #333;
@@ -188,11 +165,13 @@ import { ChatMode } from '../../models/chat.models';
     }
 
     .send-button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: #ffffff;
+      color: #667eea;
+      border: 2px solid #667eea;
     }
 
     .send-button:hover:not(:disabled) {
+      background: #f0f4ff;
       transform: scale(1.1);
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     }
@@ -292,12 +271,17 @@ export class ChatInputComponent implements OnInit, OnDestroy, AfterViewInit {
     textarea.style.height = 'auto';
 
     // Set new height based on content, with min and max constraints
-    const newHeight = Math.min(Math.max(textarea.scrollHeight, 44), 200);
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, 144), 200);
     textarea.style.height = `${newHeight}px`;
   }
 
   toggleRecording(): void {
     this.speechService.toggleRecording();
+  }
+
+  toggleMode(): void {
+    this.selectedMode = this.selectedMode === 'ask' ? 'agent' : 'ask';
+    this.modeChanged.emit(this.selectedMode);
   }
 
   onModeChange(mode: ChatMode): void {

@@ -23,6 +23,12 @@
                 📄
               </button>
               <button
+                class="toolbar-btn open-btn"
+                title="Abrir do Banco..."
+                (click)="openScreenplayManager()">
+                📂
+              </button>
+              <button
                 class="toolbar-btn save-btn-toolbar"
                 [class.saving]="isSaving"
                 [class.dirty]="isDirty"
@@ -30,12 +36,6 @@
                 [disabled]="!isDirty"
                 (click)="save()">
                 💾
-              </button>
-              <button
-                class="toolbar-btn open-btn"
-                title="Abrir do Banco..."
-                (click)="openScreenplayManager()">
-                📂
               </button>
               <button
                 class="toolbar-btn import-btn"
@@ -51,10 +51,23 @@
               </button>
               <button
                 class="toolbar-btn settings-btn"
-                title="Informações e Atalhos"
-                (click)="toggleScreenplayInfoModal()">
+                #settingsButton
+                title="Configurações do Roteiro"
+                (click)="toggleScreenplaySettings()">
                 ⚙️
               </button>
+
+              <!-- Settings Menu -->
+              <div
+                *ngIf="showScreenplaySettings"
+                class="screenplay-settings-menu">
+                <button class="menu-item" (click)="openWorkingDirModal()">
+                  📁 Configurar Diretório de Trabalho
+                </button>
+                <button class="menu-item" (click)="toggleScreenplayInfoModal(); showScreenplaySettings = false">
+                  ⌨️ Atalhos de Teclado
+                </button>
+              </div>
             </div>
           </div>
 
@@ -206,43 +219,13 @@
 
       <!-- Chat Panel with Agent Dock -->
       <div class="chat-panel" [style.width.%]="chatWidth">
-        <app-conductor-chat #conductorChat></app-conductor-chat>
-
-        <!-- Agent Launcher Dock -->
-        <div class="agent-launcher-dock">
-        <div class="dock-section">
-          <div class="dock-section-title">Agents</div>
-
-          <!-- Add Agent Button -->
-          <button
-            class="dock-item add-agent-dock-btn"
-            title="Adicionar Agente"
-            (click)="openAgentSelector()">
-            ➕
-          </button>
-
-          <!-- Delete Agent Button -->
-          <button
-            class="dock-item delete-agent-dock-btn"
-            title="Excluir Agente Selecionado"
-            [disabled]="!activeAgentId"
-            (click)="onDeleteAgentClick()">
-            🗑️
-          </button>
-
-          <div class="dock-separator"></div>
-
-          <!-- Agent List -->
-          <button
-            *ngFor="let agent of contextualAgents"
-            class="dock-item"
-            [class.active]="activeAgentId === agent.id"
-            [title]="agent.definition.description"
-            (click)="onDockAgentClick(agent)">
-            {{ agent.emoji }}
-          </button>
-        </div>
-        </div>
+        <app-conductor-chat
+          #conductorChat
+          [contextualAgents]="contextualAgents"
+          (addAgentRequested)="openAgentSelector()"
+          (deleteAgentRequested)="onDeleteAgentClick()"
+          (agentDockClicked)="onDockAgentClick($event)">
+        </app-conductor-chat>
       </div>
     </div>
 
@@ -280,6 +263,44 @@
       [newContent]="conflictNewContent"
       (resolve)="handleConflictResolution($event)">
     </app-conflict-resolution-modal>
+
+    <!-- Working Directory Modal -->
+    <div class="modal-overlay" *ngIf="showWorkingDirModal" (click)="closeWorkingDirModal()">
+      <div class="modal-content working-dir-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>📁 Configurar Diretório de Trabalho do Roteiro</h3>
+          <button class="close-btn" (click)="closeWorkingDirModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-description">
+            Defina o diretório padrão onde os agentes deste roteiro executarão comandos.
+            Novos agentes herdarão automaticamente este diretório.
+          </p>
+
+          <div class="current-dir" *ngIf="currentWorkingDirectory">
+            <label>Diretório Atual:</label>
+            <code>{{ currentWorkingDirectory }}</code>
+          </div>
+
+          <div class="form-group">
+            <label for="working-directory-input">Novo Diretório:</label>
+            <input
+              type="text"
+              id="working-directory-input"
+              [(ngModel)]="tempWorkingDirectory"
+              placeholder="/mnt/ramdisk/primoia-main/conductor-community"
+              class="working-dir-input"
+              (keydown.enter)="saveWorkingDirectory()"
+            />
+            <small class="hint">Caminho absoluto do projeto no servidor</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" (click)="closeWorkingDirModal()">Cancelar</button>
+          <button class="btn-save" (click)="saveWorkingDirectory()">Salvar Diretório</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Screenplay Info Modal -->
     <div class="modal-overlay" *ngIf="showScreenplayInfoModal" (click)="closeScreenplayInfoModal()" (keydown.escape)="closeScreenplayInfoModal()">

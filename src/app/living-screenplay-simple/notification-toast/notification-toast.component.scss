@@ -1,7 +1,8 @@
 .notification-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 10001;
   display: flex;
   flex-direction: column;
@@ -20,7 +21,7 @@
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border-left: 4px solid;
-  animation: slideInRight 0.3s ease-out;
+  animation: slideInUp 0.3s ease-out;
   pointer-events: auto;
   min-width: 300px;
 
@@ -127,13 +128,13 @@
 }
 
 // Animations
-@keyframes slideInRight {
+@keyframes slideInUp {
   from {
-    transform: translateX(100%);
+    transform: translateY(100%);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
@@ -141,9 +142,10 @@
 // Responsive
 @media (max-width: 768px) {
   .notification-container {
-    top: 10px;
-    right: 10px;
+    bottom: 10px;
     left: 10px;
+    right: 10px;
+    transform: none;
     max-width: none;
   }
 

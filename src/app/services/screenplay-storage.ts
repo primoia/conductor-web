@@ -10,6 +10,7 @@ export interface ScreenplayListItem {
   name: string;
   description?: string;
   tags?: string[];
+  workingDirectory?: string; // Working directory padrão para agentes
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -45,6 +46,7 @@ export interface ScreenplayPayload {
   description?: string;
   tags?: string[];
   content?: string;
+  workingDirectory?: string; // Working directory padrão para agentes
   filePath?: string; // Caminho do arquivo no disco (mantido para compatibilidade)
   importPath?: string; // Novo: caminho de importação
   exportPath?: string; // Novo: último caminho de exportação
@@ -205,6 +207,34 @@ export class ScreenplayStorage {
       catchError(error => {
         console.error(`[ScreenplayStorage] Error deleting screenplay ${id}:`, error);
         return throwError(() => new Error('Failed to delete screenplay'));
+      })
+    );
+  }
+
+  /**
+   * Update working directory for a screenplay
+   * @param id Screenplay ID
+   * @param workingDirectory Working directory path
+   */
+  updateWorkingDirectory(id: string, workingDirectory: string): Observable<any> {
+    return from(
+      fetch(`${this.baseUrl}/api/screenplays/${id}/working-directory`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ working_directory: workingDirectory })
+      }).then(async response => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Failed to update working directory: ${response.status}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      catchError(error => {
+        console.error(`[ScreenplayStorage] Error updating working directory for ${id}:`, error);
+        return throwError(() => error);
       })
     );
   }
