@@ -55,6 +55,7 @@ interface ExecutionRequest {
   instance_id: string;
   cwd?: string;
   document_id?: string; // SAGA-006: Add document_id for screenplay association
+  ai_provider?: string; // Phase 2: Add ai_provider for provider selection
 }
 
 @Injectable({
@@ -109,8 +110,9 @@ export class AgentService {
    * @param instanceId - The instance ID for context isolation
    * @param cwd - Optional working directory path
    * @param documentId - Optional document ID for screenplay association
+   * @param aiProvider - Optional AI provider override (e.g., 'claude', 'gemini')
    */
-  executeAgent(agentId: string, inputText: string, instanceId: string, cwd?: string, documentId?: string): Observable<ExecutionResult> {
+  executeAgent(agentId: string, inputText: string, instanceId: string, cwd?: string, documentId?: string, aiProvider?: string): Observable<ExecutionResult> {
     const requestBody: ExecutionRequest = {
       input_text: inputText,
       instance_id: instanceId
@@ -126,12 +128,18 @@ export class AgentService {
       requestBody.document_id = documentId;
     }
 
+    // Add ai_provider to request body if provided
+    if (aiProvider) {
+      requestBody.ai_provider = aiProvider;
+    }
+
     console.log('🚀 [AGENT SERVICE] executeAgent chamado:');
     console.log('   - agentId (agent_id):', agentId);
     console.log('   - inputText:', inputText);
     console.log('   - instanceId (instance_id):', instanceId);
     console.log('   - cwd:', cwd || 'não fornecido');
     console.log('   - document_id:', documentId || 'não fornecido');
+    console.log('   - ai_provider:', aiProvider || 'padrão (config.yaml)');
     console.log('   - Request Body:', JSON.stringify(requestBody, null, 2));
     console.log('   - URL:', `${this.baseUrl}/api/agents/${agentId}/execute`);
     

@@ -679,45 +679,90 @@
     width: 95vw;
   }
 }
-/* Working Directory Modal */
-.working-dir-modal {
-  max-width: 600px;
+/* Working Directory Modal - Standardized to match conductor-chat modals */
+.modal-content.working-dir-modal {
+  background: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.working-dir-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e1e4e8;
+}
+
+.working-dir-modal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #2c3e50;
+}
+
+.working-dir-modal .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.working-dir-modal .close-btn:hover {
+  background: #f3f4f6;
+}
+
+.working-dir-modal .modal-body {
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .working-dir-modal .modal-description {
-  font-size: 14px;
+  font-size: 13px;
   color: #6b7280;
-  margin-bottom: 20px;
-  line-height: 1.6;
+  margin-bottom: 16px;
+  line-height: 1.5;
 }
 
 .current-dir {
-  background: #f3f4f6;
+  background: #f7fafc;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 6px;
   margin-bottom: 16px;
-  border-left: 4px solid #667eea;
+  border: 1px solid #e1e4e8;
 }
 
 .current-dir label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #374151;
+  color: #5a67d8;
   margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .current-dir code {
   font-family: 'Courier New', monospace;
   font-size: 13px;
-  color: #667eea;
+  color: #4a5568;
   background: white;
   padding: 6px 10px;
   border-radius: 4px;
   display: block;
   word-break: break-all;
+  border: 1px solid #e1e4e8;
 }
 
 .form-group {
@@ -728,24 +773,25 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: #4a5568;
   margin-bottom: 8px;
 }
 
 .working-dir-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 2px solid #e1e4e8;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 6px;
+  font-size: 13px;
   font-family: 'Courier New', monospace;
   outline: none;
   transition: border-color 0.2s;
+  background: #f8f9fa;
 }
 
 .working-dir-input:focus {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #007bff;
+  background: #ffffff;
 }
 
 .working-dir-input::placeholder {
@@ -755,7 +801,7 @@
 
 .hint {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: #6b7280;
   margin-top: 6px;
   font-style: italic;
@@ -765,16 +811,16 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 16px 20px;
   border-top: 1px solid #e1e4e8;
   background: #f8f9fa;
 }
 
 .btn-cancel,
 .btn-save {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -783,22 +829,24 @@
 }
 
 .btn-cancel {
-  background: #f3f4f6;
-  color: #374151;
+  background: #ffffff;
+  color: #4a5568;
+  border: 1px solid #d1d5db;
 }
 
 .btn-cancel:hover {
-  background: #e5e7eb;
+  background: #f7fafc;
+  border-color: #9ca3af;
 }
 
 .btn-save {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #007bff;
   color: white;
 }
 
 .btn-save:hover {
+  background: #0056b3;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 /* Screenplay Settings Menu */

@@ -19,7 +19,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     endpoint: '/execute',
     streamEndpoint: '/api/v1/stream-execute',
     apiKey: 'test-api-key-123',
-    timeout: 30000,
+    timeout: 600000, // 10 minutes timeout for long-running AI operations
     retryAttempts: 3
   },
   mode: 'ask',
@@ -55,12 +55,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
         <div class="header-center">
         </div>
         <div class="header-actions-right">
-          <button
-            class="header-icon-btn header-info-btn"
-            (click)="toggleHeaderInfoModal()"
-            title="Ajuda e informações">
-            ?
-          </button>
+          <!-- Info button removed - use dock ? button instead -->
         </div>
       </div>
 
@@ -146,22 +141,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
           <!-- Agent Launcher Dock -->
           <div class="agent-launcher-dock">
-            <!-- Agent List (scrollable) -->
-            <div class="dock-agents-list">
-              <button
-                *ngFor="let agent of contextualAgents"
-                class="dock-item"
-                [class.active]="activeAgentId === agent.id"
-                [title]="agent.definition?.description || ''"
-                (click)="onDockAgentClick(agent)">
-                {{ agent.emoji }}
-              </button>
-            </div>
-
-            <!-- Separator -->
-            <div class="dock-separator"></div>
-
-            <!-- Action Buttons -->
+            <!-- Fixed Action Buttons at Top -->
             <button
               class="dock-action-btn add-agent-btn"
               (click)="onAddAgentClick()"
@@ -179,19 +159,34 @@ const DEFAULT_CONFIG: ConductorConfig = {
             <!-- Settings Button -->
             <button
               class="dock-action-btn settings-btn"
-              *ngIf="activeAgentId"
+              [disabled]="!activeAgentId"
               (click)="toggleAgentOptionsMenu()"
               title="Opções do agente">
               ⚙️
             </button>
 
-            <!-- Info Button (ancorado no final) -->
+            <!-- Info Button -->
             <button
               class="dock-info-btn"
               (click)="toggleDockInfoModal()"
               title="O que é a dock de agentes?">
               ?
             </button>
+
+            <!-- Separator -->
+            <div class="dock-separator"></div>
+
+            <!-- Agent List (scrollable) -->
+            <div class="dock-agents-list">
+              <button
+                *ngFor="let agent of contextualAgents"
+                class="dock-item"
+                [class.active]="activeAgentId === agent.id"
+                [title]="agent.definition?.description || ''"
+                (click)="onDockAgentClick(agent)">
+                {{ agent.emoji }}
+              </button>
+            </div>
 
             <!-- Agent Options Menu -->
             <div
@@ -231,65 +226,12 @@ const DEFAULT_CONFIG: ConductorConfig = {
         />
       </div>
 
-      <!-- Dock Info Modal -->
+      <!-- Dock Info Modal (merged with header info) -->
       <div class="modal-backdrop" *ngIf="showDockInfoModal" (click)="toggleDockInfoModal()">
         <div class="modal-content dock-info-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <h4>📚 Dock de Agentes</h4>
-            <button class="close-btn" (click)="toggleDockInfoModal()">✕</button>
-          </div>
-          <div class="modal-body">
-            <p>A dock lateral exibe todos os agentes instanciados no roteiro.</p>
-
-            <h5>Como Usar</h5>
-            <ul>
-              <li><strong>Clique</strong> em um emoji para ver o histórico do agente</li>
-              <li><strong>Botões do topo:</strong>
-                <ul>
-                  <li>⚙️ Opções do agente ativo</li>
-                </ul>
-              </li>
-              <li><strong>Botões da dock:</strong>
-                <ul>
-                  <li>➕ Adicionar novo agente</li>
-                  <li>🗑️ Excluir agente selecionado</li>
-                  <li>? Informações sobre a dock</li>
-                </ul>
-              </li>
-              <li><strong>Borda roxa:</strong> agente ativo</li>
-            </ul>
-
-            <div class="nerd-section">
-              <h5>🤓 Estatísticas Nerds</h5>
-              <div class="nerd-stats">
-                <div class="stat-item">
-                  <span class="stat-label">Total de agentes:</span>
-                  <span class="stat-value">{{ contextualAgents.length }}</span>
-                </div>
-                <div class="stat-item" *ngIf="activeAgentId">
-                  <span class="stat-label">Agente ativo:</span>
-                  <span class="stat-value">{{ selectedAgentName || 'N/A' }}</span>
-                </div>
-                <div class="stat-item" *ngIf="contextualAgents.length > 0">
-                  <span class="stat-label">Lista de IDs:</span>
-                  <div class="stat-list">
-                    <code *ngFor="let agent of contextualAgents" class="stat-list-item">
-                      {{ agent.emoji }} {{ agent.id }}
-                    </code>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Header Info Modal -->
-      <div class="modal-backdrop" *ngIf="showHeaderInfoModal" (click)="toggleHeaderInfoModal()">
-        <div class="modal-content dock-info-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
             <h4>💬 Conductor Chat - Ajuda</h4>
-            <button class="close-btn" (click)="toggleHeaderInfoModal()">✕</button>
+            <button class="close-btn" (click)="toggleDockInfoModal()">✕</button>
           </div>
           <div class="modal-body">
             <h5>Modos de Chat</h5>
@@ -312,34 +254,65 @@ const DEFAULT_CONFIG: ConductorConfig = {
               <li><strong>🔴 Vermelho:</strong> Desconectado</li>
             </ul>
 
-            <div *ngIf="activeAgentId" class="nerd-section">
+            <h5>📚 Dock de Agentes</h5>
+            <p>A dock lateral exibe todos os agentes instanciados no roteiro.</p>
+
+            <h5>Como Usar a Dock</h5>
+            <ul>
+              <li><strong>Clique</strong> em um emoji para ver o histórico do agente</li>
+              <li><strong>Botões fixos no topo:</strong>
+                <ul>
+                  <li>➕ Adicionar novo agente</li>
+                  <li>🗑️ Excluir agente selecionado</li>
+                  <li>⚙️ Opções do agente ativo</li>
+                  <li>? Informações e ajuda</li>
+                </ul>
+              </li>
+              <li><strong>Borda roxa:</strong> agente ativo</li>
+            </ul>
+
+            <div class="nerd-section">
               <h5>🤓 Estatísticas Nerds</h5>
               <div class="nerd-stats">
                 <div class="stat-item">
+                  <span class="stat-label">Total de agentes:</span>
+                  <span class="stat-value">{{ contextualAgents.length }}</span>
+                </div>
+                <div class="stat-item" *ngIf="activeAgentId">
                   <span class="stat-label">Instance ID:</span>
                   <code class="stat-value">{{ activeAgentId }}</code>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" *ngIf="activeAgentId">
                   <span class="stat-label">Agent ID:</span>
                   <code class="stat-value">{{ selectedAgentDbId || 'N/A' }}</code>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" *ngIf="activeAgentId">
                   <span class="stat-label">Nome:</span>
                   <span class="stat-value">{{ selectedAgentEmoji }} {{ selectedAgentName }}</span>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" *ngIf="activeAgentId">
                   <span class="stat-label">Diretório:</span>
                   <code class="stat-value">{{ activeAgentCwd || 'não definido' }}</code>
                 </div>
-                <div class="stat-item">
+                <div class="stat-item" *ngIf="activeAgentId">
                   <span class="stat-label">Persona editada:</span>
                   <span class="stat-value">{{ isPersonaEdited ? 'Sim' : 'Não' }}</span>
+                </div>
+                <div class="stat-item" *ngIf="contextualAgents.length > 0">
+                  <span class="stat-label">Lista de IDs:</span>
+                  <div class="stat-list">
+                    <code *ngFor="let agent of contextualAgents" class="stat-list-item">
+                      {{ agent.emoji }} {{ agent.id }}
+                    </code>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Header Info Modal removed - use dock ? button instead -->
     </div>
   `,
   styles: [`
@@ -383,6 +356,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       min-height: 0;
       height: 100%;
       position: relative;
+      padding: 12px 0;
     }
 
     .dock-agents-list {
@@ -394,7 +368,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      padding: 12px 0;
+      padding: 0;
     }
 
     .dock-agents-list::-webkit-scrollbar {
@@ -509,21 +483,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       border-color: #90caf9;
     }
 
-    .header-info-btn {
-      background: #f5f5f5;
-      border-color: #e0e0e0;
-      color: #757575;
-      font-size: 18px;
-      font-weight: 700;
-      font-family: Georgia, serif;
-    }
-
-    .header-info-btn:hover:not(:disabled) {
-      background: #e0e0e0;
-      border-color: #bdbdbd;
-      color: #424242;
-      transform: translateY(-1px) scale(1.05);
-    }
+    /* header-info-btn removed - use dock ? button instead */
 
     .selected-agent {
       display: flex;
@@ -777,8 +737,9 @@ const DEFAULT_CONFIG: ConductorConfig = {
     /* Agent Options Menu */
     .agent-options-menu {
       position: fixed;
-      bottom: 120px;
+      top: 50%;
       right: 80px;
+      transform: translateY(-50%);
       background: white;
       border: 1px solid #e1e4e8;
       border-radius: 12px;
@@ -1007,7 +968,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       justify-content: center;
       transition: all 0.2s ease;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      margin: 0 auto 12px auto;
+      margin: 4px auto;
       flex-shrink: 0;
     }
 
@@ -1055,6 +1016,11 @@ const DEFAULT_CONFIG: ConductorConfig = {
     .dock-action-btn.delete-agent-btn:hover:not(:disabled) {
       background: #ffcdd2;
       border-color: #ef9a9a;
+    }
+
+    .dock-action-btn.settings-btn:hover:not(:disabled) {
+      background: #bbdefb;
+      border-color: #42a5f5;
     }
 
     .dock-separator {
@@ -1151,9 +1117,6 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   // Dock info modal
   showDockInfoModal = false;
 
-  // Header info modal
-  showHeaderInfoModal = false;
-
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
 
@@ -1200,8 +1163,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  handleSendMessage(content: string): void {
-    if (!content.trim() || this.chatState.isLoading) return;
+  handleSendMessage(data: {message: string, provider?: string}): void {
+    if (!data.message.trim() || this.chatState.isLoading) return;
 
     // Block sending if agent is selected but no cwd is defined
     if (this.isInputBlocked()) {
@@ -1214,7 +1177,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: content.trim(),
+      content: data.message.trim(),
       type: 'user',
       timestamp: new Date()
     };
@@ -1228,9 +1191,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.chatState.messages = [...filteredMessages, userMessage];
 
     // Verificar se é um comando @agent (MVP)
-    if (this.currentMode === 'agent' && content.startsWith('@agent')) {
+    if (this.currentMode === 'agent' && data.message.startsWith('@agent')) {
       // Parsing simples para o MVP
-      if (content.includes('adicione um título')) {
+      if (data.message.includes('adicione um título')) {
         this.screenplayService.dispatch({ intent: 'add_title' });
 
         const confirmationMessage: Message = {
@@ -1265,14 +1228,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       // Extract cwd from message if present, or use saved cwd
       // Matches any absolute path (starts with /) with at least 2 segments
       // Examples: /mnt/ramdisk/foo, /home/user/project, /app/conductor
-      const cwdMatch = content.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
+      const cwdMatch = data.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
       const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
 
       console.log('🎯 [CHAT] Executando agente diretamente:');
       console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
       console.log('   - instance_id:', this.activeAgentId);
-      console.log('   - input_text:', content.trim());
+      console.log('   - input_text:', data.message.trim());
       console.log('   - cwd extraído:', cwd || 'não encontrado na mensagem');
+      console.log('   - ai_provider:', data.provider || 'padrão (config.yaml)');
 
       this.addProgressMessage('🚀 Executando agente...');
 
@@ -1281,14 +1245,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         id: this.activeAgentId,
         emoji: this.selectedAgentEmoji || '🤖',
         title: this.selectedAgentName || 'Unknown Agent',
-        prompt: content.trim(),
+        prompt: data.message.trim(),
         status: 'running',
         logs: ['🚀 Agent execution started']
       };
       this.agentExecutionService.executeAgent(executionState);
 
       this.subscriptions.add(
-        this.agentService.executeAgent(this.selectedAgentDbId, content.trim(), this.activeAgentId, cwd, this.activeScreenplayId || undefined).subscribe({
+        this.agentService.executeAgent(this.selectedAgentDbId, data.message.trim(), this.activeAgentId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
           next: (result) => {
             console.log('✅ Agent execution result:', result);
             this.progressMessage = null;
@@ -1339,8 +1303,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     // No active agent: use MCP tools system
     // Add mode context to message if in agent mode
     const messageWithContext = this.currentMode === 'agent'
-      ? `[AGENT MODE - Can modify screenplay] ${content.trim()}`
-      : content.trim();
+      ? `[AGENT MODE - Can modify screenplay] ${data.message.trim()}`
+      : data.message.trim();
 
     // Send message via API
     this.subscriptions.add(
@@ -1779,11 +1743,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Toggle header info modal
+   * Toggle header info modal (removed - use toggleDockInfoModal instead)
    */
-  toggleHeaderInfoModal(): void {
-    this.showHeaderInfoModal = !this.showHeaderInfoModal;
-  }
 
   /**
    * Edit agent CWD from menu
@@ -1924,14 +1885,6 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
    */
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
-    // Close header info modal if open
-    if (this.showHeaderInfoModal) {
-      this.toggleHeaderInfoModal();
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
     // Close dock info modal if open
     if (this.showDockInfoModal) {
       this.toggleDockInfoModal();

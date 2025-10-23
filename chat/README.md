@@ -116,7 +116,7 @@ const CONDUCTOR_WEB_CONFIG = {
     baseUrl: 'http://localhost:5006',
     endpoint: '/execute',
     apiKey: 'your-api-key',
-    timeout: 30000
+    timeout: 600000 // 10 minutes for long-running AI operations
   },
   ui: {
     theme: 'gradient',

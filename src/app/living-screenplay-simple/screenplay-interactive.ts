@@ -3251,6 +3251,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    // Close working directory modal if open
+    if (this.showWorkingDirModal) {
+      this.closeWorkingDirModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Close screenplay info modal if open
     if (this.showScreenplayInfoModal) {
       this.closeScreenplayInfoModal();
