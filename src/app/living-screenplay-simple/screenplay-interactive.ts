@@ -248,6 +248,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.loadAgentDefinitions();
   }
 
+  public navigateToCity(path: string): void {
+    // Use Angular router to navigate without full reload
+    this.router.navigateByUrl(path);
+  }
+
   // Specialized loggers for different contexts
   private logger: LoggingService;
   private agentLogger: LoggingService;

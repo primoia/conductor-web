@@ -8,6 +8,9 @@ import { EditorExamples } from './app/examples/editor-examples';
 import { LayeredEditor } from './app/layered-editor/layered-editor';
 import { MarkdownScreenplay } from './app/living-screenplay-simple/markdown-screenplay';
 import { ScreenplayInteractive } from './app/living-screenplay-simple/screenplay-interactive';
+import { MinistersPanel } from './app/city-sim/ministers-panel';
+import { WeeklyCouncil } from './app/city-sim/weekly-council';
+import { NeighborhoodView } from './app/city-sim/neighborhood-view';
 import { DraggableCircles } from './app/examples/draggable-circles/draggable-circles';
 import { SCREENPLAY_BACKEND } from './app/services/screenplay/screenplay-backend.interface';
 import { DocumentCentricBackend } from './app/services/screenplay/document-centric.backend';
@@ -23,6 +26,10 @@ bootstrapApplication(App, {
       { path: 'layers', component: LayeredEditor },
       { path: 'screenplay', component: ScreenplayInteractive },
       { path: 'circles', component: DraggableCircles },
+      // City-Sim mockups
+      { path: 'city/ministers', component: MinistersPanel },
+      { path: 'city/council', component: WeeklyCouncil },
+      { path: 'city/neighborhood', component: NeighborhoodView },
       { path: '**', redirectTo: '' }
     ]),
     {

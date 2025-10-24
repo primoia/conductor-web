@@ -58,9 +58,9 @@
               </button>
 
               <!-- Quick access to City-Sim mockups -->
-              <a class="toolbar-btn" title="Gabinete de Ministros" [routerLink]="['/city/ministers']">🏛️</a>
-              <a class="toolbar-btn" title="Conselho Semanal" [routerLink]="['/city/council']">📅</a>
-              <a class="toolbar-btn" title="Bairro Monolito vs Modular" [routerLink]="['/city/neighborhood']">🏘️</a>
+              <button class="toolbar-btn" title="Gabinete de Ministros" (click)="navigateToCity('/city/ministers')">🏛️</button>
+              <button class="toolbar-btn" title="Conselho Semanal" (click)="navigateToCity('/city/council')">📅</button>
+              <button class="toolbar-btn" title="Bairro Monolito vs Modular" (click)="navigateToCity('/city/neighborhood')">🏘️</button>
 
               <!-- Settings Menu -->
               <div
@@ -72,15 +72,15 @@
                 <button class="menu-item" (click)="toggleScreenplayInfoModal(); showScreenplaySettings = false">
                   ⌨️ Atalhos de Teclado
                 </button>
-                <a class="menu-item" [routerLink]="['/city/ministers']" (click)="showScreenplaySettings = false">
+                <button class="menu-item" (click)="navigateToCity('/city/ministers'); showScreenplaySettings = false">
                   🏛️ Gabinete de Ministros
-                </a>
-                <a class="menu-item" [routerLink]="['/city/council']" (click)="showScreenplaySettings = false">
+                </button>
+                <button class="menu-item" (click)="navigateToCity('/city/council'); showScreenplaySettings = false">
                   📅 Conselho Semanal
-                </a>
-                <a class="menu-item" [routerLink]="['/city/neighborhood']" (click)="showScreenplaySettings = false">
+                </button>
+                <button class="menu-item" (click)="navigateToCity('/city/neighborhood'); showScreenplaySettings = false">
                   🏘️ Bairro Monolito vs Modular
-                </a>
+                </button>
               </div>
             </div>
           </div>
