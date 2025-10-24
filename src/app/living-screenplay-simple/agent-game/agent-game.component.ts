@@ -1,5 +1,6 @@
 import { Component, ElementRef, ViewChild, AfterViewInit, OnDestroy, Input, inject, ChangeDetectorRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { AgentMetricsService, AgentExecutionMetrics } from '../../services/agent-metrics.service';
@@ -60,10 +61,30 @@ interface Plant {
   color: string;
 }
 
+interface AgentGroup {
+  agentId: string;
+  name: string;
+  emoji: string;
+  instances: AgentCharacter[];
+  aggregatedMetrics: AgentExecutionMetrics;
+  position: { x: number, y: number };
+  color: string;
+  isActive: boolean;
+  agentType: string;
+}
+
+interface AgentFilter {
+  showInstances: boolean;
+  showGrouped: boolean;
+  minExecutions: number;
+  agentTypes: string[];
+  searchTerm: string;
+}
+
 @Component({
   selector: 'app-agent-game',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './agent-game.component.html',
   styleUrls: ['./agent-game.component.css']
 })
@@ -123,6 +144,46 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
   // Debug panel state
   showDebugPanel = false;
+
+  // View mode: 'instances' or 'agents'
+  viewMode: 'instances' | 'agents' = 'instances';
+
+  // Agent groups for consolidated view
+  private agentsByType: Map<string, AgentGroup> = new Map();
+
+  // Filter system
+  filters: AgentFilter = {
+    showInstances: true,
+    showGrouped: false,
+    minExecutions: 0,
+    agentTypes: [],
+    searchTerm: ''
+  };
+
+  showFilters = false;
+
+  // Available agent types for filtering
+  availableAgentTypes = [
+    { value: 'code_generator', label: 'Gerador de Código', emoji: '🤖' },
+    { value: 'test_runner', label: 'Test Runner', emoji: '🧪' },
+    { value: 'documentation', label: 'Documentação', emoji: '📚' },
+    { value: 'security', label: 'Segurança', emoji: '🔐' },
+    { value: 'deployment', label: 'Deploy', emoji: '🚀' },
+    { value: 'optimization', label: 'Otimização', emoji: '⚡' },
+    { value: 'analysis', label: 'Análise', emoji: '🔍' }
+  ];
+
+  // Agent type colors
+  private readonly AGENT_TYPE_COLORS = {
+    'code_generator': '#FF6B6B',      // Vermelho
+    'test_runner': '#4ECDC4',         // Azul claro
+    'documentation': '#45B7D1',       // Azul
+    'security': '#96CEB4',            // Verde
+    'deployment': '#FFEAA7',          // Amarelo
+    'optimization': '#DDA0DD',        // Roxo
+    'analysis': '#F0E68C',            // Amarelo claro
+    'default': '#DFE6E9'              // Cinza
+  };
   debugRefreshInterval: any = null;
 
   constructor(
@@ -452,6 +513,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
           this.addAgentFromBFF(agentData);
         });
 
+        // Group agents by type after loading
+        this.groupAgentsByType();
+
         console.log(`✅ [LOAD] Carregados ${this.agents.length} agentes. Use debugAgentMetrics() para ver detalhes.`);
       } else {
         console.warn('⚠️ [AGENT-GAME] No agents found in BFF response, no agents will be displayed');
@@ -474,8 +538,6 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   }
 
   private addAgentFromBFF(agentData: any): void {
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9', '#74B9FF', '#FD79A8', '#FDCB6E', '#6C5CE7'];
-
     // Find non-overlapping position
     const position = this.findNonOverlappingPosition();
 
@@ -498,7 +560,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       },
       isActive: false,  // Start inactive, will be updated by parent
       radius: this.AGENT_RADIUS,
-      color: colors[this.agents.length % colors.length],
+      color: this.getAgentColor(agentData),
       trail: [],
       // Sprite animation
       sprite: characterSprite ? {
@@ -538,6 +600,167 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Determina o tipo de agente baseado no nome e agentId
+   */
+  private determineAgentType(agentData: any): string {
+    const name = (agentData.definition?.title || agentData.name || '').toLowerCase();
+    const agentId = (agentData.agent_id || '').toLowerCase();
+    
+    if (name.includes('code') || name.includes('generator') || name.includes('código')) return 'code_generator';
+    if (name.includes('test') || name.includes('runner') || name.includes('teste')) return 'test_runner';
+    if (name.includes('doc') || name.includes('readme') || name.includes('documentação')) return 'documentation';
+    if (name.includes('security') || name.includes('auth') || name.includes('segurança')) return 'security';
+    if (name.includes('deploy') || name.includes('build') || name.includes('deployment')) return 'deployment';
+    if (name.includes('optim') || name.includes('performance') || name.includes('otimização')) return 'optimization';
+    if (name.includes('anal') || name.includes('review') || name.includes('análise')) return 'analysis';
+    
+    return 'default';
+  }
+
+  /**
+   * Obtém a cor do agente baseada no tipo
+   */
+  private getAgentColor(agentData: any): string {
+    const agentType = this.determineAgentType(agentData);
+    return (this.AGENT_TYPE_COLORS as any)[agentType] || this.AGENT_TYPE_COLORS.default;
+  }
+
+  /**
+   * Agrupa agentes por agentId para visualização consolidada
+   */
+  private groupAgentsByType(): void {
+    this.agentsByType.clear();
+    
+    this.agents.forEach(agent => {
+      if (!this.agentsByType.has(agent.agentId)) {
+        this.agentsByType.set(agent.agentId, {
+          agentId: agent.agentId,
+          name: agent.name,
+          emoji: agent.emoji,
+          instances: [],
+          aggregatedMetrics: {
+            totalExecutions: 0,
+            totalExecutionTime: 0,
+            averageExecutionTime: 0,
+            isCurrentlyExecuting: false
+          },
+          position: { x: 0, y: 0 },
+          color: agent.color,
+          isActive: false,
+          agentType: this.determineAgentType({ name: agent.name, agent_id: agent.agentId })
+        });
+      }
+      
+      const group = this.agentsByType.get(agent.agentId)!;
+      group.instances.push(agent);
+      
+      // Agregar métricas
+      group.aggregatedMetrics.totalExecutions += agent.executionMetrics.totalExecutions;
+      group.aggregatedMetrics.totalExecutionTime += agent.executionMetrics.totalExecutionTime;
+      group.isActive = group.isActive || agent.isActive;
+    });
+    
+    // Calcular métricas agregadas e posições
+    this.agentsByType.forEach((group, index) => {
+      if (group.instances.length > 0) {
+        group.aggregatedMetrics.averageExecutionTime = 
+          group.aggregatedMetrics.totalExecutions > 0 
+            ? group.aggregatedMetrics.totalExecutionTime / group.aggregatedMetrics.totalExecutions 
+            : 0;
+        
+        // Posicionar grupo baseado na primeira instância
+        group.position = { ...group.instances[0].position };
+      }
+    });
+  }
+
+  /**
+   * Obtém agentes para renderização baseado no modo de visualização e filtros
+   */
+  private getDisplayedAgents(): (AgentCharacter | AgentGroup)[] {
+    let agents: (AgentCharacter | AgentGroup)[] = [];
+    
+    if (this.viewMode === 'agents') {
+      agents = Array.from(this.agentsByType.values());
+    } else {
+      agents = this.agents;
+    }
+    
+    // Aplicar filtros
+    return this.applyFilters(agents);
+  }
+
+  /**
+   * Aplica filtros aos agentes
+   */
+  private applyFilters(agents: (AgentCharacter | AgentGroup)[]): (AgentCharacter | AgentGroup)[] {
+    return agents.filter(agent => {
+      // Filtro por execuções mínimas
+      if (this.filters.minExecutions > 0) {
+        const executions = this.viewMode === 'agents' 
+          ? (agent as AgentGroup).aggregatedMetrics.totalExecutions
+          : (agent as AgentCharacter).executionMetrics.totalExecutions;
+        
+        if (executions < this.filters.minExecutions) {
+          return false;
+        }
+      }
+      
+      // Filtro por tipos de agente
+      if (this.filters.agentTypes.length > 0) {
+        const agentType = this.viewMode === 'agents' 
+          ? (agent as AgentGroup).agentType
+          : this.determineAgentType({ name: (agent as AgentCharacter).name, agent_id: (agent as AgentCharacter).agentId });
+        
+        if (!this.filters.agentTypes.includes(agentType)) {
+          return false;
+        }
+      }
+      
+      // Filtro por termo de busca
+      if (this.filters.searchTerm) {
+        const searchLower = this.filters.searchTerm.toLowerCase();
+        const name = this.viewMode === 'agents' 
+          ? (agent as AgentGroup).name
+          : (agent as AgentCharacter).name;
+        
+        if (!name.toLowerCase().includes(searchLower)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }
+
+  /**
+   * Obtém instâncias de um agente específico
+   */
+  public getInstancesForAgent(agentId: string): AgentCharacter[] {
+    return this.agents.filter(agent => agent.agentId === agentId);
+  }
+
+  /**
+   * Obtém contagem de instâncias para um agente
+   */
+  public getInstanceCount(agentId: string): number {
+    return this.getInstancesForAgent(agentId).length;
+  }
+
+  /**
+   * Obtém métricas agregadas para um agente
+   */
+  public getAggregatedExecutions(agentId: string): number {
+    return this.getInstancesForAgent(agentId)
+      .reduce((total, agent) => total + agent.executionMetrics.totalExecutions, 0);
+  }
+
+  public getAggregatedTime(agentId: string): number {
+    return this.getInstancesForAgent(agentId)
+      .reduce((total, agent) => total + agent.executionMetrics.totalExecutionTime, 0);
+  }
+
+  /**
    * Inicializa as métricas de execução de um agente
    */
   private initializeAgentMetrics(agent: AgentCharacter): void {
@@ -549,6 +772,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.agentMetricsService.getAgentMetrics(agent.id).subscribe(metrics => {
       agent.executionMetrics = { ...metrics };
       // console.log(`📊 [METRICS] Métricas atualizadas para ${agent.name}:`, metrics);
+
+      // Atualizar agrupamento quando métricas mudarem
+      this.groupAgentsByType();
 
       // Forçar detecção de mudanças no Angular
       this.cdr.detectChanges();
@@ -1012,82 +1238,13 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     // Draw plants
     this.renderPlants();
 
-    // Draw agents
-    this.agents.forEach(agent => {
-      // Draw trail
-      if (agent.trail.length > 1) {
-        this.ctx.beginPath();
-        this.ctx.moveTo(agent.trail[0].x, agent.trail[0].y);
-
-        for (let i = 1; i < agent.trail.length; i++) {
-          this.ctx.lineTo(agent.trail[i].x, agent.trail[i].y);
-        }
-
-        this.ctx.strokeStyle = agent.color;
-        this.ctx.lineWidth = 2;
-        this.ctx.globalAlpha = 0.3;
-        this.ctx.stroke();
-        this.ctx.globalAlpha = 1.0;
-      }
-
-      // Círculo removido - apenas sprite/emoji visível
-      // Área de contato mantida através do radius para detecção de clique
-
-      // Add execution indicator if currently executing
-      if (agent.executionMetrics?.isCurrentlyExecuting) {
-        // Pulsing ring around agent
-        this.ctx.beginPath();
-        this.ctx.arc(agent.position.x, agent.position.y, agent.radius + 8, 0, Math.PI * 2);
-        this.ctx.strokeStyle = '#f59e0b';
-        this.ctx.lineWidth = 3;
-        this.ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.4;
-        this.ctx.stroke();
-        this.ctx.globalAlpha = 1.0;
-
-        // Spinning dots around agent
-        const time = Date.now() / 1000;
-        for (let i = 0; i < 3; i++) {
-          const angle = (time * 2 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
-          const dotX = agent.position.x + Math.cos(angle) * (agent.radius + 15);
-          const dotY = agent.position.y + Math.sin(angle) * (agent.radius + 15);
-          
-          this.ctx.beginPath();
-          this.ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
-          this.ctx.fillStyle = '#f59e0b';
-          this.ctx.globalAlpha = 0.8;
-          this.ctx.fill();
-          this.ctx.globalAlpha = 1.0;
-        }
-      }
-
-      // Draw sprite or emoji fallback
-      if (agent.sprite && agent.sprite.totalFrames > 0) {
-        this.drawAgentSprite(agent);
+    // Draw agents based on view mode
+    const displayedAgents = this.getDisplayedAgents();
+    displayedAgents.forEach(agent => {
+      if (this.viewMode === 'agents') {
+        this.renderAgentGroup(agent as AgentGroup);
       } else {
-        // Fallback para emoji se sprite não estiver disponível
-        this.ctx.font = '16px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(agent.emoji, agent.position.x, agent.position.y);
-      }
-
-      // Draw execution count badge if agent has executions
-      if (agent.executionMetrics?.totalExecutions > 0) {
-        const badgeText = agent.executionMetrics.totalExecutions.toString();
-        const badgeWidth = badgeText.length * 8 + 8;
-        const badgeHeight = 16;
-        const badgeX = agent.position.x + agent.radius - badgeWidth / 2;
-        const badgeY = agent.position.y - agent.radius - 8;
-
-        // Badge background removido - fundo transparente
-        // this.ctx.fillStyle = '#667eea';
-        // this.ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
-
-        // Badge text
-        this.ctx.fillStyle = '#667eea'; // Texto azul para contraste
-        this.ctx.font = '10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2 + 3);
+        this.renderAgent(agent as AgentCharacter);
       }
     });
   }
@@ -1123,59 +1280,371 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  onCanvasClick(event: MouseEvent): void {
+  /**
+   * Renderiza um agente individual
+   */
+  private renderAgent(agent: AgentCharacter): void {
+    const { x, y } = agent.position;
+    
+    // Draw trail
+    if (agent.trail.length > 1) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(agent.trail[0].x, agent.trail[0].y);
+
+      for (let i = 1; i < agent.trail.length; i++) {
+        this.ctx.lineTo(agent.trail[i].x, agent.trail[i].y);
+      }
+
+      this.ctx.strokeStyle = agent.color;
+      this.ctx.lineWidth = 2;
+      this.ctx.globalAlpha = 0.3;
+      this.ctx.stroke();
+      this.ctx.globalAlpha = 1.0;
+    }
+
+    // Add execution indicator if currently executing
+    if (agent.executionMetrics?.isCurrentlyExecuting) {
+      // Pulsing ring around agent
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, agent.radius + 8, 0, Math.PI * 2);
+      this.ctx.strokeStyle = '#f59e0b';
+      this.ctx.lineWidth = 3;
+      this.ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.4;
+      this.ctx.stroke();
+      this.ctx.globalAlpha = 1.0;
+
+      // Spinning dots around agent
+      const time = Date.now() / 1000;
+      for (let i = 0; i < 3; i++) {
+        const angle = (time * 2 + i * (Math.PI * 2 / 3)) % (Math.PI * 2);
+        const dotX = x + Math.cos(angle) * (agent.radius + 15);
+        const dotY = y + Math.sin(angle) * (agent.radius + 15);
+        
+        this.ctx.beginPath();
+        this.ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#f59e0b';
+        this.ctx.globalAlpha = 0.8;
+        this.ctx.fill();
+        this.ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // Draw sprite or emoji fallback
+    if (agent.sprite && agent.sprite.image && agent.sprite.totalFrames > 0) {
+      // Draw sprite
+      this.ctx.drawImage(
+        agent.sprite.image,
+        agent.sprite.currentFrame * agent.sprite.frameWidth,
+        0,
+        agent.sprite.frameWidth,
+        agent.sprite.frameHeight,
+        x - agent.radius,
+        y - agent.radius,
+        agent.radius * 2,
+        agent.radius * 2
+      );
+    } else {
+      // Draw emoji fallback
+      this.ctx.font = '24px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(agent.emoji, x, y);
+    }
+
+    // Draw execution count badge
+    if (agent.executionMetrics?.totalExecutions > 0) {
+      const badgeText = agent.executionMetrics.totalExecutions.toString();
+      const badgeWidth = badgeText.length * 8 + 8;
+      const badgeHeight = 16;
+      const badgeX = x + agent.radius - badgeWidth / 2;
+      const badgeY = y - agent.radius - 8;
+
+      // Badge text
+      this.ctx.fillStyle = '#667eea';
+      this.ctx.font = '10px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2 + 3);
+    }
+  }
+
+  /**
+   * Renderiza um grupo de agentes consolidado
+   */
+  private renderAgentGroup(group: AgentGroup): void {
+    const { x, y } = group.position;
+    
+    // Draw trail for group
+    if (group.instances.length > 0 && group.instances[0].trail.length > 1) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(group.instances[0].trail[0].x, group.instances[0].trail[0].y);
+      
+      for (let i = 1; i < group.instances[0].trail.length; i++) {
+        this.ctx.lineTo(group.instances[0].trail[i].x, group.instances[0].trail[i].y);
+      }
+      
+      this.ctx.strokeStyle = group.color;
+      this.ctx.lineWidth = 3; // Thicker line for groups
+      this.ctx.globalAlpha = 0.4;
+      this.ctx.stroke();
+      this.ctx.globalAlpha = 1.0;
+    }
+
+    // Add execution indicator if any instance is currently executing
+    if (group.aggregatedMetrics.isCurrentlyExecuting) {
+      // Pulsing ring around group
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, group.instances[0].radius + 12, 0, Math.PI * 2);
+      this.ctx.strokeStyle = '#f59e0b';
+      this.ctx.lineWidth = 4;
+      this.ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 300) * 0.4;
+      this.ctx.stroke();
+      this.ctx.globalAlpha = 1.0;
+
+      // Spinning dots around group
+      const time = Date.now() / 1000;
+      for (let i = 0; i < 4; i++) {
+        const angle = (time * 2 + i * (Math.PI * 2 / 4)) % (Math.PI * 2);
+        const dotX = x + Math.cos(angle) * (group.instances[0].radius + 20);
+        const dotY = y + Math.sin(angle) * (group.instances[0].radius + 20);
+        
+        this.ctx.beginPath();
+        this.ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#f59e0b';
+        this.ctx.globalAlpha = 0.8;
+        this.ctx.fill();
+        this.ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // Draw group as larger circle with emoji
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, group.instances[0].radius + 4, 0, Math.PI * 2);
+    this.ctx.fillStyle = group.color;
+    this.ctx.globalAlpha = 0.8;
+    this.ctx.fill();
+    this.ctx.globalAlpha = 1.0;
+
+    // Draw border
+    this.ctx.strokeStyle = group.color;
+    this.ctx.lineWidth = 3;
+    this.ctx.stroke();
+
+    // Draw emoji
+    this.ctx.font = '24px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(group.emoji, x, y);
+
+    // Draw instance count badge
+    if (group.instances.length > 1) {
+      this.renderInstanceCounter(x, y, group.instances.length);
+    }
+
+    // Draw activity indicator
+    if (group.isActive) {
+      this.renderActivityIndicator(x, y);
+    }
+
+    // Draw aggregated execution count badge
+    if (group.aggregatedMetrics.totalExecutions > 0) {
+      const badgeText = group.aggregatedMetrics.totalExecutions.toString();
+      const badgeWidth = badgeText.length * 8 + 8;
+      const badgeHeight = 16;
+      const badgeX = x + group.instances[0].radius - badgeWidth / 2;
+      const badgeY = y - group.instances[0].radius - 8;
+
+      // Badge text
+      this.ctx.fillStyle = '#667eea';
+      this.ctx.font = '10px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2 + 3);
+    }
+  }
+
+  /**
+   * Renderiza contador de instâncias
+   */
+  private renderInstanceCounter(x: number, y: number, count: number): void {
+    const badgeSize = 20;
+    const badgeX = x + 20;
+    const badgeY = y - 20;
+    
+    // Badge background
+    this.ctx.fillStyle = '#FF4444';
+    this.ctx.fillRect(badgeX, badgeY, badgeSize, badgeSize);
+    
+    // Badge border
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 2;
+    this.ctx.strokeRect(badgeX, badgeY, badgeSize, badgeSize);
+    
+    // Count text
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = 'bold 12px Arial';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(count.toString(), badgeX + badgeSize/2, badgeY + badgeSize/2);
+  }
+
+  /**
+   * Renderiza indicador de atividade
+   */
+  private renderActivityIndicator(x: number, y: number): void {
+    const time = Date.now() / 1000;
+    const pulseSize = 8 + Math.sin(time * 4) * 2;
+    
+    this.ctx.beginPath();
+    this.ctx.arc(x, y - 30, pulseSize, 0, Math.PI * 2);
+    this.ctx.fillStyle = '#00FF00';
+    this.ctx.globalAlpha = 0.7;
+    this.ctx.fill();
+    this.ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * Define o modo de visualização
+   */
+  public setViewMode(mode: 'instances' | 'agents'): void {
+    this.viewMode = mode;
+    console.log(`🎮 [VIEW] Modo alterado para: ${mode}`);
+  }
+
+  /**
+   * Alterna entre modos de visualização
+   */
+  public toggleViewMode(): void {
+    this.viewMode = this.viewMode === 'instances' ? 'agents' : 'instances';
+    console.log(`🎮 [VIEW] Modo alternado para: ${this.viewMode}`);
+  }
+
+  /**
+   * Manipula mudanças nos filtros
+   */
+  public onFilterChange(): void {
+    console.log('🔍 [FILTER] Filtros atualizados:', this.filters);
+  }
+
+  /**
+   * Manipula mudanças no filtro de tipos de agente
+   */
+  public onAgentTypeFilterChange(typeValue: string, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    if (target.checked) {
+      if (!this.filters.agentTypes.includes(typeValue)) {
+        this.filters.agentTypes.push(typeValue);
+      }
+    } else {
+      this.filters.agentTypes = this.filters.agentTypes.filter(t => t !== typeValue);
+    }
+    this.onFilterChange();
+  }
+
+  /**
+   * Limpa todos os filtros
+   */
+  public clearFilters(): void {
+    this.filters = {
+      showInstances: true,
+      showGrouped: false,
+      minExecutions: 0,
+      agentTypes: [],
+      searchTerm: ''
+    };
+    console.log('🗑️ [FILTER] Filtros limpos');
+  }
+
+  /**
+   * Alterna visibilidade dos filtros
+   */
+  public toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+    console.log(`👁️ [FILTER] Filtros ${this.showFilters ? 'mostrados' : 'ocultos'}`);
+  }
+
+  public onCanvasClick(event: MouseEvent): void {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Ajustar coordenadas considerando scale do canvas
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
 
-    // Check if click is on any agent
-    for (const agent of this.agents) {
-      const dx = x - agent.position.x;
-      const dy = y - agent.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    if (this.viewMode === 'agents') {
+      // Check if click is on any agent group
+      for (const group of this.agentsByType.values()) {
+        const dx = x - group.position.x;
+        const dy = y - group.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < agent.radius) {
-        this.selectedAgent = agent;
+        // Use raio maior para melhor detecção (raio visual + margem de tolerância)
+        // O círculo é desenhado com radius + 4, mais borda de 3px
+        const groupRadius = group.instances[0].radius + 8;
 
-        // DEBUG: Verificar vinculação
-        console.log(`👆 [CLICK] Agente clicado:`, {
-          name: agent.name,
-          instance_id: agent.id,
-          agentId: agent.agentId,
-          executions: agent.executionMetrics.totalExecutions
-        });
+        if (distance < groupRadius) {
+          console.log(`👆 [CLICK] Grupo clicado:`, {
+            name: group.name,
+            agentId: group.agentId,
+            instances: group.instances.length,
+            executions: group.aggregatedMetrics.totalExecutions,
+            clickPos: { x, y },
+            agentPos: group.position,
+            distance,
+            radius: groupRadius
+          });
 
-        // Position tooltip - centralizado na coluna do meio (screenplay), próximo ao topo
-        const tooltipWidth = 320;
-        const tooltipHeight = 500; // Aumentado para acomodar todo o conteúdo
+          // Create a temporary agent object for the group
+          this.selectedAgent = {
+            id: group.agentId,
+            agentId: group.agentId,
+            screenplayId: group.instances[0].screenplayId,
+            name: group.name,
+            emoji: group.emoji,
+            position: group.position,
+            velocity: { x: 0, y: 0 },
+            isActive: group.isActive,
+            radius: groupRadius,
+            color: group.color,
+            trail: group.instances[0].trail,
+            sprite: group.instances[0].sprite,
+            executionMetrics: group.aggregatedMetrics
+          } as AgentCharacter;
 
-        // Obter dimensões da viewport
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // Calcular posição: centralizado horizontalmente na viewport, próximo ao topo
-        // Assumindo que a coluna do meio ocupa aproximadamente o centro da tela
-        let tooltipX = (viewportWidth / 2) - (tooltipWidth / 2);
-        let tooltipY = 80; // Próximo ao topo, abaixo do header (~60px)
-
-        // Garantir que não ultrapasse as bordas
-        if (tooltipX < 10) {
-          tooltipX = 10;
+          // Show tooltip
+          this.showTooltip = true;
+          return;
         }
-        if (tooltipX + tooltipWidth > viewportWidth - 10) {
-          tooltipX = viewportWidth - tooltipWidth - 10;
-        }
+      }
+    } else {
+      // Check if click is on any agent instance
+      for (const agent of this.agents) {
+        const dx = x - agent.position.x;
+        const dy = y - agent.position.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Garantir que não ultrapasse a borda inferior
-        if (tooltipY + tooltipHeight > viewportHeight - 10) {
-          tooltipY = viewportHeight - tooltipHeight - 10;
-        }
+        // Aumentar área de clique para melhor detecção
+        // O sprite é desenhado em radius * 2, então usamos radius + margem
+        const clickRadius = agent.radius + 2;
 
-        this.tooltipX = tooltipX;
-        this.tooltipY = tooltipY;
-        this.showTooltip = true;
-        return;
+        if (distance < clickRadius) {
+          this.selectedAgent = agent;
+
+          // DEBUG: Verificar vinculação
+          console.log(`👆 [CLICK] Agente clicado:`, {
+            name: agent.name,
+            instance_id: agent.id,
+            agentId: agent.agentId,
+            executions: agent.executionMetrics.totalExecutions,
+            clickPos: { x, y },
+            agentPos: agent.position,
+            distance,
+            radius: clickRadius
+          });
+
+          // Show tooltip
+          this.showTooltip = true;
+          return;
+        }
       }
     }
 
@@ -1183,7 +1652,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.showTooltip = false;
   }
 
-  closeTooltip(): void {
+  public closeTooltip(): void {
     this.showTooltip = false;
     this.selectedAgent = null;
     this.isDraggingTooltip = false;
@@ -1192,7 +1661,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Inicia o arraste do tooltip
    */
-  onTooltipMouseDown(event: MouseEvent): void {
+  public onTooltipMouseDown(event: MouseEvent): void {
     // Só permite arrastar se clicar no header
     const target = event.target as HTMLElement;
     if (target.classList.contains('tooltip-header') || target.classList.contains('tooltip-emoji')) {
@@ -1206,7 +1675,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Durante o arraste do tooltip
    */
-  onTooltipMouseMove(event: MouseEvent): void {
+  public onTooltipMouseMove(event: MouseEvent): void {
     if (this.isDraggingTooltip) {
       this.tooltipX = event.clientX - this.dragOffsetX;
       this.tooltipY = event.clientY - this.dragOffsetY;
@@ -1217,22 +1686,28 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Finaliza o arraste do tooltip
    */
-  onTooltipMouseUp(): void {
+  public onTooltipMouseUp(): void {
     this.isDraggingTooltip = false;
   }
 
   /**
-   * Listener para tecla ESC - fecha o tooltip
+   * Listener para tecla ESC - fecha o tooltip e filtros
    */
   @HostListener('document:keydown', ['$event'])
   onEscapeKey(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.showTooltip) {
-      this.closeTooltip();
-      event.preventDefault();
+    if (event.key === 'Escape') {
+      // Prioridade: fechar tooltip primeiro, depois filtros
+      if (this.showTooltip) {
+        this.closeTooltip();
+        event.preventDefault();
+      } else if (this.showFilters) {
+        this.toggleFilters();
+        event.preventDefault();
+      }
     }
   }
 
-  onCanvasMouseMove(event: MouseEvent): void {
+  public onCanvasMouseMove(event: MouseEvent): void {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -1283,7 +1758,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  onCanvasMouseLeave(event: MouseEvent): void {
+  public onCanvasMouseLeave(event: MouseEvent): void {
     // Hide popup when mouse leaves canvas
     this.hoveredAgent = null;
     this.showMiniMapPopup = false;
@@ -1296,14 +1771,14 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Formata tempo de execução para exibição
    */
-  formatExecutionTime(milliseconds: number): string {
+  public formatExecutionTime(milliseconds: number): string {
     return this.agentMetricsService.formatExecutionTime(milliseconds);
   }
 
   /**
    * Formata data da última execução para exibição
    */
-  formatLastExecution(date: Date): string {
+  public formatLastExecution(date: Date): string {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const seconds = Math.floor(diff / 1000);
@@ -1324,7 +1799,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  getScreenplayUrl(screenplayId: string): string {
+  public getScreenplayUrl(screenplayId: string): string {
     // Generate URL to open screenplay in a new tab
     const baseUrl = window.location.origin;
     return `${baseUrl}/screenplay?screenplayId=${screenplayId}`;
@@ -1478,7 +1953,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Alterna a exibição de estatísticas avançadas
    */
-  toggleAdvancedStats(): void {
+  public toggleAdvancedStats(): void {
     this.showAdvancedStats = !this.showAdvancedStats;
   }
 
@@ -1531,7 +2006,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Calcula a tendência de performance
    */
-  getPerformanceTrend(metrics: AgentExecutionMetrics): number {
+  public getPerformanceTrend(metrics: AgentExecutionMetrics): number {
     if (metrics.totalExecutions < 2) return 0;
 
     // Simula tendência baseada na comparação entre tempo médio e tempo total
@@ -1612,7 +2087,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
    * Toggle do painel de debug visual
    * Chame no console: toggleDebug()
    */
-  toggleDebugPanel(): void {
+  public toggleDebugPanel(): void {
     this.showDebugPanel = !this.showDebugPanel;
 
     if (this.showDebugPanel) {
@@ -1635,7 +2110,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   /**
    * Obtém informações de debug para exibição no painel
    */
-  getDebugInfo(): string {
+  public getDebugInfo(): string {
     const info: string[] = [];
     info.push(`📊 AGENTES (${this.agents.length})`);
     info.push('─────────────────────');

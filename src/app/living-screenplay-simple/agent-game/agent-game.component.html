@@ -1,4 +1,85 @@
 <div class="agent-game-container">
+  <!-- Agent Game Toolbar -->
+  <div class="agent-game-toolbar">
+    <div class="toolbar-left">
+      <!-- View Mode Controls -->
+      <div class="view-mode-controls">
+        <button
+          class="mode-button"
+          [class.active]="viewMode === 'instances'"
+          (click)="setViewMode('instances')">
+          🎭 Por Instância
+        </button>
+        <button
+          class="mode-button"
+          [class.active]="viewMode === 'agents'"
+          (click)="setViewMode('agents')">
+          🤖 Por Agente
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar-right">
+      <!-- Filter Toggle Button -->
+      <button
+        class="mode-button filter-toggle"
+        [class.active]="showFilters"
+        (click)="toggleFilters()">
+        🔍 Filtros
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Controls Panel (expandable) -->
+  <div class="filter-controls" *ngIf="showFilters">
+    <div class="filter-header">
+      <span class="filter-title">🔍 Filtros</span>
+      <button class="filter-close" (click)="toggleFilters()" title="Fechar (ESC)">×</button>
+    </div>
+
+    <div class="filter-section">
+      <label class="filter-label">🔍 Buscar:</label>
+      <input
+        type="text"
+        class="filter-input"
+        [(ngModel)]="filters.searchTerm"
+        placeholder="Nome do agente..."
+        (input)="onFilterChange()">
+    </div>
+
+    <div class="filter-section">
+      <label class="filter-label">⚡ Execuções mínimas:</label>
+      <input
+        type="number"
+        class="filter-number"
+        [(ngModel)]="filters.minExecutions"
+        min="0"
+        (input)="onFilterChange()">
+    </div>
+
+    <div class="filter-section">
+      <label class="filter-label">🏷️ Tipos:</label>
+      <div class="filter-checkboxes">
+        <label *ngFor="let type of availableAgentTypes" class="filter-checkbox">
+          <input
+            type="checkbox"
+            [value]="type.value"
+            [checked]="filters.agentTypes.includes(type.value)"
+            (change)="onAgentTypeFilterChange(type.value, $event)">
+          <span class="filter-checkbox-label">
+            {{ type.emoji }} {{ type.label }}
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <div class="filter-actions">
+      <button class="filter-button" (click)="clearFilters()">
+        🗑️ Limpar Filtros
+      </button>
+    </div>
+  </div>
+
   <canvas
     #gameCanvas
     class="game-canvas"
@@ -45,57 +126,91 @@
     </div>
   </div>
 
-  <!-- Agent Info Tooltip -->
-  <div
-    class="agent-tooltip"
-    *ngIf="showTooltip && selectedAgent"
-    [style.left.px]="tooltipX"
-    [style.top.px]="tooltipY"
-    [class.dragging]="isDraggingTooltip"
-    (mousedown)="onTooltipMouseDown($event)"
-    (mousemove)="onTooltipMouseMove($event)"
-    (mouseup)="onTooltipMouseUp()"
-    (mouseleave)="onTooltipMouseUp()">
-    <div class="tooltip-header">
-      <span class="tooltip-emoji">{{ selectedAgent.emoji }}</span>
-      <span class="tooltip-drag-hint">🖐️ Arraste aqui</span>
-      <button class="tooltip-close" (click)="closeTooltip()">×</button>
-    </div>
-    <div class="tooltip-body">
-      <div class="tooltip-row">
-        <span class="tooltip-label">Nome:</span>
-        <span class="tooltip-value">{{ selectedAgent.name }}</span>
+  <!-- Agent Info Modal -->
+  <div class="agent-modal-overlay" *ngIf="showTooltip && selectedAgent" (click)="closeTooltip()">
+    <div class="agent-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="modal-emoji">{{ selectedAgent.emoji }}</span>
+          <span class="modal-agent-name">{{ selectedAgent.name }}</span>
+        </div>
+        <button class="modal-close" (click)="closeTooltip()" title="Fechar (ESC)">×</button>
       </div>
-      <div class="tooltip-row">
-        <span class="tooltip-label">Agent ID:</span>
-        <span class="tooltip-value">{{ selectedAgent.agentId }}</span>
+      <div class="modal-body">
+        <!-- Info Grid -->
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Agent ID</span>
+            <span class="info-value">{{ selectedAgent.agentId }}</span>
+          </div>
+          <div class="info-item" *ngIf="viewMode === 'instances'">
+            <span class="info-label">Instance ID</span>
+            <span class="info-value small-text">{{ selectedAgent.id }}</span>
+          </div>
+          <div class="info-item" *ngIf="viewMode === 'agents'">
+            <span class="info-label">Instâncias</span>
+            <span class="info-value">{{ getInstanceCount(selectedAgent.agentId) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="info-value status" [class.active]="selectedAgent.isActive">
+              {{ selectedAgent.isActive ? '🟢 Trabalhando' : '🔴 Inativo' }}
+            </span>
+          </div>
+          <div class="info-item screenplay-item" *ngIf="viewMode === 'instances'">
+            <span class="info-label">Screenplay</span>
+            <a [href]="getScreenplayUrl(selectedAgent.screenplayId)" target="_blank" class="screenplay-link">
+              {{ selectedAgent.screenplayId }} 🔗
+            </a>
+          </div>
+        </div>
+
+      <!-- Seção de Métricas Consolidadas (modo agente) -->
+      <div class="tooltip-metrics" *ngIf="viewMode === 'agents'">
+        <div class="tooltip-metrics-header">
+          <h4>📊 Métricas Consolidadas</h4>
+        </div>
+        <div class="tooltip-metric">
+          <span class="tooltip-metric-label">Total de Execuções:</span>
+          <span class="tooltip-metric-value">{{ getAggregatedExecutions(selectedAgent.agentId) }}</span>
+        </div>
+        <div class="tooltip-metric">
+          <span class="tooltip-metric-label">Tempo Total:</span>
+          <span class="tooltip-metric-value">{{ formatExecutionTime(getAggregatedTime(selectedAgent.agentId)) }}</span>
+        </div>
+        <div class="tooltip-metric">
+          <span class="tooltip-metric-label">Tempo Médio:</span>
+          <span class="tooltip-metric-value">{{ formatExecutionTime(getAggregatedTime(selectedAgent.agentId) / getAggregatedExecutions(selectedAgent.agentId)) }}</span>
+        </div>
       </div>
-      <div class="tooltip-row">
-        <span class="tooltip-label">Instance ID:</span>
-        <span class="tooltip-value" style="font-size: 11px; word-break: break-all;">{{ selectedAgent.id }}</span>
+
+      <!-- Lista de Instâncias (modo agente) -->
+      <div class="instances-list" *ngIf="viewMode === 'agents'">
+        <div class="instances-header">
+          <h4>🎭 Instâncias ({{ getInstanceCount(selectedAgent.agentId) }})</h4>
+        </div>
+        <div *ngFor="let instance of getInstancesForAgent(selectedAgent.agentId)"
+             class="instance-item-extended">
+          <div class="instance-row">
+            <div class="instance-info">
+              <span class="instance-id">{{ instance.id.substring(0, 8) }}...</span>
+              <span class="instance-executions">{{ instance.executionMetrics.totalExecutions }} exec</span>
+            </div>
+            <div class="instance-status" [class.active]="instance.isActive">
+              {{ instance.isActive ? '🟢' : '🔴' }}
+            </div>
+          </div>
+          <div class="instance-screenplay">
+            <span class="screenplay-icon">🎬</span>
+            <a [href]="getScreenplayUrl(instance.screenplayId)" target="_blank" class="instance-screenplay-link">
+              {{ instance.screenplayId }}
+            </a>
+          </div>
+        </div>
       </div>
-      <div class="tooltip-row">
-        <span class="tooltip-label">Screenplay:</span>
-        <a
-          [href]="getScreenplayUrl(selectedAgent.screenplayId)"
-          target="_blank"
-          class="screenplay-link"
-          title="Abrir screenplay em nova aba">
-          {{ selectedAgent.screenplayId }} 🔗
-        </a>
-      </div>
-      <div class="tooltip-row">
-        <span class="tooltip-label">Status:</span>
-        <span
-          class="tooltip-status"
-          [class.active]="selectedAgent.isActive"
-          [class.inactive]="!selectedAgent.isActive">
-          {{ selectedAgent.isActive ? '🟢 Trabalhando' : '🔴 Inativo' }}
-        </span>
-      </div>
-      
-      <!-- Seção de Métricas de Execução -->
-      <div class="tooltip-metrics">
+
+      <!-- Seção de Métricas de Execução (modo instância) -->
+      <div class="tooltip-metrics" *ngIf="viewMode === 'instances'">
         <div class="tooltip-metrics-header">
           <div class="metrics-title">
             <i class="fas fa-chart-line"></i>
@@ -208,6 +323,7 @@
           </button>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </div>
