@@ -1,0 +1,135 @@
+.ministers-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.emoji, .minister-emoji {
+  font-size: 28px;
+}
+
+.city-health {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 260px;
+}
+
+.health-bar {
+  width: 100%;
+  height: 10px;
+  background: #eef2ff;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+}
+
+.health-label {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: right;
+}
+
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.alert-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.alert-card[data-severity="high"] {
+  border-left: 4px solid #ef4444;
+}
+
+.alert-card[data-severity="medium"] {
+  border-left: 4px solid #f59e0b;
+}
+
+.alert-card[data-severity="low"] {
+  border-left: 4px solid #10b981;
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.minister-meta {
+  flex: 1;
+}
+
+.minister-name {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.alert-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.severity {
+  font-size: 12px;
+  color: #374151;
+}
+
+.alert-body .detail {
+  margin: 0;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #2563eb;
+}
+
+.alert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 6px 10px;
+  border: 1px solid #cfd6e4;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-primary { background: #10b981; color: #fff; border-color: #10b981; }
+.btn-secondary { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.btn-tertiary { background: #f3f4f6; color: #374151; }

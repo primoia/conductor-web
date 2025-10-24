@@ -2,7 +2,7 @@ import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListene
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
@@ -103,7 +103,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     SaveStatusComponent,
     FilePathInfoComponent,
     ConflictResolutionModalComponent,
-    NotificationToastComponent
+    NotificationToastComponent,
+    RouterLink
   ],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [

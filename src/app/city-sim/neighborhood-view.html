@@ -1,0 +1,26 @@
+<div class="neighborhood-view" [attr.data-mode]="mode">
+  <div class="header">
+    <h2>Bairro: Monolito vs Modular</h2>
+    <button class="btn" (click)="toggle()">Alternar para {{ mode === 'monolith' ? 'Modular' : 'Monolito' }}</button>
+  </div>
+
+  <div class="city-canvas">
+    <div class="monolith" *ngIf="mode === 'monolith'">
+      <div class="block large">Monólito</div>
+      <div class="smog"></div>
+    </div>
+
+    <div class="modular" *ngIf="mode === 'modular'">
+      <div class="grid">
+        <div class="block small" *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12]">Módulo {{ i }}</div>
+      </div>
+      <div class="parks"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div>🌫️ Poluição = dívida técnica</div>
+    <div>🌳 Parques = documentação e testes</div>
+    <div>🛣️ Ruas = dependências limpas</div>
+  </div>
+</div>

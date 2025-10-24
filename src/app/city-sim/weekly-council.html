@@ -1,0 +1,19 @@
+<div class="weekly-council">
+  <div class="header">
+    <h2>Conselho Semanal</h2>
+    <div class="badge">{{ week }}</div>
+  </div>
+  <div class="priorities">
+    <div class="priority" *ngFor="let p of priorities">
+      <span class="emoji">{{ p.emoji }}</span>
+      <div class="meta">
+        <div class="title">{{ p.title }}</div>
+        <div class="stats">
+          <span class="impact">Impacto: {{ p.impact }}</span>
+          <span class="effort">Esforço: {{ p.effort }}</span>
+        </div>
+      </div>
+      <button class="btn">Abrir plano</button>
+    </div>
+  </div>
+</div>

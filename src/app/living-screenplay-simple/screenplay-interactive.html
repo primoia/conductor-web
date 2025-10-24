@@ -57,6 +57,11 @@
                 ⚙️
               </button>
 
+              <!-- Quick access to City-Sim mockups -->
+              <a class="toolbar-btn" title="Gabinete de Ministros" [routerLink]="['/city/ministers']">🏛️</a>
+              <a class="toolbar-btn" title="Conselho Semanal" [routerLink]="['/city/council']">📅</a>
+              <a class="toolbar-btn" title="Bairro Monolito vs Modular" [routerLink]="['/city/neighborhood']">🏘️</a>
+
               <!-- Settings Menu -->
               <div
                 *ngIf="showScreenplaySettings"
@@ -67,6 +72,15 @@
                 <button class="menu-item" (click)="toggleScreenplayInfoModal(); showScreenplaySettings = false">
                   ⌨️ Atalhos de Teclado
                 </button>
+                <a class="menu-item" [routerLink]="['/city/ministers']" (click)="showScreenplaySettings = false">
+                  🏛️ Gabinete de Ministros
+                </a>
+                <a class="menu-item" [routerLink]="['/city/council']" (click)="showScreenplaySettings = false">
+                  📅 Conselho Semanal
+                </a>
+                <a class="menu-item" [routerLink]="['/city/neighborhood']" (click)="showScreenplaySettings = false">
+                  🏘️ Bairro Monolito vs Modular
+                </a>
               </div>
             </div>
           </div>

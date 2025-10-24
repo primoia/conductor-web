@@ -1,0 +1,9 @@
+.weekly-council { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.header { display: flex; align-items: center; gap: 10px; }
+.badge { background: #eef2ff; color: #374151; padding: 4px 8px; border-radius: 999px; font-size: 12px; }
+.priorities { display: flex; flex-direction: column; gap: 12px; }
+.priority { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; }
+.priority .emoji { font-size: 24px; }
+.priority .title { font-weight: 600; }
+.priority .stats { font-size: 12px; color: #6b7280; display: flex; gap: 12px; }
+.btn { margin-left: auto; padding: 6px 10px; border: 1px solid #cfd6e4; border-radius: 6px; background: #f3f4f6; cursor: pointer; font-size: 12px; }

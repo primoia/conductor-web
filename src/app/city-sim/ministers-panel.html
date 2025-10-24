@@ -1,0 +1,38 @@
+<div class="ministers-panel">
+  <div class="panel-header">
+    <div class="title">
+      <span class="emoji">🏛️</span>
+      <h2>Gabinete de Ministros</h2>
+    </div>
+    <div class="city-health" [attr.data-level]="cityHealth">
+      <div class="health-bar">
+        <div class="health-fill" [style.width.%]="cityHealth * 100"></div>
+      </div>
+      <div class="health-label">Saúde da Cidade: {{ (cityHealth * 100) | number:'1.0-0' }}% ({{ getHealthLabel(cityHealth) }})</div>
+    </div>
+  </div>
+
+  <div class="alerts-grid">
+    <div class="alert-card" *ngFor="let a of alerts" [attr.data-severity]="a.severity">
+      <div class="alert-header">
+        <span class="minister-emoji">{{ a.emoji }}</span>
+        <div class="minister-meta">
+          <div class="minister-name">Ministro(a) de {{ a.minister }}</div>
+          <div class="alert-title">{{ a.title }}</div>
+        </div>
+        <div class="severity">{{ a.severity | uppercase }}</div>
+      </div>
+
+      <div class="alert-body">
+        <p class="detail">{{ a.detail }}</p>
+        <div class="hint" *ngIf="a.hint">💡 {{ a.hint }}</div>
+      </div>
+
+      <div class="alert-actions">
+        <button class="btn btn-primary">✅ Corrigir</button>
+        <button class="btn btn-secondary">🧪 Simular impacto</button>
+        <button class="btn btn-tertiary">⏳ Adiar</button>
+      </div>
+    </div>
+  </div>
+</div>
