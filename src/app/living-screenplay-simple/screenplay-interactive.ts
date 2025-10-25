@@ -34,6 +34,7 @@ import { InvestigationLauncherComponent, InvestigationRequest } from './investig
 import { ScreenplayKpiService } from '../services/screenplay-kpi.service';
 import { CouncilorsDashboardComponent } from './councilors-dashboard/councilors-dashboard.component';
 import { PromoteCouncilorModalComponent } from './promote-councilor-modal/promote-councilor-modal.component';
+import { CouncilorSchedulerService } from '../services/councilor-scheduler.service';
 
 interface AgentConfig {
   id: string;
@@ -192,7 +193,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   closeAgentPersonalization(): void { this.showAgentPersonalization = false; }
 
   // Fase 3: badge state for quick-access icons
-  footerBadges: { ministers?: { count: number, severity: 'info'|'warning'|'error' }, council?: { count: number, severity: 'info'|'warning'|'error' }, neighborhood?: { count: number, severity: 'info'|'warning'|'error' } } = {};
+  footerBadges: { ministers?: { count: number, severity: 'info'|'warning'|'error' } } = {};
 
   // Working Directory modal state
   showWorkingDirModal = false;
@@ -228,6 +229,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   showCouncilorsDashboard = false;
   showPromoteCouncilorModal = false;
   selectedAgentForPromotion: any = null;
+  isSelectingAgentForPromotion = false;
 
   // Text selection context for agent execution
   private selectedText: string = '';
@@ -274,7 +276,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private http: HttpClient,
     private notificationService: NotificationService,
     private gamificationEvents: GamificationEventsService,
-    private screenplayKpis: ScreenplayKpiService
+    private screenplayKpis: ScreenplayKpiService,
+    private councilorScheduler: CouncilorSchedulerService
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -295,18 +298,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       const recent = list.slice(-20);
       const counts = { info: 0, warning: 0, error: 0 } as Record<'info'|'warning'|'error', number>;
       for (const ev of recent) counts[ev.severity] = (counts[ev.severity] || 0) + 1;
-      // Simple mapping demo: ministers <- warnings, council <- info, neighborhood <- errors
+      // Badge for councilors (ministers) - show warnings
       this.footerBadges = {
         ministers: counts.warning ? { count: counts.warning, severity: 'warning' } : undefined,
-        council: counts.info ? { count: counts.info, severity: 'info' } : undefined,
-        neighborhood: counts.error ? { count: counts.error, severity: 'error' } : undefined,
       };
     });
-  }
-
-  public navigateToCity(path: string): void {
-    // Use Angular router to navigate without full reload
-    this.router.navigateByUrl(path);
   }
 
   // Fase 3: abrir modal a partir do ticker
@@ -357,6 +353,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.showCouncilorsDashboard = false;
   }
 
+  /**
+   * Opens agent selector to choose which agent to promote to councilor
+   */
+  openAgentSelectorForPromotion(): void {
+    this.isSelectingAgentForPromotion = true;
+    this.showCouncilorsDashboard = false;
+    this.showAgentSelector = true;
+  }
+
+  /**
+   * Opens promote councilor modal with selected agent
+   */
   openPromoteCouncilorModal(agent?: any): void {
     this.selectedAgentForPromotion = agent || null;
     this.showPromoteCouncilorModal = true;
@@ -368,11 +376,52 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.selectedAgentForPromotion = null;
   }
 
-  handlePromoteCouncilor(request: any): void {
-    // TODO: Call API to promote agent to councilor
-    console.log('Promoting agent to councilor:', request);
-    this.closePromoteCouncilorModal();
-    this.showCouncilorsDashboard = true;
+  async handlePromoteCouncilor(request: any): Promise<void> {
+    if (!this.selectedAgentForPromotion) {
+      console.error('❌ No agent selected for promotion');
+      return;
+    }
+
+    try {
+      const agentId = this.selectedAgentForPromotion.id;
+      console.log(`⭐ Promoting agent ${agentId} to councilor:`, request);
+
+      // Call API to promote agent to councilor
+      const response = await fetch(`/api/councilors/${agentId}/promote-councilor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(request)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to promote agent');
+      }
+
+      const result = await response.json();
+      console.log('✅ Agent promoted successfully:', result);
+
+      // Show success notification
+      this.notificationService.showSuccess(
+        `${request.customization?.display_name || this.selectedAgentForPromotion.name} promovido a conselheiro!`
+      );
+
+      // Close modal and show dashboard
+      this.closePromoteCouncilorModal();
+      this.showCouncilorsDashboard = true;
+
+      // Reload councilors in the scheduler service
+      // This will trigger the dashboard to update via the observable
+      await this.councilorScheduler.initialize();
+
+    } catch (error) {
+      console.error('❌ Error promoting agent to councilor:', error);
+      this.notificationService.showError(
+        `Erro ao promover conselheiro: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 
   // Specialized loggers for different contexts
@@ -591,15 +640,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Initialize Councilor Scheduler Service
+    this.councilorScheduler.initialize().catch(error => {
+      console.error('❌ Failed to initialize CouncilorSchedulerService:', error);
+    });
+
     // Subscribe to URL query parameter changes
     this.route.queryParamMap.subscribe(params => {
       const screenplayId = params.get('screenplayId');
-      
+
       // Prevent reload if ID hasn't changed
       if (screenplayId === this.currentScreenplay?.id) {
         return;
       }
-      
+
       // Check for unsaved changes before loading new screenplay
       if (this.isDirty && screenplayId !== this.currentScreenplay?.id) {
         const confirmed = confirm(
@@ -615,7 +669,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
       }
-      
+
       this.pendingScreenplayId = screenplayId;
     });
 
@@ -2622,6 +2676,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   onAgentSelected(selectionData: AgentSelectionData): void {
     const canvas = this.canvas.nativeElement;
     const { agent, instanceId, cwd } = selectionData;
+
+    // Check if we're selecting agent for councilor promotion
+    if (this.isSelectingAgentForPromotion) {
+      this.isSelectingAgentForPromotion = false;
+      this.showAgentSelector = false;
+      this.openPromoteCouncilorModal(agent);
+      return;
+    }
 
     // Add the agent emoji to definitions if it doesn't exist
     if (!AGENT_DEFINITIONS[agent.emoji]) {

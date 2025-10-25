@@ -1,0 +1,158 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-content">
+        <h2>⚙️ Editar Configuração</h2>
+        <p class="councilor-name" *ngIf="councilor">
+          {{ councilor.customization?.display_name || councilor.name }}
+        </p>
+      </div>
+      <button class="close-btn" (click)="onClose()" title="Fechar" [disabled]="isSaving">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <form class="edit-form">
+        <!-- Título/Cargo -->
+        <div class="form-group">
+          <label for="title">Título/Cargo</label>
+          <input
+            id="title"
+            type="text"
+            class="form-control"
+            [(ngModel)]="title"
+            name="title"
+            placeholder="Ex: Auditor de Qualidade"
+            [disabled]="isSaving"
+          />
+          <small class="form-hint">O cargo ou função deste conselheiro</small>
+        </div>
+
+        <!-- Nome da Tarefa -->
+        <div class="form-group">
+          <label for="taskName">Nome da Tarefa</label>
+          <input
+            id="taskName"
+            type="text"
+            class="form-control"
+            [(ngModel)]="taskName"
+            name="taskName"
+            placeholder="Ex: Verificar CSS Inline"
+            [disabled]="isSaving"
+          />
+          <small class="form-hint">Nome descritivo da tarefa que será executada</small>
+        </div>
+
+        <!-- Prompt da Tarefa -->
+        <div class="form-group">
+          <label for="taskPrompt">Prompt da Tarefa</label>
+          <textarea
+            id="taskPrompt"
+            class="form-control"
+            rows="6"
+            [(ngModel)]="taskPrompt"
+            name="taskPrompt"
+            placeholder="Descreva detalhadamente o que o conselheiro deve fazer..."
+            [disabled]="isSaving"
+          ></textarea>
+          <small class="form-hint">Instruções detalhadas para a execução da tarefa</small>
+        </div>
+
+        <!-- Intervalo de Execução -->
+        <div class="form-group">
+          <label for="scheduleValue">Intervalo de Execução</label>
+          <div class="schedule-input-group">
+            <input
+              id="scheduleValue"
+              type="text"
+              class="form-control"
+              [(ngModel)]="scheduleValue"
+              name="scheduleValue"
+              placeholder="Ex: 30m, 1h, 2d"
+              [disabled]="isSaving"
+            />
+            <div class="schedule-suggestions">
+              <button
+                *ngFor="let example of getScheduleExamples()"
+                type="button"
+                class="suggestion-btn"
+                (click)="setScheduleValue(example)"
+                [disabled]="isSaving"
+              >
+                {{ example }}
+              </button>
+            </div>
+          </div>
+          <small class="form-hint">
+            Formato: número + unidade (m=minutos, h=horas, d=dias)
+          </small>
+        </div>
+
+        <!-- Preferências de Notificação -->
+        <div class="form-group">
+          <label>Notificações</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnSuccess"
+                name="notifyOnSuccess"
+                [disabled]="isSaving"
+              />
+              <span>✅ Notificar em sucesso</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnWarning"
+                name="notifyOnWarning"
+                [disabled]="isSaving"
+              />
+              <span>⚠️ Notificar em alertas</span>
+            </label>
+
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnError"
+                name="notifyOnError"
+                [disabled]="isSaving"
+              />
+              <span>🔥 Notificar em erros</span>
+            </label>
+          </div>
+          <small class="form-hint">Escolha quando você quer ser notificado</small>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" *ngIf="errorMessage">
+          ❌ {{ errorMessage }}
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button
+        class="btn btn-secondary"
+        (click)="onClose()"
+        [disabled]="isSaving"
+      >
+        Cancelar
+      </button>
+      <button
+        class="btn btn-primary"
+        (click)="onSave()"
+        [disabled]="isSaving"
+      >
+        <span *ngIf="!isSaving">💾 Salvar Alterações</span>
+        <span *ngIf="isSaving">
+          <span class="spinner-small"></span>
+          Salvando...
+        </span>
+      </button>
+    </div>
+  </div>
+</div>

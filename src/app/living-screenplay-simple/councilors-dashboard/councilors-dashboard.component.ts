@@ -1,8 +1,10 @@
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { AgentWithCouncilor, CouncilorReport } from '../../models/councilor.types';
 import { CouncilorSchedulerService } from '../../services/councilor-scheduler.service';
+import { CouncilorReportModalComponent } from '../councilor-report-modal/councilor-report-modal.component';
+import { CouncilorEditModalComponent } from '../councilor-edit-modal/councilor-edit-modal.component';
 
 /**
  * Dashboard de Conselheiros Ativos
@@ -17,13 +19,14 @@ import { CouncilorSchedulerService } from '../../services/councilor-scheduler.se
 @Component({
   selector: 'app-councilors-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CouncilorReportModalComponent, CouncilorEditModalComponent],
   templateUrl: './councilors-dashboard.component.html',
   styleUrls: ['./councilors-dashboard.component.css']
 })
 export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
   @Output() close = new EventEmitter<void>();
   @Output() promoteNew = new EventEmitter<void>();
+  @ViewChild(CouncilorEditModalComponent) editModal?: CouncilorEditModalComponent;
 
   councilors: AgentWithCouncilor[] = [];
   private subscription?: Subscription;
@@ -31,6 +34,13 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
   // Estado de carregamento e erros
   isLoading = true;
   errorMessage = '';
+
+  // Modal states
+  showReportModal = false;
+  showEditModal = false;
+  selectedCouncilor: AgentWithCouncilor | null = null;
+  selectedReport: CouncilorReport | null = null;
+  isLoadingReport = false;
 
   constructor(private councilorScheduler: CouncilorSchedulerService) {}
 
@@ -98,24 +108,98 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
    * Abre modal com último relatório
    */
   viewLastReport(councilor: AgentWithCouncilor): void {
+    this.selectedCouncilor = councilor;
+    this.isLoadingReport = true;
+    this.showReportModal = true;
+    this.selectedReport = null;
+
     this.councilorScheduler.getCouncilorReport(councilor.agent_id).subscribe(
       report => {
-        console.log('Relatório:', report);
-        // TODO: Abrir modal com relatório
+        console.log('📋 Relatório carregado:', report);
+        this.selectedReport = report;
+        this.isLoadingReport = false;
       },
       error => {
-        console.error('Erro ao carregar relatório:', error);
+        console.error('❌ Erro ao carregar relatório:', error);
         this.errorMessage = 'Erro ao carregar relatório';
+        this.isLoadingReport = false;
+        this.showReportModal = false;
       }
     );
+  }
+
+  /**
+   * Fecha modal de relatório
+   */
+  closeReportModal(): void {
+    this.showReportModal = false;
+    this.selectedReport = null;
+    this.selectedCouncilor = null;
   }
 
   /**
    * Abre modal de edição
    */
   editCouncilor(councilor: AgentWithCouncilor): void {
-    // TODO: Abrir modal de edição
-    console.log('Editando conselheiro:', councilor);
+    console.log('⚙️ Editando conselheiro:', councilor);
+    this.selectedCouncilor = councilor;
+    this.showEditModal = true;
+  }
+
+  /**
+   * Fecha modal de edição
+   */
+  closeEditModal(): void {
+    this.showEditModal = false;
+    this.selectedCouncilor = null;
+  }
+
+  /**
+   * Salva alterações da edição de conselheiro
+   */
+  async saveCouncilorConfig(updateData: any): Promise<void> {
+    if (!this.selectedCouncilor) return;
+
+    // Definir estado de loading no modal
+    if (this.editModal) {
+      this.editModal.setLoadingState(true);
+    }
+
+    try {
+      const response = await fetch(`/api/councilors/${this.selectedCouncilor.agent_id}/councilor-config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update config: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Configuração atualizada:', result);
+
+      // Atualizar localmente
+      const index = this.councilors.findIndex(c => c.agent_id === this.selectedCouncilor!.agent_id);
+      if (index !== -1 && result.agent) {
+        this.councilors[index] = result.agent;
+      }
+
+      // Fechar modal
+      this.closeEditModal();
+
+      // Recarregar conselheiros
+      this.loadCouncilors();
+
+    } catch (error) {
+      console.error('❌ Erro ao salvar configuração:', error);
+      this.errorMessage = 'Erro ao salvar configuração';
+
+      // Definir erro no modal
+      if (this.editModal) {
+        this.editModal.setError('Erro ao salvar configuração. Tente novamente.');
+      }
+    }
   }
 
   /**
@@ -127,17 +211,20 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
     }
 
     try {
-      // TODO: Implementar endpoint DELETE /api/agents/:id/demote-councilor
-      await fetch(`/api/agents/${councilor.agent_id}/demote-councilor`, {
+      const response = await fetch(`/api/councilors/${councilor.agent_id}/demote-councilor`, {
         method: 'DELETE'
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed to demote councilor: ${response.status}`);
+      }
 
       console.log(`🔻 Conselheiro ${councilor.customization?.display_name} removido`);
 
       // Remover da lista local
       this.councilors = this.councilors.filter(c => c.agent_id !== councilor.agent_id);
     } catch (error) {
-      console.error('Erro ao demover conselheiro:', error);
+      console.error('❌ Erro ao demover conselheiro:', error);
       this.errorMessage = 'Erro ao remover conselheiro';
     }
   }

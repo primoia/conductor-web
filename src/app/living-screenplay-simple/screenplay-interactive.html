@@ -59,8 +59,6 @@
 
               <!-- Quick access to City-Sim mockups -->
               <button class="toolbar-btn" title="Conselheiros" (click)="openCouncilorsDashboard()" [attr.data-badge]="footerBadges.ministers?.count || null" [attr.data-badge-severity]="footerBadges.ministers?.severity">🏛️</button>
-              <button class="toolbar-btn" title="Conselho Semanal" (click)="navigateToCity('/city/council')" [attr.data-badge]="footerBadges.council?.count || null" [attr.data-badge-severity]="footerBadges.council?.severity">📅</button>
-              <button class="toolbar-btn" title="Bairro Monolito vs Modular" (click)="navigateToCity('/city/neighborhood')" [attr.data-badge]="footerBadges.neighborhood?.count || null" [attr.data-badge-severity]="footerBadges.neighborhood?.severity">🏘️</button>
 
               <!-- Settings Menu -->
               <div
@@ -71,15 +69,6 @@
                 </button>
                 <button class="menu-item" (click)="toggleScreenplayInfoModal(); showScreenplaySettings = false">
                   ⌨️ Atalhos de Teclado
-                </button>
-                <button class="menu-item" (click)="navigateToCity('/city/ministers'); showScreenplaySettings = false">
-                  🏛️ Gabinete de Ministros
-                </button>
-                <button class="menu-item" (click)="navigateToCity('/city/council'); showScreenplaySettings = false">
-                  📅 Conselho Semanal
-                </button>
-                <button class="menu-item" (click)="navigateToCity('/city/neighborhood'); showScreenplaySettings = false">
-                  🏘️ Bairro Monolito vs Modular
                 </button>
               </div>
             </div>
@@ -385,7 +374,7 @@
       <app-councilors-dashboard
         *ngIf="showCouncilorsDashboard"
         (close)="closeCouncilorsDashboard()"
-        (promoteNew)="openPromoteCouncilorModal()"
+        (promoteNew)="openAgentSelectorForPromotion()"
       ></app-councilors-dashboard>
 
       <!-- Promote Councilor Modal -->

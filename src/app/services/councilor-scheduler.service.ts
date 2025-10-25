@@ -87,9 +87,7 @@ export class CouncilorSchedulerService implements OnDestroy {
    */
   private async loadCouncilorsFromBackend(): Promise<AgentWithCouncilor[]> {
     try {
-      // TODO: Implementar endpoint GET /api/agents?is_councilor=true
-      // Por enquanto, retorna lista vazia
-      const response = await fetch('/api/agents?is_councilor=true');
+      const response = await fetch('/api/councilors?is_councilor=true');
 
       if (!response.ok) {
         throw new Error(`Failed to load councilors: ${response.status}`);

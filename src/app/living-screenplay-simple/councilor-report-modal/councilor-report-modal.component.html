@@ -1,0 +1,102 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-content">
+        <h2>📋 Relatório do Conselheiro</h2>
+        <p class="councilor-name">{{ councilorName }}</p>
+      </div>
+      <button class="close-btn" (click)="onClose()" title="Fechar">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body" *ngIf="report">
+      <!-- Estatísticas Gerais -->
+      <div class="stats-section">
+        <div class="stat-card">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ report.total_executions || 0 }}</div>
+            <div class="stat-label">Total de Execuções</div>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ report.success_rate || 0 }}%</div>
+            <div class="stat-label">Taxa de Sucesso</div>
+          </div>
+        </div>
+
+        <div class="stat-card" *ngIf="report.next_execution">
+          <div class="stat-icon">⏰</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatDate(report.next_execution) }}</div>
+            <div class="stat-label">Próxima Execução</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Execuções Recentes -->
+      <div class="executions-section">
+        <h3>Execuções Recentes</h3>
+
+        <div *ngIf="!report.recent_executions || report.recent_executions.length === 0" class="empty-state">
+          <p>Nenhuma execução registrada ainda.</p>
+        </div>
+
+        <div class="executions-list" *ngIf="report.recent_executions && report.recent_executions.length > 0">
+          <div
+            *ngFor="let execution of report.recent_executions"
+            class="execution-item"
+            [ngClass]="getSeverityClass(execution.severity)"
+          >
+            <!-- Execution Header -->
+            <div class="execution-header">
+              <div class="execution-info">
+                <span class="severity-badge" [ngClass]="getSeverityClass(execution.severity)">
+                  {{ getSeverityEmoji(execution.severity) }}
+                  {{ getSeverityLabel(execution.severity) }}
+                </span>
+                <span class="status-badge" [ngClass]="getStatusClass(execution.status)">
+                  {{ getStatusLabel(execution.status) }}
+                </span>
+              </div>
+              <div class="execution-meta">
+                <span class="execution-date">{{ formatDate(execution.started_at) }}</span>
+                <span class="execution-duration" *ngIf="execution.duration_ms">
+                  ⏱️ {{ formatDuration(execution.duration_ms) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Execution Output -->
+            <div class="execution-output" *ngIf="execution.output">
+              <pre>{{ execution.output }}</pre>
+            </div>
+
+            <!-- Execution Error -->
+            <div class="execution-error" *ngIf="execution.error">
+              <strong>Erro:</strong>
+              <pre>{{ execution.error }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="modal-body loading-state" *ngIf="!report">
+      <div class="spinner"></div>
+      <p>Carregando relatório...</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="onClose()">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>

@@ -62,6 +62,16 @@ export class PromoteCouncilorModalComponent {
       // Pré-preencher com dados do agente
       this.displayName = this.agent.customization?.display_name || this.generateDefaultName();
       this.title = `Conselheiro de ${this.agent.title || this.agent.name}`;
+
+      // Se não há nome de tarefa, usar um padrão
+      if (!this.taskName) {
+        this.taskName = `Monitoramento de ${this.agent.name}`;
+      }
+
+      // Se não há prompt de tarefa, usar um padrão
+      if (!this.taskPrompt) {
+        this.taskPrompt = `Analise o projeto e identifique possíveis melhorias relacionadas a ${this.agent.description || this.agent.name}.`;
+      }
     }
   }
 

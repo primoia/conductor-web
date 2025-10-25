@@ -143,5 +143,20 @@
         ⭐ Promover Novo Conselheiro
       </button>
     </div>
+
+    <!-- Modals -->
+    <app-councilor-report-modal
+      *ngIf="showReportModal"
+      [report]="selectedReport"
+      [councilorName]="selectedCouncilor?.customization?.display_name || selectedCouncilor?.name || ''"
+      (close)="closeReportModal()"
+    ></app-councilor-report-modal>
+
+    <app-councilor-edit-modal
+      *ngIf="showEditModal"
+      [councilor]="selectedCouncilor"
+      (close)="closeEditModal()"
+      (save)="saveCouncilorConfig($event)"
+    ></app-councilor-edit-modal>
   </div>
 </div>
