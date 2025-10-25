@@ -13,11 +13,11 @@
   </div>
 
   <div class="alerts-grid">
-    <div class="alert-card" *ngFor="let a of alerts" [attr.data-severity]="a.severity">
+    <div class="alert-card" *ngFor="let a of alerts" [attr.data-severity]="a.severity" (click)="openAlert(a)">
       <div class="alert-header">
         <span class="minister-emoji">{{ a.emoji }}</span>
         <div class="minister-meta">
-          <div class="minister-name">Ministro(a) de {{ a.minister }}</div>
+          <div class="minister-name">{{ a.name }} • Ministro(a) de {{ a.minister }}</div>
           <div class="alert-title">{{ a.title }}</div>
         </div>
         <div class="severity">{{ a.severity | uppercase }}</div>
@@ -32,6 +32,36 @@
         <button class="btn btn-primary">✅ Corrigir</button>
         <button class="btn btn-secondary">🧪 Simular impacto</button>
         <button class="btn btn-tertiary">⏳ Adiar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gamified Minister Modal (3x4 portrait) -->
+  <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
+    <div class="minister-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="portrait">
+          <div class="portrait-frame">
+            <span class="portrait-emoji">{{ selected?.emoji }}</span>
+          </div>
+        </div>
+        <div class="meta">
+          <div class="name">{{ selected?.name }}</div>
+          <div class="role">Ministro(a) de {{ selected?.minister }}</div>
+        </div>
+        <button class="close" (click)="closeModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="title">{{ selected?.title }}</div>
+        <p class="detail">{{ selected?.detail }}</p>
+        <div class="hint" *ngIf="selected?.hint">💡 {{ selected?.hint }}</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" (click)="act('fix')">✅ Corrigir</button>
+        <button class="btn btn-secondary" (click)="act('simulate')">🧪 Simular impacto</button>
+        <button class="btn btn-tertiary" (click)="act('snooze')">⏳ Adiar</button>
       </div>
     </div>
   </div>

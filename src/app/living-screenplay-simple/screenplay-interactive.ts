@@ -19,10 +19,21 @@ import { SaveStatusComponent } from './save-status/save-status.component';
 import { FilePathInfoComponent } from './file-path-info/file-path-info.component';
 import { ConflictResolutionModalComponent, ConflictResolution } from './conflict-resolution-modal/conflict-resolution-modal.component';
 import { NotificationToastComponent } from './notification-toast/notification-toast.component';
+// v2: replace CommandBar with GamifiedPanel
+import { GamifiedPanelComponent } from './gamified-panel/gamified-panel.component';
+import { EventTickerComponent } from './event-ticker/event-ticker.component';
+import { AgentPersonalizationModalComponent } from './agent-personalization-modal/agent-personalization-modal.component';
+import { ReportModalComponent, ReportModalData } from './report-modal/report-modal.component';
+import { GamificationEvent } from '../services/gamification-events.service';
 import { NotificationService } from '../services/notification.service';
+import { GamificationEventsService } from '../services/gamification-events.service';
 import { Subscription } from 'rxjs';
 import { LoggingService } from '../services/logging.service';
 import { environment } from '../../environments/environment';
+import { InvestigationLauncherComponent, InvestigationRequest } from './investigation-launcher/investigation-launcher.component';
+import { ScreenplayKpiService } from '../services/screenplay-kpi.service';
+import { CouncilorsDashboardComponent } from './councilors-dashboard/councilors-dashboard.component';
+import { PromoteCouncilorModalComponent } from './promote-councilor-modal/promote-councilor-modal.component';
 
 interface AgentConfig {
   id: string;
@@ -104,6 +115,13 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     FilePathInfoComponent,
     ConflictResolutionModalComponent,
     NotificationToastComponent,
+    GamifiedPanelComponent,
+    EventTickerComponent,
+    AgentPersonalizationModalComponent,
+    ReportModalComponent,
+    InvestigationLauncherComponent,
+    CouncilorsDashboardComponent,
+    PromoteCouncilorModalComponent,
     RouterLink
   ],
   templateUrl: './screenplay-interactive.html',
@@ -167,6 +185,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Screenplay info modal state
   showScreenplayInfoModal = false;
+  // Personalization modal state (v2)
+  showAgentPersonalization = false;
+
+  openAgentPersonalization(): void { this.showAgentPersonalization = true; }
+  closeAgentPersonalization(): void { this.showAgentPersonalization = false; }
+
+  // Fase 3: badge state for quick-access icons
+  footerBadges: { ministers?: { count: number, severity: 'info'|'warning'|'error' }, council?: { count: number, severity: 'info'|'warning'|'error' }, neighborhood?: { count: number, severity: 'info'|'warning'|'error' } } = {};
 
   // Working Directory modal state
   showWorkingDirModal = false;
@@ -187,6 +213,21 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Delete confirmation modal state
   showDeleteConfirmModal = false;
   agentToDelete: AgentInstance | null = null;
+
+  // Report modal state (Fase 3)
+  showReportModal = false;
+  reportData: ReportModalData | null = null;
+
+  // Investigation modal state (Fase 4)
+  showInvestigationModal = false;
+  investigationContext: string = '';
+  investigationEvent: GamificationEvent | null = null;
+  pendingInvestigation: { presetId: string; context: string; event: GamificationEvent } | null = null;
+
+  // Councilor system state
+  showCouncilorsDashboard = false;
+  showPromoteCouncilorModal = false;
+  selectedAgentForPromotion: any = null;
 
   // Text selection context for agent execution
   private selectedText: string = '';
@@ -231,7 +272,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private logging: LoggingService,
     private http: HttpClient,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private gamificationEvents: GamificationEventsService,
+    private screenplayKpis: ScreenplayKpiService
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -246,11 +289,90 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Load agent definitions from MongoDB
     this.loadAgentDefinitions();
+
+    // Fase 3: derive toolbar badges from recent events
+    this.gamificationEvents.events$.subscribe(list => {
+      const recent = list.slice(-20);
+      const counts = { info: 0, warning: 0, error: 0 } as Record<'info'|'warning'|'error', number>;
+      for (const ev of recent) counts[ev.severity] = (counts[ev.severity] || 0) + 1;
+      // Simple mapping demo: ministers <- warnings, council <- info, neighborhood <- errors
+      this.footerBadges = {
+        ministers: counts.warning ? { count: counts.warning, severity: 'warning' } : undefined,
+        council: counts.info ? { count: counts.info, severity: 'info' } : undefined,
+        neighborhood: counts.error ? { count: counts.error, severity: 'error' } : undefined,
+      };
+    });
   }
 
   public navigateToCity(path: string): void {
     // Use Angular router to navigate without full reload
     this.router.navigateByUrl(path);
+  }
+
+  // Fase 3: abrir modal a partir do ticker
+  onTickerSelect(ev: GamificationEvent): void {
+    this.reportData = {
+      title: ev.title,
+      timestamp: ev.timestamp,
+      severity: ev.severity,
+      details: ev.meta || null,
+    };
+    this.showReportModal = true;
+  }
+
+  // Fase 4: Investigação a partir do ticker
+  onTickerInvestigate(ev: GamificationEvent): void {
+    this.investigationEvent = ev;
+    this.investigationContext = '';
+    this.showInvestigationModal = true;
+  }
+
+  launchInvestigation(req: InvestigationRequest): void {
+    if (!this.investigationEvent) return;
+    // Store pending investigation, then open selector for choosing investigator agent
+    this.pendingInvestigation = { presetId: req.presetId, context: req.context || '', event: this.investigationEvent };
+    this.showInvestigationModal = false;
+    this.showAgentSelector = true;
+  }
+
+  closeInvestigation(): void {
+    this.showInvestigationModal = false;
+  }
+
+  closeReportModal(): void {
+    this.showReportModal = false;
+  }
+
+  refreshFromReport(): void {
+    // No backend call needed; metrics/events auto-refresh. Optionally trigger UI re-eval.
+    this.notificationService.showInfo('Atualização solicitada');
+  }
+
+  // Councilor methods
+  openCouncilorsDashboard(): void {
+    this.showCouncilorsDashboard = true;
+  }
+
+  closeCouncilorsDashboard(): void {
+    this.showCouncilorsDashboard = false;
+  }
+
+  openPromoteCouncilorModal(agent?: any): void {
+    this.selectedAgentForPromotion = agent || null;
+    this.showPromoteCouncilorModal = true;
+    this.showCouncilorsDashboard = false;
+  }
+
+  closePromoteCouncilorModal(): void {
+    this.showPromoteCouncilorModal = false;
+    this.selectedAgentForPromotion = null;
+  }
+
+  handlePromoteCouncilor(request: any): void {
+    // TODO: Call API to promote agent to councilor
+    console.log('Promoting agent to councilor:', request);
+    this.closePromoteCouncilorModal();
+    this.showCouncilorsDashboard = true;
   }
 
   // Specialized loggers for different contexts
@@ -2563,6 +2685,48 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       id: instanceId,
       note: 'Agent does not appear in editor, only in dock'
     });
+
+    // If there is a pending investigation, auto-execute with contextual prompt
+    if (this.pendingInvestigation) {
+      const { presetId, context, event } = this.pendingInvestigation;
+      const prompt = this.buildInvestigationPrompt(presetId, event, context);
+      const documentId = this.currentScreenplay?.id;
+
+      this.screenplayKpis.incrementInvestigations();
+      this.agentService.executeAgent(agent.id, prompt, instanceId, selectionData.cwd, documentId)
+        .subscribe({
+          next: (res) => {
+            this.logging.info('🔎 [INVESTIGATION] Execução concluída', 'ScreenplayInteractive', { success: res.success });
+          },
+          error: (err) => {
+            this.logging.error('❌ [INVESTIGATION] Falha na execução', err, 'ScreenplayInteractive');
+          },
+          complete: () => {
+            this.screenplayKpis.decrementInvestigations();
+          }
+        });
+
+      // Clear pending state
+      this.pendingInvestigation = null;
+    }
+  }
+
+  private buildInvestigationPrompt(presetId: string, event: GamificationEvent, context: string): string {
+    const presetName = this.getPresetName(presetId);
+    const base = `Você é o ${presetName}.`;
+    const ev = `Evento: ${event.title}.`;
+    const ctx = context ? `\nContexto adicional: ${context}.` : '';
+    return `${base}\n${ev}${ctx}\nGere um relatório objetivo com achados e recomendações.`;
+  }
+
+  private getPresetName(presetId: string): string {
+    switch (presetId) {
+      case 'code-quality-analyst': return 'Code Quality Analyst';
+      case 'performance-investigator': return 'Performance Investigator';
+      case 'security-auditor': return 'Security Auditor';
+      case 'architecture-reviewer': return 'Architecture Reviewer';
+      default: return presetId;
+    }
   }
 
   // === Agent Execution with Preview ===

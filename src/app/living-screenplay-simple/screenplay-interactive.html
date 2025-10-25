@@ -58,9 +58,9 @@
               </button>
 
               <!-- Quick access to City-Sim mockups -->
-              <button class="toolbar-btn" title="Gabinete de Ministros" (click)="navigateToCity('/city/ministers')">🏛️</button>
-              <button class="toolbar-btn" title="Conselho Semanal" (click)="navigateToCity('/city/council')">📅</button>
-              <button class="toolbar-btn" title="Bairro Monolito vs Modular" (click)="navigateToCity('/city/neighborhood')">🏘️</button>
+              <button class="toolbar-btn" title="Conselheiros" (click)="openCouncilorsDashboard()" [attr.data-badge]="footerBadges.ministers?.count || null" [attr.data-badge-severity]="footerBadges.ministers?.severity">🏛️</button>
+              <button class="toolbar-btn" title="Conselho Semanal" (click)="navigateToCity('/city/council')" [attr.data-badge]="footerBadges.council?.count || null" [attr.data-badge-severity]="footerBadges.council?.severity">📅</button>
+              <button class="toolbar-btn" title="Bairro Monolito vs Modular" (click)="navigateToCity('/city/neighborhood')" [attr.data-badge]="footerBadges.neighborhood?.count || null" [attr.data-badge-severity]="footerBadges.neighborhood?.severity">🏘️</button>
 
               <!-- Settings Menu -->
               <div
@@ -115,13 +115,11 @@
               </span>
             </div>
 
-            <div class="footer-section footer-center">
-              <!-- Vazio por enquanto -->
-            </div>
-
-            <div class="footer-section footer-right">
-              <!-- Vazio por enquanto -->
-            </div>
+            <app-gamified-panel [refreshMs]="30000" (settings)="openAgentPersonalization()">
+              <div class="footer-section footer-center">
+                <app-event-ticker [refreshMs]="30000" [maxItems]="8" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
+              </div>
+            </app-gamified-panel>
           </div>
         </div>
 
@@ -361,3 +359,39 @@
 
     <!-- UI Enhancement: Notification Toast -->
     <app-notification-toast></app-notification-toast>
+
+      <!-- Fase 3: Report Modal -->
+      <app-report-modal
+        [isVisible]="showReportModal"
+        [data]="reportData"
+        (close)="closeReportModal()"
+        (refresh)="refreshFromReport()"
+      ></app-report-modal>
+
+      <!-- Investigation Launcher Modal -->
+      <app-investigation-launcher
+        [isVisible]="showInvestigationModal"
+        (close)="closeInvestigation()"
+        (launchInvestigation)="launchInvestigation($event)"
+      ></app-investigation-launcher>
+
+      <!-- Agent Personalization Modal -->
+      <app-agent-personalization-modal
+        [isVisible]="showAgentPersonalization"
+        (close)="closeAgentPersonalization()"
+      ></app-agent-personalization-modal>
+
+      <!-- Councilors Dashboard -->
+      <app-councilors-dashboard
+        *ngIf="showCouncilorsDashboard"
+        (close)="closeCouncilorsDashboard()"
+        (promoteNew)="openPromoteCouncilorModal()"
+      ></app-councilors-dashboard>
+
+      <!-- Promote Councilor Modal -->
+      <app-promote-councilor-modal
+        *ngIf="showPromoteCouncilorModal"
+        [agent]="selectedAgentForPromotion"
+        (promote)="handlePromoteCouncilor($event)"
+        (close)="closePromoteCouncilorModal()"
+      ></app-promote-councilor-modal>

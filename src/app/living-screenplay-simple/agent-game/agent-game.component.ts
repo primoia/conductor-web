@@ -39,6 +39,8 @@ interface AgentCharacter {
     lastExecutionTime?: Date;
     isCurrentlyExecuting: boolean;
   };
+  // Councilor status (promoted agents)
+  isCouncilor?: boolean;
 }
 
 interface SpriteAnimation {
@@ -1349,6 +1351,30 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       this.ctx.textAlign = 'center';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(agent.emoji, x, y);
+    }
+
+    // Draw golden crown for councilors
+    if (agent.isCouncilor) {
+      const crownSize = 16;
+      const crownX = x;
+      const crownY = y - agent.radius - 12;
+
+      // Draw crown emoji with golden glow
+      this.ctx.save();
+      this.ctx.shadowColor = '#FFD700';
+      this.ctx.shadowBlur = 10;
+      this.ctx.font = `${crownSize}px Arial`;
+      this.ctx.textAlign = 'center';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText('👑', crownX, crownY);
+      this.ctx.restore();
+
+      // Draw golden border around agent
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, agent.radius + 2, 0, Math.PI * 2);
+      this.ctx.strokeStyle = '#FFD700';
+      this.ctx.lineWidth = 3;
+      this.ctx.stroke();
     }
 
     // Draw execution count badge

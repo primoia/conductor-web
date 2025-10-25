@@ -1,0 +1,279 @@
+<div class="modal-backdrop" (click)="onCancel()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <h2>⭐ Promover Agente a Conselheiro</h2>
+      <button class="close-btn" (click)="onCancel()" title="Fechar">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Informações do Agente -->
+      <div class="agent-info" *ngIf="agent">
+        <div class="agent-badge">
+          <span class="agent-emoji">{{ agent.emoji }}</span>
+          <div class="agent-details">
+            <strong>{{ agent.name }}</strong>
+            <small>{{ agent.description }}</small>
+          </div>
+        </div>
+      </div>
+
+      <form class="promote-form">
+        <!-- Seção: Personalização -->
+        <section class="form-section">
+          <h3>👤 Personalização do Conselheiro</h3>
+
+          <div class="form-group">
+            <label for="displayName">Nome do Conselheiro *</label>
+            <input
+              type="text"
+              id="displayName"
+              [(ngModel)]="displayName"
+              name="displayName"
+              placeholder="Ex: Silva, Maria, João"
+              required
+            />
+            <small class="hint">Nome usado nas notificações e relatórios</small>
+          </div>
+
+          <div class="form-group">
+            <label for="title">Título/Cargo *</label>
+            <input
+              type="text"
+              id="title"
+              [(ngModel)]="title"
+              name="title"
+              placeholder="Ex: Conselheiro de Qualidade, Conselheiro de Arquitetura"
+              required
+            />
+          </div>
+        </section>
+
+        <!-- Seção: Tarefa Automática -->
+        <section class="form-section">
+          <h3>📋 Tarefa Automática</h3>
+
+          <!-- Seletor de Template -->
+          <div class="form-group">
+            <label for="template">Template de Tarefa (Opcional)</label>
+            <select
+              id="template"
+              (change)="applyTemplate($any($event.target).value)"
+              name="template"
+            >
+              <option value="">-- Selecione um template --</option>
+              <option *ngFor="let key of templateKeys" [value]="key">
+                {{ getTemplateName(key) }}
+              </option>
+            </select>
+            <small class="hint">Escolha um template pré-configurado ou crie do zero</small>
+          </div>
+
+          <div class="form-group">
+            <label for="taskName">Nome da Tarefa *</label>
+            <input
+              type="text"
+              id="taskName"
+              [(ngModel)]="taskName"
+              name="taskName"
+              placeholder="Ex: Verificar Arquivos Monolíticos"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="taskPrompt">Descrição/Prompt da Tarefa *</label>
+            <textarea
+              id="taskPrompt"
+              [(ngModel)]="taskPrompt"
+              name="taskPrompt"
+              rows="8"
+              placeholder="Descreva o que o conselheiro deve fazer...
+
+Exemplo:
+Analise todos os arquivos .ts do projeto.
+Identifique arquivos com mais de 500 linhas.
+Retorne lista com sugestões de refatoração."
+              required
+            ></textarea>
+            <small class="hint">Este prompt será executado periodicamente pelo conselheiro</small>
+          </div>
+
+          <!-- Arquivos de Contexto -->
+          <div class="form-group">
+            <label>Arquivos de Contexto (Opcional)</label>
+            <div class="context-files-list">
+              <div class="context-file-item" *ngFor="let file of contextFiles; let i = index">
+                <span>{{ file }}</span>
+                <button type="button" class="remove-btn" (click)="removeContextFile(i)">×</button>
+              </div>
+              <div class="add-context-file">
+                <input
+                  type="text"
+                  [(ngModel)]="newContextFile"
+                  name="newContextFile"
+                  placeholder="Ex: docs/guidelines.md"
+                  (keyup.enter)="addContextFile()"
+                />
+                <button type="button" class="add-btn" (click)="addContextFile()">+ Adicionar</button>
+              </div>
+            </div>
+            <small class="hint">Arquivos que serão incluídos no contexto da execução</small>
+          </div>
+        </section>
+
+        <!-- Seção: Periodicidade -->
+        <section class="form-section">
+          <h3>⏰ Periodicidade</h3>
+
+          <div class="schedule-type-selector">
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="scheduleType"
+                value="interval"
+                [(ngModel)]="scheduleType"
+              />
+              <span>Intervalo</span>
+            </label>
+            <label class="radio-option">
+              <input
+                type="radio"
+                name="scheduleType"
+                value="cron"
+                [(ngModel)]="scheduleType"
+              />
+              <span>Cron (Avançado)</span>
+            </label>
+          </div>
+
+          <!-- Intervalo -->
+          <div class="form-group" *ngIf="scheduleType === 'interval'">
+            <label>A cada:</label>
+            <div class="interval-input">
+              <input
+                type="number"
+                [(ngModel)]="intervalValue"
+                name="intervalValue"
+                min="1"
+                max="999"
+              />
+              <select [(ngModel)]="intervalUnit" name="intervalUnit">
+                <option value="m">minutos</option>
+                <option value="h">horas</option>
+                <option value="d">dias</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Cron -->
+          <div class="form-group" *ngIf="scheduleType === 'cron'">
+            <label for="cronValue">Expressão Cron</label>
+            <input
+              type="text"
+              id="cronValue"
+              [(ngModel)]="cronValue"
+              name="cronValue"
+              placeholder="0 9 * * 1"
+            />
+            <small class="hint">Formato: minuto hora dia mês dia-da-semana (ex: "0 9 * * 1" = segunda 9h)</small>
+          </div>
+
+          <!-- Preview do agendamento -->
+          <div class="schedule-preview">
+            <strong>Agendamento:</strong> {{ getScheduleDescription() }}
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="scheduleEnabled"
+                name="scheduleEnabled"
+              />
+              <span>Ativar agendamento imediatamente</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Seção: Notificações -->
+        <section class="form-section">
+          <h3>🔔 Notificações</h3>
+
+          <div class="form-group">
+            <label>Notificar quando:</label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnError"
+                name="notifyOnError"
+              />
+              <span>Erros ou problemas críticos</span>
+            </label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnWarning"
+                name="notifyOnWarning"
+              />
+              <span>Alertas ou avisos</span>
+            </label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyOnSuccess"
+                name="notifyOnSuccess"
+              />
+              <span>Sucesso (sem problemas encontrados)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Onde notificar:</label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyPanel"
+                name="notifyPanel"
+              />
+              <span>Painel de Eventos (recomendado)</span>
+            </label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyToast"
+                name="notifyToast"
+              />
+              <span>Notificações Toast</span>
+            </label>
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="notifyEmail"
+                name="notifyEmail"
+                disabled
+              />
+              <span>Email (em breve)</span>
+            </label>
+          </div>
+        </section>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="onCancel()" [disabled]="isSubmitting">
+        Cancelar
+      </button>
+      <button
+        class="btn btn-primary"
+        (click)="onSubmit()"
+        [disabled]="!isValid() || isSubmitting"
+      >
+        <span *ngIf="!isSubmitting">⭐ Promover</span>
+        <span *ngIf="isSubmitting">Promovendo...</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,147 @@
+<div class="dashboard-backdrop" (click)="onClose()">
+  <div class="dashboard-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="dashboard-header">
+      <div class="header-content">
+        <h2>🏛️ Conselho Municipal</h2>
+        <p class="subtitle">Conselheiros ativos monitorando o projeto</p>
+      </div>
+      <button class="close-btn" (click)="onClose()" title="Fechar">×</button>
+    </div>
+
+    <!-- Body -->
+    <div class="dashboard-body">
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Carregando conselheiros...</p>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="errorMessage" class="error-state">
+        <p>❌ {{ errorMessage }}</p>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading && councilors.length === 0" class="empty-state">
+        <div class="empty-icon">🏛️</div>
+        <h3>Nenhum conselheiro ativo</h3>
+        <p>Promova um agente para conselheiro e configure tarefas automáticas de monitoramento.</p>
+        <button class="btn btn-primary" (click)="onPromoteNew()">
+          ⭐ Promover Primeiro Conselheiro
+        </button>
+      </div>
+
+      <!-- Councilors List -->
+      <div *ngIf="!isLoading && councilors.length > 0" class="councilors-list">
+        <div
+          *ngFor="let councilor of councilors"
+          class="councilor-card"
+          [ngClass]="getStatusClass(councilor)"
+        >
+          <!-- Card Header -->
+          <div class="card-header">
+            <div class="councilor-info">
+              <div class="councilor-avatar">
+                <span class="avatar-emoji">{{ councilor.emoji }}</span>
+                <span class="status-badge">{{ getStatusEmoji(councilor) }}</span>
+              </div>
+              <div class="councilor-details">
+                <h3>{{ councilor.customization?.display_name || councilor.name }}</h3>
+                <p class="role">{{ councilor.councilor_config?.title }}</p>
+              </div>
+            </div>
+            <div class="card-actions">
+              <button
+                class="icon-btn"
+                (click)="viewLastReport(councilor)"
+                title="Ver Último Relatório"
+              >
+                📋
+              </button>
+              <button
+                class="icon-btn"
+                (click)="editCouncilor(councilor)"
+                title="Editar Configuração"
+              >
+                ⚙️
+              </button>
+              <button
+                *ngIf="councilor.councilor_config && councilor.councilor_config.schedule && councilor.councilor_config.schedule.enabled"
+                class="icon-btn"
+                (click)="pauseCouncilor(councilor)"
+                title="Pausar"
+              >
+                ⏸️
+              </button>
+              <button
+                *ngIf="councilor.councilor_config && councilor.councilor_config.schedule && !councilor.councilor_config.schedule.enabled"
+                class="icon-btn"
+                (click)="resumeCouncilor(councilor)"
+                title="Retomar"
+              >
+                ▶️
+              </button>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body">
+            <!-- Task Info -->
+            <div class="task-info">
+              <div class="info-item">
+                <span class="label">Tarefa:</span>
+                <span class="value">{{ councilor.councilor_config?.task?.name || 'N/A' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">Última execução:</span>
+                <span class="value">
+                  {{ formatRelativeTime(councilor.stats?.last_execution) }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">Próxima execução:</span>
+                <span class="value">{{ getNextExecution(councilor) }}</span>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="stat-value">{{ councilor.stats?.total_executions || 0 }}</div>
+                <div class="stat-label">Execuções</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{{ councilor.stats?.success_rate || 0 }}%</div>
+                <div class="stat-label">Taxa de Sucesso</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">
+                  {{ councilor.councilor_config?.schedule?.value || 'N/A' }}
+                </div>
+                <div class="stat-label">Intervalo</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="card-footer">
+            <button class="btn-text btn-danger" (click)="demoteCouncilor(councilor)">
+              Remover do Conselho
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="dashboard-footer">
+      <div class="footer-info">
+        <span>{{ councilors.length }} conselheiro(s) ativo(s)</span>
+      </div>
+      <button class="btn btn-secondary" (click)="onPromoteNew()">
+        ⭐ Promover Novo Conselheiro
+      </button>
+    </div>
+  </div>
+</div>

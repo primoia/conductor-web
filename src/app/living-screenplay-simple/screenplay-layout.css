@@ -905,3 +905,29 @@
 .toolbar-buttons {
   position: relative;
 }
+
+/* Fase 3: Badges nos atalhos do rodapé/toolbar */
+.toolbar-btn[data-badge] {
+  position: relative;
+}
+.toolbar-btn[data-badge]::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444; /* default red for alerts */
+  color: #fff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.toolbar-btn[data-badge-severity="info"]::after { background: #3b82f6; }
+.toolbar-btn[data-badge-severity="warning"]::after { background: #f59e0b; }
+.toolbar-btn[data-badge-severity="error"]::after { background: #ef4444; }
