@@ -65,7 +65,7 @@ export class CouncilorSchedulerService implements OnDestroy {
 
       this.gamificationEvents.pushEvent({
         id: this.generateId(),
-        title: `🏛️ Conselho Municipal ativado com ${councilors.length} conselheiros`,
+        title: `🏛️ Conselho ativado com ${councilors.length} conselheiros`,
         severity: 'info',
         timestamp: Date.now(),
         category: 'success'
@@ -76,7 +76,7 @@ export class CouncilorSchedulerService implements OnDestroy {
       console.error('❌ [COUNCILOR SCHEDULER] Erro ao inicializar:', error);
 
       this.gamificationEvents.pushCriticalEvent(
-        'Falha ao inicializar Conselho Municipal',
+        'Falha ao inicializar Conselho',
         { error: String(error) }
       );
     }

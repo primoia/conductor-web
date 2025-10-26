@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -25,14 +25,14 @@
 
 /* Modal Container */
 .modal-container {
-  background: #1e1e1e;
+  background: #ffffff;
   border-radius: 12px;
   width: 90%;
   max-width: 900px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   animation: slideUp 0.3s ease-out;
 }
 
@@ -53,27 +53,27 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 28px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .header-content h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #fff;
+  color: #2c3e50;
 }
 
 .councilor-name {
   margin: 4px 0 0 0;
   font-size: 14px;
-  color: #888;
+  color: #6b7280;
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 32px;
-  color: #888;
+  color: #6b7280;
   cursor: pointer;
   width: 40px;
   height: 40px;
@@ -85,8 +85,8 @@
 }
 
 .close-btn:hover {
-  background: #333;
-  color: #fff;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 /* Modal Body */
@@ -101,16 +101,16 @@
 }
 
 .modal-body::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: #f9fafb;
 }
 
 .modal-body::-webkit-scrollbar-thumb {
-  background: #444;
+  background: #cbd5e0;
   border-radius: 4px;
 }
 
 .modal-body::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #a0aec0;
 }
 
 /* Stats Section */

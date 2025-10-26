@@ -172,6 +172,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   popupY = 0;
   popupText = '';
 
+  // Gamified panel state
+  isPanelExpanded = false;
+
   // Estado do modal
   showAgentCreator = false;
   showAgentSelector = false;
@@ -312,7 +315,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       timestamp: ev.timestamp,
       severity: ev.severity,
       details: ev.meta || null,
-    };
+      summary: ev.summary || (typeof (ev.meta as any)?.['result'] === 'string' ? (ev.meta as any)['result'] : null),
+    } as any;
     this.showReportModal = true;
   }
 
@@ -321,6 +325,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.investigationEvent = ev;
     this.investigationContext = '';
     this.showInvestigationModal = true;
+  }
+
+  onPanelStateChange(state: 'collapsed' | 'expanded'): void {
+    this.isPanelExpanded = state === 'expanded';
   }
 
   launchInvestigation(req: InvestigationRequest): void {
@@ -2084,7 +2092,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.lastSavedAt = new Date();
         this.saveError = null;
         this.logging.info(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`, 'ScreenplayInteractive');
-        this.notificationService.showSuccess(`Roteiro salvo com sucesso`);
       },
       error: (error) => {
         this.isSaving = false;

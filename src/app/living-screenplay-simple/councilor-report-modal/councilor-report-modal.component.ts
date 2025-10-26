@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CouncilorReport } from '../../models/councilor.types';
 
@@ -31,6 +31,11 @@ export class CouncilorReportModalComponent implements OnInit {
    */
   onClose(): void {
     this.close.emit();
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEsc(): void {
+    this.onClose();
   }
 
   /**

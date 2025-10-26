@@ -1,4 +1,5 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, ContentChild } from '@angular/core';
+import { EventTickerComponent } from '../event-ticker/event-ticker.component';
 import { CommonModule } from '@angular/common';
 import { AgentMetricsService } from '../../services/agent-metrics.service';
 import { Subscription, interval } from 'rxjs';
@@ -18,8 +19,68 @@ interface PanelKpis {
   imports: [CommonModule],
   template: `
     <div class="gamified-panel" [class.expanded]="state === 'expanded'" [class.collapsed]="state === 'collapsed'" role="complementary" aria-label="Painel gamificado do roteiro">
-      <!-- Header: KPIs + Actions -->
+      <!-- Header: Title + Actions -->
       <div class="panel-header">
+        <div class="header-title">
+          <span class="title-icon">📰</span>
+          <span class="title-text">Notícias dos Agentes</span>
+        </div>
+        <div class="actions">
+          <!-- Projected EventTicker controller (filter bar) -->
+          <div class="filter-bar" *ngIf="ticker">
+            <button
+              class="filter-btn"
+              [class.active]="ticker.currentFilter === 'all'"
+              (click)="ticker.setFilter('all')"
+              title="Mostrar tudo">
+              Todos
+            </button>
+            <button
+              class="filter-btn"
+              [class.active]="ticker.currentFilter === 'result'"
+              (click)="ticker.setFilter('result')"
+              title="Apenas resultados de agentes">
+              Resultados
+            </button>
+            <button
+              class="filter-btn"
+              [class.active]="ticker.currentFilter === 'debug'"
+              (click)="ticker.setFilter('debug')"
+              title="Logs de execução">
+              Debug
+            </button>
+          </div>
+          <!-- Compact Save Status (only when collapsed) -->
+          <div
+            class="save-status"
+            *ngIf="showStatusInHeaderWhenCollapsed && state === 'collapsed'"
+            [attr.title]="isSaving ? 'Salvando...' : (isDirty ? 'Modificado' : (hasCurrentScreenplay ? 'Salvo' : ''))">
+            <span class="status saving" *ngIf="isSaving">
+              <span class="spinner">⏳</span>
+              <span class="sr-only">Salvando...</span>
+            </span>
+            <span class="status modified" *ngIf="!isSaving && isDirty">
+              <span class="dot">●</span>
+              <span class="sr-only">Modificado</span>
+            </span>
+            <span class="status saved" *ngIf="!isSaving && !isDirty && hasCurrentScreenplay">
+              <span class="check">✓</span>
+              <span class="sr-only">Salvo</span>
+            </span>
+          </div>
+          <button class="icon-btn toggle-btn" (click)="toggleState()" [attr.aria-expanded]="state === 'expanded'" [title]="state === 'expanded' ? 'Recolher' : 'Expandir'">
+            {{ state === 'expanded' ? '▲' : '▼' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Body: always visible, content adapts based on state -->
+      <div class="panel-body">
+        <ng-content></ng-content>
+      </div>
+
+      <!-- Footer: KPIs (visible only when expanded) -->
+      <div class="panel-footer" *ngIf="state === 'expanded'">
         <div class="kpis">
           <div class="kpi" title="Agentes ativos">
             <span class="kpi-label">Agentes</span>
@@ -38,17 +99,6 @@ interface PanelKpis {
             <span class="kpi-value">{{ investigationsActive }}</span>
           </div>
         </div>
-        <div class="actions">
-          <button class="icon-btn" title="Gerenciar Secretários" (click)="settings.emit()">⚙️</button>
-          <button class="icon-btn toggle-btn" (click)="toggleState()" [attr.aria-expanded]="state === 'expanded'" [title]="state === 'expanded' ? 'Recolher' : 'Expandir'">
-            {{ state === 'expanded' ? '▲' : '▼' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Body: visible only when expanded -->
-      <div class="panel-body" *ngIf="state === 'expanded'">
-        <ng-content></ng-content>
       </div>
     </div>
   `,
@@ -58,34 +108,114 @@ interface PanelKpis {
       width: 100%;
       background: #f8f9fa;
       border-top: 1px solid #e1e4e8;
-      transition: height 0.3s ease, min-height 0.3s ease;
-      overflow-x: hidden; /* remove scroll horizontal */
+      transition: height 0.3s ease;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
-    .gamified-panel.collapsed { min-height: 60px; }
-    .gamified-panel.expanded { height: 300px; }
+    .gamified-panel.collapsed { height: 120px; }
+    .gamified-panel.expanded { height: 350px; }
+
+    /* Remove extra margins/padding around expanded content */
+    .gamified-panel.expanded .panel-header { padding: 4px 10px; }
+    .gamified-panel.expanded .panel-body { padding: 0; margin: 0; }
+    .gamified-panel.expanded .panel-footer { padding: 4px 6px; }
 
     .panel-header {
-      display: grid;
-      grid-template-columns: 1fr auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .header-title {
+      display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 12px;
     }
-    .kpis { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .kpi { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 8px; border-radius: 10px; background: #ffffff; border: 1px solid #e1e4e8; font-size: 11px; }
-    .kpi-label { color: #6b7280; font-weight: 600; }
-    .kpi-value { color: #111827; font-weight: 700; min-width: 14px; text-align: right; }
 
-    .actions { display: inline-flex; align-items: center; gap: 6px; }
-    .icon-btn { width: 28px; height: 28px; border-radius: 6px; background: #ffffff; border: 1px solid #e1e4e8; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
-    .icon-btn:hover { background: #f7fafc; border-color: #a8b9ff; transform: scale(1.05); }
+    .title-icon {
+      font-size: 16px;
+    }
+
+    .title-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .icon-btn { width: 28px; height: 28px; border-radius: 6px; background: #f9fafb; border: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }
+    .icon-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+
+    /* Compact Save Status in header */
+    .save-status { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
+    .status .dot { color: #f59e0b; font-size: 12px; }
+    .status.saved .check { color: #10b981; font-size: 12px; }
+    .spinner { font-size: 12px; animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    /* Filter bar (moved from EventTicker) */
+    .filter-bar { display: inline-flex; gap: 4px; align-items: center; padding: 0; border: 0; background: transparent; }
+    .filter-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filter-btn:hover { background: #ffffff; border-color: #d1d5db; color: #111827; }
+    .filter-btn.active { background: #111827; color: #ffffff; border-color: #111827; }
 
     .panel-body {
-      height: calc(300px - 44px); /* 300 total - header approx */
-      overflow-y: auto; /* scroll vertical no expandido */
-      padding: 8px 12px;
+      flex: 1;
+      overflow: hidden;
       background: #ffffff;
-      border-top: 1px solid #eef2f7;
+    }
+
+    .panel-footer {
+      padding: 4px 10px;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .kpis {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kpi {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      font-size: 11px;
+    }
+
+    .kpi-label {
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .kpi-value {
+      color: #111827;
+      font-weight: 700;
+      min-width: 14px;
+      text-align: right;
     }
   `]
 })
@@ -93,6 +223,16 @@ export class GamifiedPanelComponent implements OnInit, OnDestroy {
   @Input() refreshMs = 30000; // for KPI refresh cadence
   @Output() investigate = new EventEmitter<unknown>(); // reserved for fase 4
   @Output() settings = new EventEmitter<void>(); // fase 2
+  @Output() stateChange = new EventEmitter<PanelState>(); // emit when panel expands/collapses
+
+  // Compact save status coming from parent (screenplay)
+  @Input() isSaving = false;
+  @Input() isDirty = false;
+  @Input() hasCurrentScreenplay = false;
+  @Input() showStatusInHeaderWhenCollapsed = true;
+
+  // Access projected EventTicker to drive filters from header
+  @ContentChild(EventTickerComponent, { static: false }) ticker?: EventTickerComponent;
 
   state: PanelState = 'collapsed';
   kpis: PanelKpis | null = null;
@@ -119,6 +259,7 @@ export class GamifiedPanelComponent implements OnInit, OnDestroy {
 
   toggleState(): void {
     this.state = this.state === 'collapsed' ? 'expanded' : 'collapsed';
+    this.stateChange.emit(this.state);
   }
 
   private refreshKpis(): void {

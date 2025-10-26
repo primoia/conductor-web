@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentWithCouncilor } from '../../models/councilor.types';
@@ -63,6 +63,11 @@ export class CouncilorEditModalComponent implements OnInit {
   onClose(): void {
     if (this.isSaving) return;
     this.close.emit();
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEsc(): void {
+    this.onClose();
   }
 
   /**

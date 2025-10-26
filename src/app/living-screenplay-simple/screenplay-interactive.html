@@ -49,6 +49,10 @@
                 (click)="openExportModal()">
                 📤
               </button>
+              <!-- Conselheiros -->
+              <button class="toolbar-btn" title="Conselheiros" (click)="openCouncilorsDashboard()" [attr.data-badge]="footerBadges.ministers?.count || null" [attr.data-badge-severity]="footerBadges.ministers?.severity">🏛️</button>
+
+              <!-- Configurações do Roteiro -->
               <button
                 class="toolbar-btn settings-btn"
                 #settingsButton
@@ -56,9 +60,6 @@
                 (click)="toggleScreenplaySettings()">
                 ⚙️
               </button>
-
-              <!-- Quick access to City-Sim mockups -->
-              <button class="toolbar-btn" title="Conselheiros" (click)="openCouncilorsDashboard()" [attr.data-badge]="footerBadges.ministers?.count || null" [attr.data-badge-severity]="footerBadges.ministers?.severity">🏛️</button>
 
               <!-- Settings Menu -->
               <div
@@ -85,29 +86,15 @@
 
           <!-- Editor Footer / Status Bar -->
           <div class="editor-footer">
-            <div class="footer-section footer-left">
-              <span class="footer-status" *ngIf="isSaving">
-                <span class="status-spinner">⏳</span>
-                Salvando...
-              </span>
-              <span class="footer-status modified" *ngIf="isDirty && !isSaving">
-                <span class="status-indicator">●</span>
-                Modificado
-              </span>
-              <span class="footer-status saved" *ngIf="!isDirty && !isSaving && currentScreenplay">
-                <span class="status-indicator">✓</span>
-                Salvo
-              </span>
-              <span class="footer-badge new-badge" *ngIf="sourceOrigin === 'new'">
-                <span class="badge-icon">✨</span>
-                <span class="badge-text">Novo</span>
-              </span>
-            </div>
-
-            <app-gamified-panel [refreshMs]="30000" (settings)="openAgentPersonalization()">
-              <div class="footer-section footer-center">
-                <app-event-ticker [refreshMs]="30000" [maxItems]="8" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
-              </div>
+            <app-gamified-panel
+              [refreshMs]="30000"
+              [isSaving]="isSaving"
+              [isDirty]="isDirty"
+              [hasCurrentScreenplay]="!!currentScreenplay"
+              [showStatusInHeaderWhenCollapsed]="true"
+              (settings)="openAgentPersonalization()"
+              (stateChange)="onPanelStateChange($event)">
+              <app-event-ticker [isExpanded]="isPanelExpanded" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
             </app-gamified-panel>
           </div>
         </div>

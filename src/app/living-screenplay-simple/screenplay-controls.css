@@ -36,17 +36,20 @@
 
 .bottom-section .editor-footer {
   flex-shrink: 0;
-  height: 50px;
+  min-height: 50px;
   background: #f8f9fa;
   border-top: 1px solid #e1e4e8;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  display: block; /* Single column, full width */
   padding: 4px 12px;
   color: #4a5568;
   font-size: 10px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
-  min-height: 24px;
+}
+
+.bottom-section .editor-footer app-gamified-panel {
+  display: block;
+  width: 100%;
+  padding: 0;
 }
 
 .bottom-section .editor-footer .footer-section {
