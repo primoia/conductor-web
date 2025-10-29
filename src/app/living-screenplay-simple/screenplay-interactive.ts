@@ -12,10 +12,12 @@ import { AgentPreviewModalComponent, PreviewData, PreviewAction } from './agent-
 import { AgentService, Agent } from '../services/agent.service';
 import { ConductorChatComponent } from '../shared/conductor-chat/conductor-chat.component';
 import { ScreenplayService } from '../services/screenplay/screenplay.service';
-import { ScreenplayStorage, Screenplay } from '../services/screenplay-storage';
+import { ScreenplayStorage, Screenplay, ScreenplayListItem } from '../services/screenplay-storage';
 import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
 import { AgentGameComponent } from './agent-game/agent-game.component';
 import { SaveStatusComponent } from './save-status/save-status.component';
+import { ScreenplayTreeComponent } from './screenplay-tree/screenplay-tree.component';
+import { AgentCatalogComponent } from './agent-catalog/agent-catalog.component';
 import { FilePathInfoComponent } from './file-path-info/file-path-info.component';
 import { ConflictResolutionModalComponent, ConflictResolution } from './conflict-resolution-modal/conflict-resolution-modal.component';
 import { NotificationToastComponent } from './notification-toast/notification-toast.component';
@@ -112,6 +114,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     ConductorChatComponent,
     ScreenplayManager,
     AgentGameComponent,
+    ScreenplayTreeComponent,
+    AgentCatalogComponent,
     SaveStatusComponent,
     FilePathInfoComponent,
     ConflictResolutionModalComponent,
@@ -140,6 +144,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(ConductorChatComponent) conductorChat!: ConductorChatComponent;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('agentGame') agentGame!: AgentGameComponent;
+  @ViewChild(ScreenplayTreeComponent) screenplayTree?: ScreenplayTreeComponent;
 
   // Splitter state
   screenplayWidth = 70;
@@ -197,6 +202,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Fase 3: badge state for quick-access icons
   footerBadges: { ministers?: { count: number, severity: 'info'|'warning'|'error' } } = {};
+
+  // First Column Tabs State
+  activeTab: 'tree' | 'instances' | 'catalog' = 'instances'; // Default: mantém comportamento atual
+  screenplaysList: ScreenplayListItem[] = [];
 
   // Working Directory modal state
   showWorkingDirModal = false;
@@ -652,6 +661,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.councilorScheduler.initialize().catch(error => {
       console.error('❌ Failed to initialize CouncilorSchedulerService:', error);
     });
+
+    // Load saved tab from localStorage
+    const savedTab = localStorage.getItem('firstColumnActiveTab') as 'tree' | 'instances' | 'catalog' | null;
+    if (savedTab) {
+      this.activeTab = savedTab;
+    }
+
+    // Load screenplays list for tree view
+    this.loadScreenplaysList();
 
     // Subscribe to URL query parameter changes
     this.route.queryParamMap.subscribe(params => {
@@ -1127,6 +1145,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   closeScreenplayManager(): void {
     this.showScreenplayManager = false;
+    // Reload tree when closing manager to sync any changes
+    this.loadScreenplaysList();
   }
 
   onScreenplayManagerAction(event: ScreenplayManagerEvent): void {
@@ -1156,6 +1176,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.logging.info('🗑️ [DELETE] Screenplay deleted, clearing content and agents', 'ScreenplayInteractive');
         this.loadDefaultContent();
         this.clearInvalidUrl();
+        // Update tree
+        this.loadScreenplaysList();
         break;
       case 'import':
         if (event.screenplay) {
@@ -1163,6 +1185,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           this.loadScreenplayIntoEditor(event.screenplay);
           // The screenplay will be automatically saved to MongoDB by the existing save logic
         }
+        // Update tree
+        this.loadScreenplaysList();
+        break;
+      case 'rename':
+        // Update tree when screenplay is renamed
+        this.loadScreenplaysList();
         break;
     }
   }
@@ -1223,12 +1251,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
             this.handleDuplicateDetection(existingScreenplay, content, filename);
           } else {
             this.logging.info('✅ [DUPLICATE] No duplicates found, creating new screenplay', 'ScreenplayInteractive');
-            this.createAndLinkScreenplayAutomatically(content, filename);
+            this.createAndLinkScreenplayAutomatically(content, file.name);
           }
         }).catch(error => {
           this.logging.error('❌ [DUPLICATE] Error checking for duplicates:', error, 'ScreenplayInteractive');
           // Fallback: create automatically
-          this.createAndLinkScreenplayAutomatically(content, filename);
+          this.createAndLinkScreenplayAutomatically(content, file.name);
         });
       };
 
@@ -1279,15 +1307,19 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * Create screenplay in MongoDB automatically and link to editor
    * No confirmation needed for new files
    */
-  private createAndLinkScreenplayAutomatically(content: string, filename: string): void {
-    this.logging.info(`💾 [AUTO] Criando roteiro automaticamente no banco: ${filename}`, 'ScreenplayInteractive', {
-      name: filename,
+  private createAndLinkScreenplayAutomatically(content: string, originalFileName: string): void {
+    this.logging.info(`💾 [AUTO] Criando roteiro automaticamente no banco: ${originalFileName}`, 'ScreenplayInteractive', {
+      name: originalFileName,
       contentLength: content.length,
       preview: content.substring(0, 100)
     });
 
-    // Clean filename - remove .md extension if present and sanitize
-    const cleanFilename = filename.replace(/\.md$/, '').replace(/[^a-zA-Z0-9\-_]/g, '-');
+    // Ensure we have a .md extension for paths and a clean base name for the document name
+    const importPath = /\.md$/i.test(originalFileName)
+      ? originalFileName
+      : `${originalFileName}.md`;
+    const cleanFilename = importPath.replace(/\.md$/i, '').replace(/[^a-zA-Z0-9\-_]/g, '-');
+    this.logging.debug(`   - importPath: ${importPath}`, 'ScreenplayInteractive');
     this.logging.debug(`   - Nome limpo: ${cleanFilename}`, 'ScreenplayInteractive');
 
     // Validate filename
@@ -1297,15 +1329,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Generate file key for duplicate detection
-    const fileKey = this.generateFileKey(filename, cleanFilename);
+    // Generate file key for duplicate detection (use same values that backend expects)
+    const fileKey = this.generateFileKey(importPath, cleanFilename);
 
     this.screenplayStorage.createScreenplay({
       name: cleanFilename,
       content: content,
       description: `Importado do disco em ${new Date().toLocaleDateString()}`,
       fileKey: fileKey,
-      importPath: filename
+      importPath: importPath
     }).subscribe({
       next: (newScreenplay) => {
         this.logging.info(`✅ [AUTO] Roteiro criado: ${newScreenplay.id}`, 'ScreenplayInteractive', {
@@ -1326,7 +1358,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           updatedAt: newScreenplay.updatedAt || new Date().toISOString(),
           isDeleted: false,
           fileKey: fileKey,
-          importPath: filename
+          importPath: importPath
         };
 
         this.loadScreenplayIntoEditor(screenplayWithDiskContent);
@@ -1940,7 +1972,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         
         // Update URL with new screenplay ID
         this.updateUrlWithScreenplayId(newScreenplay.id);
-        
+
+        // Reload tree to show new screenplay
+        this.loadScreenplaysList();
+
         this.logging.info(`✅ [CREATE] Screenplay linked to editor: ${newScreenplay.name}`, 'ScreenplayInteractive');
         this.logging.info(`✅ [CREATE] URL updated with screenplayId: ${newScreenplay.id}`, 'ScreenplayInteractive');
       },
@@ -2091,6 +2126,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.isSaving = false;
         this.lastSavedAt = new Date();
         this.saveError = null;
+        // Reload tree to update version/timestamp
+        this.loadScreenplaysList();
         this.logging.info(`✅ Screenplay saved: ${updatedScreenplay.name} (v${updatedScreenplay.version})`, 'ScreenplayInteractive');
       },
       error: (error) => {
@@ -2622,6 +2659,109 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   closeAgentCreator(): void {
     this.showAgentCreator = false;
+  }
+
+  // First Column Tabs Control
+  setActiveTab(tab: 'tree' | 'instances' | 'catalog'): void {
+    this.activeTab = tab;
+    localStorage.setItem('firstColumnActiveTab', tab);
+    console.log('🔄 [TAB] Changed to:', tab);
+
+    // Reload screenplays list when switching to tree tab
+    if (tab === 'tree') {
+      this.loadScreenplaysList();
+    }
+  }
+
+  // Screenplay Tree Handlers
+  loadScreenplaysList(): void {
+    this.screenplayStorage.getScreenplays('', 1, 100).subscribe({
+      next: (response) => {
+        // Usa a mesma lógica do ScreenplayManager - sem filtrar por isDeleted
+        this.screenplaysList = response.items;
+        console.log('📚 [TREE] Loaded screenplays:', this.screenplaysList.length);
+        console.log('📚 [TREE] Screenplays:', this.screenplaysList.map(s => s.name));
+      },
+      error: (error: any) => {
+        console.error('❌ [TREE] Error loading screenplays:', error);
+        // Se falhar com 100, tenta com 20 (igual o manager)
+        this.screenplayStorage.getScreenplays('', 1, 20).subscribe({
+          next: (response) => {
+            this.screenplaysList = response.items;
+            console.log('📚 [TREE] Retry successful - loaded:', this.screenplaysList.length);
+          },
+          error: (retryError: any) => {
+            console.error('❌ [TREE] Retry also failed:', retryError);
+          }
+        });
+      }
+    });
+  }
+
+  onTreeScreenplayOpen(screenplay: ScreenplayListItem): void {
+    console.log('🎬 [TREE] Opening screenplay:', screenplay.name);
+    this.loadScreenplayById(screenplay.id);
+    this.closeScreenplayManager();
+  }
+
+  onTreeUpdateScreenplay(event: {screenplay: ScreenplayListItem, updates: Partial<ScreenplayListItem>}): void {
+    console.log('📥 [INTERACTIVE] onTreeUpdateScreenplay called with:', event);
+
+    const { screenplay, updates } = event;
+    console.log('✏️ [INTERACTIVE] Updating screenplay:', {
+      id: screenplay.id,
+      name: screenplay.name,
+      updates
+    });
+
+    this.screenplayStorage.updateScreenplay(screenplay.id, updates).subscribe({
+      next: (updatedScreenplay) => {
+        console.log('✅ [INTERACTIVE] Screenplay updated successfully:', updatedScreenplay);
+
+        // Build success message based on what was updated
+        const messages: string[] = [];
+        if (updates.name) messages.push('nome');
+        if (updates.importPath) messages.push('caminho');
+
+        const message = messages.length > 0
+          ? `${messages.join(' e ')} atualizado${messages.length > 1 ? 's' : ''} com sucesso`
+          : 'Roteiro atualizado com sucesso';
+
+        this.notificationService.showSuccess(message);
+        this.loadScreenplaysList(); // Reload to show changes
+      },
+      error: (error: any) => {
+        console.error('❌ [INTERACTIVE] Error updating screenplay:', error);
+        this.notificationService.showError('Erro ao atualizar roteiro');
+      }
+    });
+  }
+
+  onTreeReload(screenplay: ScreenplayListItem): void {
+    if (!screenplay.importPath) {
+      this.notificationService.showWarning('Caminho de importação não definido');
+      return;
+    }
+
+    console.log('🔄 [TREE] Reloading from disk:', screenplay.importPath);
+    this.notificationService.showInfo('Funcionalidade de recarga em desenvolvimento');
+    // TODO: Implement disk reload functionality
+  }
+
+  // Agent Catalog Handlers
+  onCatalogAgentSelect(agent: Agent): void {
+    const agentName = agent.title || agent.name;
+    console.log('🤖 [CATALOG] Agent selected:', agentName);
+    // Insert emoji at cursor position in editor
+    if (this.interactiveEditor && agent.emoji) {
+      this.interactiveEditor.insertContent(agent.emoji);
+      this.notificationService.showSuccess(`Agente ${agent.emoji} adicionado ao roteiro`);
+    }
+  }
+
+  openAgentCreatorFromCatalog(): void {
+    console.log('➕ [CATALOG] Opening agent creator');
+    this.openAgentCreator();
   }
 
   onAgentCreated(agentData: AgentCreationData): void {

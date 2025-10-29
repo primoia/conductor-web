@@ -393,6 +393,94 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
   }
 
   /**
+   * Truncate path for display (show only last 50 characters)
+   */
+  truncatePath(path: string): string {
+    if (!path) return '';
+    if (path.length <= 50) return path;
+    return '...' + path.slice(-47);
+  }
+
+  /**
+   * Reload screenplay content from disk using File System Access API
+   */
+  async reloadFromDisk(screenplay: ScreenplayListItem, event: Event): Promise<void> {
+    event.stopPropagation();
+
+    if (!screenplay.importPath) {
+      this.error = 'Caminho de importação não disponível para este roteiro';
+      return;
+    }
+
+    try {
+      // Check if File System Access API is supported
+      if (!('showOpenFilePicker' in window)) {
+        this.error = 'Seu navegador não suporta o acesso direto ao sistema de arquivos. Use um navegador moderno (Chrome, Edge).';
+        return;
+      }
+
+      this.loading = true;
+      this.error = null;
+
+      // Show file picker starting at the import path directory
+      const [fileHandle] = await (window as any).showOpenFilePicker({
+        types: [{
+          description: 'Markdown Files',
+          accept: { 'text/markdown': ['.md'] }
+        }],
+        multiple: false
+      });
+
+      // Read file content
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+
+      // Update the screenplay with new content
+      this.screenplayStorage.updateScreenplay(screenplay.id, {
+        content: content,
+        importPath: file.name, // Update path in case user selected different file
+        fileKey: this.screenplayStorage.generateFileKey(file.name, file.name)
+      }).subscribe({
+        next: (updatedScreenplay) => {
+          this.loading = false;
+          console.log('✅ [RELOAD] Screenplay reloaded successfully from disk');
+
+          // Update local list
+          const index = this.screenplays.findIndex(s => s.id === screenplay.id);
+          if (index !== -1) {
+            this.screenplays[index] = {
+              ...this.screenplays[index],
+              updatedAt: updatedScreenplay.updatedAt,
+              version: updatedScreenplay.version,
+              importPath: updatedScreenplay.importPath
+            };
+          }
+
+          // Emit action to parent to refresh current editor if this screenplay is open
+          this.action.emit({
+            action: 'import',
+            screenplay: updatedScreenplay
+          });
+        },
+        error: (error) => {
+          this.loading = false;
+          this.error = 'Falha ao atualizar o roteiro com o conteúdo do disco';
+          console.error('[RELOAD] Error updating screenplay:', error);
+        }
+      });
+
+    } catch (error: any) {
+      this.loading = false;
+      if (error.name === 'AbortError') {
+        console.log('Reload cancelled by user');
+        return;
+      }
+      this.error = 'Erro ao recarregar do disco';
+      console.error('[RELOAD] Error reloading from disk:', error);
+    }
+  }
+
+  /**
    * Handle ESC key to close modals and dialogs
    */
   @HostListener('document:keydown.escape', ['$event'])
@@ -546,7 +634,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isDeleted: false,
-        filePath: file.name // Store the full file name with extension
+        filePath: file.name, // Store the full file name with extension
+        importPath: file.name, // Store the import path for reload functionality
+        fileKey: this.screenplayStorage.generateFileKey(file.name, file.name) // Generate unique key
       };
       
       this.screenplayStorage.createScreenplay(newScreenplay).subscribe({
@@ -565,7 +655,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
               updatedAt: createdScreenplay.updatedAt,
               createdAt: createdScreenplay.createdAt,
               isDeleted: false,
-              filePath: createdScreenplay.filePath
+              filePath: createdScreenplay.filePath,
+              importPath: createdScreenplay.importPath, // Include import path
+              fileKey: createdScreenplay.fileKey // Include file key
             };
 
             console.log('➕ [IMPORT] New item to add:', newScreenplayItem);
@@ -586,6 +678,9 @@ export class ScreenplayManager implements OnInit, OnDestroy, OnChanges {
               action: 'import',
               screenplay: createdScreenplay
             });
+
+        // Close the manager modal after successful import
+        this.closeModal();
           });
         },
         error: (error) => {

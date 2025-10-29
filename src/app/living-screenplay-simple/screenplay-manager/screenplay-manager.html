@@ -51,8 +51,21 @@
             <span class="screenplay-date">{{ formatDate(screenplay.updatedAt) }}</span>
             <span class="screenplay-version">v{{ screenplay.version }}</span>
           </div>
+          <!-- Import path display -->
+          <div class="screenplay-path" *ngIf="screenplay.importPath"
+               [title]="screenplay.importPath">
+            📁 {{ truncatePath(screenplay.importPath) }}
+          </div>
         </div>
         <div class="screenplay-actions">
+          <button
+            class="action-btn reload-btn"
+            *ngIf="screenplay.importPath"
+            (click)="reloadFromDisk(screenplay, $event)"
+            title="Recarregar do Disco"
+          >
+            🔄
+          </button>
           <button
             class="action-btn export-btn"
             (click)="exportScreenplay(screenplay, $event)"

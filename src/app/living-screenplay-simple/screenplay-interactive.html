@@ -1,8 +1,56 @@
     <div class="screenplay-layout">
       <div class="screenplay-container" [style.width.%]="screenplayWidth">
-        <!-- Coluna 1: Mapa do Jogo (ampliado) -->
+        <!-- Coluna 1: Sistema de Abas -->
         <div class="first-column">
-          <app-agent-game #agentGame></app-agent-game>
+          <!-- Tab Navigation -->
+          <div class="first-column-tabs">
+            <button
+              class="tab-button"
+              [class.active]="activeTab === 'tree'"
+              (click)="setActiveTab('tree')"
+              title="Árvore de Roteiros">
+              🎬 Roteiros
+            </button>
+            <button
+              class="tab-button"
+              [class.active]="activeTab === 'instances'"
+              (click)="setActiveTab('instances')"
+              title="Agentes Instanciados">
+              🎭 Instâncias
+            </button>
+            <button
+              class="tab-button"
+              [class.active]="activeTab === 'catalog'"
+              (click)="setActiveTab('catalog')"
+              title="Catálogo de Agentes">
+              🤖 Agentes
+            </button>
+          </div>
+
+          <!-- Tab Content -->
+          <div class="first-column-content">
+            <!-- Aba 1: Árvore de Roteiros -->
+            <app-screenplay-tree
+              *ngIf="activeTab === 'tree'"
+              [screenplays]="screenplaysList"
+              (openScreenplay)="onTreeScreenplayOpen($event)"
+              (updateScreenplay)="onTreeUpdateScreenplay($event)"
+              (reloadFromDisk)="onTreeReload($event)">
+            </app-screenplay-tree>
+
+            <!-- Aba 2: Agentes Instanciados (já existe) -->
+            <app-agent-game
+              *ngIf="activeTab === 'instances'"
+              #agentGame>
+            </app-agent-game>
+
+            <!-- Aba 3: Catálogo de Agentes -->
+            <app-agent-catalog
+              *ngIf="activeTab === 'catalog'"
+              (selectAgent)="onCatalogAgentSelect($event)"
+              (createAgent)="openAgentCreatorFromCatalog()">
+            </app-agent-catalog>
+          </div>
         </div>
 
         <div class="screenplay-canvas" #canvas>

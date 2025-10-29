@@ -1,0 +1,128 @@
+<div class="screenplay-tree">
+  <!-- Header -->
+  <div class="tree-header">
+    <h3 class="tree-title">🎬 Roteiros</h3>
+    <div class="tree-stats">{{ screenplays.length }} arquivo{{ screenplays.length !== 1 ? 's' : '' }}</div>
+  </div>
+
+  <!-- Tree Content -->
+  <div class="tree-content">
+    <div *ngIf="treeNodes.length === 0" class="empty-state">
+      <p>📂 Nenhum roteiro importado</p>
+      <small>Importe arquivos para vê-los aqui</small>
+    </div>
+
+    <!-- Project Nodes -->
+    <div *ngFor="let project of treeNodes" class="project-node">
+      <!-- Project Header -->
+      <div
+        class="project-header"
+        [class.expanded]="project.isExpanded"
+        (click)="toggleProject(project)">
+        <span class="expand-icon">{{ project.isExpanded ? '📂' : '📁' }}</span>
+        <span class="project-name">{{ project.name }}</span>
+        <span class="project-count">({{ project.children?.length || 0 }})</span>
+      </div>
+
+      <!-- Project Files -->
+      <div *ngIf="project.isExpanded" class="project-files">
+        <div
+          *ngFor="let file of project.children"
+          class="file-node"
+          (click)="onFileClick(file.screenplay!)">
+          <div class="file-info">
+            <span class="file-icon">📄</span>
+            <div class="file-details">
+              <div class="file-name">{{ file.screenplay!.name }}</div>
+              <div class="file-meta">
+                <span class="file-version">v{{ file.screenplay!.version }}</span>
+                <span class="file-time">{{ getRelativeTime(file.screenplay!.updatedAt) }}</span>
+              </div>
+              <div class="file-path" *ngIf="file.screenplay!.importPath">
+                {{ getDisplayPath(file.screenplay!) }}
+              </div>
+            </div>
+          </div>
+          <div class="file-actions">
+            <button
+              class="action-btn"
+              (click)="onEditClick(file.screenplay!, $event)"
+              title="Editar roteiro">
+              ✏️
+            </button>
+            <button
+              class="action-btn"
+              (click)="onReloadClick(file.screenplay!, $event)"
+              title="Recarregar do disco"
+              [disabled]="!file.screenplay!.importPath">
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Screenplay Dialog -->
+<div class="dialog-backdrop" *ngIf="showEditDialog" (click)="cancelDialog()">
+  <div class="dialog-container" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+      <h3>✏️ Editar Roteiro</h3>
+      <button class="dialog-close" (click)="cancelDialog()">×</button>
+    </div>
+    <div class="dialog-body">
+      <!-- Name Field -->
+      <div class="form-group">
+        <label for="edit-name-input">Nome do Roteiro:</label>
+        <input
+          type="text"
+          id="edit-name-input"
+          class="dialog-input"
+          [(ngModel)]="editingName"
+          placeholder="Nome do roteiro"
+          (keyup.enter)="saveEdits()"
+        />
+      </div>
+
+      <!-- Path Field -->
+      <div class="form-group">
+        <label for="edit-path-input">Caminho Completo:</label>
+        <input
+          type="text"
+          id="edit-path-input"
+          class="dialog-input path-input"
+          [(ngModel)]="editingPath"
+          placeholder="projeto/caminho/arquivo.md"
+          (keyup.enter)="saveEdits()"
+        />
+        <small class="hint">Edite o caminho e o projeto será extraído automaticamente</small>
+      </div>
+
+      <!-- Project Field (Read-only, extracted from path) -->
+      <div class="form-group">
+        <label for="edit-project-display">Projeto (extraído do caminho):</label>
+        <input
+          type="text"
+          id="edit-project-display"
+          class="dialog-input project-readonly"
+          [value]="currentProject"
+          readonly
+        />
+      </div>
+
+      <!-- Current Info -->
+      <div class="current-screenplay" *ngIf="editingScreenplay">
+        <label>Versão Atual:</label>
+        <div class="screenplay-info">
+          <span class="screenplay-version">v{{ editingScreenplay.version }}</span>
+          <span class="screenplay-date">{{ getRelativeTime(editingScreenplay.updatedAt) }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancelDialog()">Cancelar</button>
+      <button class="btn btn-primary" (click)="saveEdits()">Salvar Alterações</button>
+    </div>
+  </div>
+</div>

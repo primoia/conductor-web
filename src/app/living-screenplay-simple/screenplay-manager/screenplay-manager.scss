@@ -162,6 +162,20 @@
   font-weight: 500;
 }
 
+.screenplay-path {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .screenplay-actions {
   display: flex;
   gap: 8px;
@@ -185,6 +199,20 @@
 
   &.delete-btn:hover {
     background: #fee2e2;
+  }
+
+  &.reload-btn:hover {
+    background: #dbeafe;
+    animation: spin 0.5s linear;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: scale(1.1) rotate(0deg);
+  }
+  to {
+    transform: scale(1.1) rotate(360deg);
   }
 }
 

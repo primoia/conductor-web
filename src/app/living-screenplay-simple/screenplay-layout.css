@@ -24,7 +24,95 @@
   height: 100vh;
   background: #f8f9fa;
   border-right: 1px solid #e1e4e8;
-  /* Remover padding e seções para que o mapa ocupe toda a coluna */
+  overflow: hidden;
+}
+
+/* First Column Tabs */
+.first-column-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px;
+  background: #f0f3f7;
+  border-bottom: 2px solid #e1e4e8;
+  flex-shrink: 0;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+}
+
+.tab-button:hover {
+  background: #f7fafc;
+  color: #4a5568;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab-button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.tab-button:active {
+  transform: translateY(0);
+}
+
+/* Tab Content Container */
+.first-column-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-pane {
+  flex: 1;
+  overflow: auto;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Placeholder styling */
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.placeholder-content p {
+  font-size: 32px;
+  margin: 0 0 12px 0;
+}
+
+.placeholder-content small {
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
 }
 
 .top-section {

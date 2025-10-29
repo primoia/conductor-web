@@ -1,0 +1,91 @@
+<div class="agent-catalog">
+  <!-- Header -->
+  <div class="catalog-header">
+    <h3 class="catalog-title">🤖 Catálogo de Agentes</h3>
+    <button class="create-agent-btn" (click)="onCreateAgent()" title="Criar Novo Agente">
+      ➕ Novo
+    </button>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="catalog-controls">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        placeholder="Buscar agentes..."
+      />
+    </div>
+
+    <div class="filter-buttons">
+      <button
+        class="filter-btn"
+        [class.active]="selectedFilter === 'all'"
+        (click)="onFilterChange('all')">
+        Todos
+      </button>
+      <button
+        class="filter-btn"
+        [class.active]="selectedFilter === 'system'"
+        (click)="onFilterChange('system')">
+        Sistema
+      </button>
+      <button
+        class="filter-btn"
+        [class.active]="selectedFilter === 'custom'"
+        (click)="onFilterChange('custom')">
+        Personalizados
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner">🔄</div>
+    <p>Carregando agentes...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-state">
+    <p>❌ {{ error }}</p>
+    <button class="retry-btn" (click)="loadAgents()">Tentar Novamente</button>
+  </div>
+
+  <!-- Agent List -->
+  <div *ngIf="!isLoading && !error" class="catalog-content">
+    <div *ngIf="filteredAgents.length === 0" class="empty-state">
+      <p>📭 Nenhum agente encontrado</p>
+      <small *ngIf="searchTerm">Tente ajustar sua busca</small>
+      <small *ngIf="!searchTerm">Crie seu primeiro agente personalizado</small>
+    </div>
+
+    <!-- Agent Cards -->
+    <div class="agent-list">
+      <div
+        *ngFor="let agent of filteredAgents"
+        class="agent-card"
+        [class]="getAgentTypeClass(agent)"
+        (click)="onSelectAgent(agent)">
+        <div class="agent-emoji">{{ agent.emoji }}</div>
+        <div class="agent-info">
+          <div class="agent-header">
+            <h4 class="agent-title">{{ agent.title || agent.name }}</h4>
+            <span class="agent-type-badge">{{ getAgentType(agent) }}</span>
+          </div>
+          <p class="agent-description">{{ agent.description || 'Sem descrição' }}</p>
+        </div>
+        <div class="agent-actions">
+          <button class="action-icon" title="Adicionar ao roteiro">📋</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="catalog-stats">
+      <span>{{ filteredAgents.length }} de {{ agents.length }} agentes</span>
+    </div>
+  </div>
+</div>

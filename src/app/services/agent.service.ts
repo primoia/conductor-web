@@ -8,10 +8,12 @@ import { map, catchError } from 'rxjs/operators';
 export interface Agent {
   id: string;
   name: string;
+  title?: string; // Alias for name
   emoji: string;
   description: string;
   prompt?: string;
   model?: string;
+  isSystemDefault?: boolean; // Flag for system/custom agents
 }
 
 /**
