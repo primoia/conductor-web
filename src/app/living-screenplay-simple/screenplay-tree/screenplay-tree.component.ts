@@ -26,6 +26,8 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
   @Output() reloadFromDisk = new EventEmitter<ScreenplayListItem>();
 
   treeNodes: ScreenplayTreeNode[] = [];
+  // Estado de expansão dos projetos (persiste entre reconstruções)
+  private expansionState = new Map<string, boolean>();
 
   // Modal state
   showEditDialog = false;
@@ -65,19 +67,26 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
         if (b === '[Sem Projeto]') return -1;
         return a.localeCompare(b);
       })
-      .map(([project, screenplays]) => ({
-        type: 'project' as const,
-        name: project,
-        isExpanded: true,
-        children: screenplays
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-          .map(s => ({
-            type: 'file' as const,
-            name: s.name,
-            screenplay: s,
-            isExpanded: false
-          }))
-      }));
+      .map(([project, screenplays]) => {
+        // Restaurar estado de expansão salvo, ou expandir por padrão na primeira vez
+        const isExpanded = this.expansionState.has(project)
+          ? this.expansionState.get(project)!
+          : true;
+
+        return {
+          type: 'project' as const,
+          name: project,
+          isExpanded,
+          children: screenplays
+            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+            .map(s => ({
+              type: 'file' as const,
+              name: s.name,
+              screenplay: s,
+              isExpanded: false
+            }))
+        };
+      });
   }
 
   extractProjectName(importPath: string | undefined): string {
@@ -131,6 +140,8 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
   toggleProject(node: ScreenplayTreeNode): void {
     if (node.type === 'project') {
       node.isExpanded = !node.isExpanded;
+      // Salvar o estado de expansão para persistir entre reconstruções
+      this.expansionState.set(node.name, node.isExpanded);
     }
   }
 
