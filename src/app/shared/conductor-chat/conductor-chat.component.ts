@@ -1089,8 +1089,6 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     isLoading: false
   };
 
-  progressMessage: Message | null = null;
-  streamingMessage: Message | null = null;
   currentMode: ChatMode = 'ask';
   config: ConductorConfig = DEFAULT_CONFIG;
 
@@ -1117,8 +1115,26 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   // Dock info modal
   showDockInfoModal = false;
 
+  // ✅ SOLUÇÃO BUG PARALELISMO: Mapa de históricos isolados por agente
+  private chatHistories: Map<string, Message[]> = new Map();
+
+  // ✅ SOLUÇÃO BUG PARALELISMO: Mapas de mensagens temporárias isoladas por agente
+  private progressMessages: Map<string, Message | null> = new Map();
+  private streamingMessages: Map<string, Message | null> = new Map();
+
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
+
+  // ✅ SOLUÇÃO BUG PARALELISMO: Getters para retornar mensagens temporárias do agente ativo
+  get progressMessage(): Message | null {
+    if (!this.activeAgentId) return null;
+    return this.progressMessages.get(this.activeAgentId) || null;
+  }
+
+  get streamingMessage(): Message | null {
+    if (!this.activeAgentId) return null;
+    return this.streamingMessages.get(this.activeAgentId) || null;
+  }
 
   constructor(
     private apiService: ConductorApiService,
@@ -1182,13 +1198,26 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
 
+    // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar mensagem ao histórico do agente correto
     // Remove placeholder messages before adding real user message
     const filteredMessages = this.chatState.messages.filter(msg =>
       !msg.id.startsWith('empty-history-') &&
       msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
     );
 
-    this.chatState.messages = [...filteredMessages, userMessage];
+    // Se há um agente ativo, adiciona ao histórico isolado do agente
+    if (this.activeAgentId) {
+      const agentHistory = this.chatHistories.get(this.activeAgentId) || [];
+      const filteredAgentHistory = agentHistory.filter(msg =>
+        !msg.id.startsWith('empty-history-') &&
+        msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
+      );
+      this.chatHistories.set(this.activeAgentId, [...filteredAgentHistory, userMessage]);
+      this.chatState.messages = this.chatHistories.get(this.activeAgentId) || [];
+    } else {
+      // Sem agente ativo: comportamento padrão
+      this.chatState.messages = [...filteredMessages, userMessage];
+    }
 
     // Verificar se é um comando @agent (MVP)
     if (this.currentMode === 'agent' && data.message.startsWith('@agent')) {
@@ -1211,19 +1240,23 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
     this.chatState.isLoading = true;
 
-    // Clear any existing progress/streaming messages
-    this.progressMessage = null;
-    this.streamingMessage = null;
-
     // Check if we have an active agent selected
     if (this.activeAgentId) {
       if (!this.selectedAgentDbId) {
         console.error('❌ [CHAT] Não é possível executar: agent_id está undefined!');
         console.error('   - instance_id:', this.activeAgentId);
         console.error('   - agent_id:', this.selectedAgentDbId);
-        this.handleError('Agente não tem agent_id definido. Verifique a âncora no markdown.');
+        this.handleError('Agente não tem agent_id definido. Verifique a âncora no markdown.', this.activeAgentId);
         return;
       }
+
+      // ✅ SOLUÇÃO BUG PARALELISMO: Capturar instanceId ANTES da execução assíncrona
+      const currentInstanceId = this.activeAgentId;
+      const currentAgentDbId = this.selectedAgentDbId;
+
+      // ✅ SOLUÇÃO BUG PARALELISMO: Limpar mensagens temporárias do agente correto
+      this.progressMessages.set(currentInstanceId, null);
+      this.streamingMessages.set(currentInstanceId, null);
 
       // Extract cwd from message if present, or use saved cwd
       // Matches any absolute path (starts with /) with at least 2 segments
@@ -1232,13 +1265,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
 
       console.log('🎯 [CHAT] Executando agente diretamente:');
-      console.log('   - agent_id (MongoDB):', this.selectedAgentDbId);
-      console.log('   - instance_id:', this.activeAgentId);
+      console.log('   - agent_id (MongoDB):', currentAgentDbId);
+      console.log('   - instance_id (CAPTURADO):', currentInstanceId);
       console.log('   - input_text:', data.message.trim());
       console.log('   - cwd extraído:', cwd || 'não encontrado na mensagem');
       console.log('   - ai_provider:', data.provider || 'padrão (config.yaml)');
 
-      this.addProgressMessage('🚀 Executando agente...');
+      // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar progresso ao agente correto
+      this.addProgressMessage('🚀 Executando agente...', currentInstanceId);
 
       // Notify AgentExecutionService to update agent-game
       const executionState: AgentExecutionState = {
@@ -1252,15 +1286,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.agentExecutionService.executeAgent(executionState);
 
       this.subscriptions.add(
-        this.agentService.executeAgent(this.selectedAgentDbId, data.message.trim(), this.activeAgentId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
+        this.agentService.executeAgent(currentAgentDbId, data.message.trim(), currentInstanceId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
           next: (result) => {
             console.log('✅ Agent execution result:', result);
-            this.progressMessage = null;
+
+            // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente correto
+            this.progressMessages.set(currentInstanceId, null);
 
             // Update execution status to completed
-            if (this.activeAgentId) {
-              this.agentExecutionService.completeAgent(this.activeAgentId, result);
-            }
+            this.agentExecutionService.completeAgent(currentInstanceId, result);
 
             // Extract response content and ensure it's a string
             let responseContent = result.result || result.data?.result || 'Execução concluída';
@@ -1275,25 +1309,40 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
               type: 'bot',
               timestamp: new Date()
             };
-            this.chatState.messages = [...this.chatState.messages, responseMessage];
-            this.chatState.isLoading = false;
 
-            console.log('✅ [CHAT] Mensagem de resposta adicionada ao histórico local');
-            console.log('   - Total de mensagens no chat:', this.chatState.messages.length);
+            // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar resposta ao histórico do agente CORRETO
+            const agentHistory = this.chatHistories.get(currentInstanceId) || [];
+            this.chatHistories.set(currentInstanceId, [...agentHistory, responseMessage]);
+
+            console.log('✅ [CHAT] Resposta adicionada ao histórico do agente:', currentInstanceId);
+            console.log('   - Total de mensagens no histórico do agente:', this.chatHistories.get(currentInstanceId)?.length);
+
+            // Atualizar exibição APENAS se o agente correto ainda estiver ativo
+            if (this.activeAgentId === currentInstanceId) {
+              this.chatState.messages = this.chatHistories.get(currentInstanceId) || [];
+              console.log('✅ [CHAT] Exibição atualizada (agente ainda está ativo)');
+            } else {
+              console.log('ℹ️ [CHAT] Resposta salva, mas não exibida (usuário trocou de agente)');
+              console.log('   - Agente da resposta:', currentInstanceId);
+              console.log('   - Agente ativo atual:', this.activeAgentId);
+            }
+
+            this.chatState.isLoading = false;
 
             // DON'T reload context - keep local chat history
             // The backend will persist the history to MongoDB for next session
           },
           error: (error) => {
             console.error('❌ Agent execution error:', error);
-            this.progressMessage = null;
+
+            // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente correto
+            this.progressMessages.set(currentInstanceId, null);
 
             // Mark agent execution as failed
-            if (this.activeAgentId) {
-              this.agentExecutionService.cancelAgent(this.activeAgentId);
-            }
+            this.agentExecutionService.cancelAgent(currentInstanceId);
 
-            this.handleError(error.error || error.message || 'Erro ao executar agente');
+            // ✅ SOLUÇÃO BUG PARALELISMO: Tratar erro no agente correto
+            this.handleError(error.error || error.message || 'Erro ao executar agente', currentInstanceId);
           }
         })
       );
@@ -1327,11 +1376,19 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
     // Check if it's a final response
     if (event.success !== undefined) {
-      this.progressMessage = null;
+      // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente ativo (se houver)
+      if (this.activeAgentId) {
+        this.progressMessages.set(this.activeAgentId, null);
+      }
 
-      if (this.streamingMessage) {
-        this.chatState.messages = [...this.chatState.messages, this.streamingMessage];
-        this.streamingMessage = null;
+      const currentStreamingMessage = this.streamingMessage;
+      if (currentStreamingMessage) {
+        this.chatState.messages = [...this.chatState.messages, currentStreamingMessage];
+
+        // ✅ SOLUÇÃO BUG PARALELISMO: Limpar streaming do agente ativo
+        if (this.activeAgentId) {
+          this.streamingMessages.set(this.activeAgentId, null);
+        }
       } else {
         const finalMessage: Message = {
           id: `final-${Date.now()}`,
@@ -1380,50 +1437,80 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         }
         break;
       case 'result':
-        this.progressMessage = null;
+        // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente ativo
+        if (this.activeAgentId) {
+          this.progressMessages.set(this.activeAgentId, null);
+        }
         break;
       case 'error':
-        this.progressMessage = null;
+        // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente ativo
+        if (this.activeAgentId) {
+          this.progressMessages.set(this.activeAgentId, null);
+        }
         break;
     }
   }
 
-  private addProgressMessage(text: string): void {
-    this.progressMessage = {
+  private addProgressMessage(text: string, instanceId?: string): void {
+    const targetInstanceId = instanceId || this.activeAgentId;
+    if (!targetInstanceId) return;
+
+    const message: Message = {
       id: `progress-${Date.now()}`,
       content: text,
       type: 'bot',
       timestamp: new Date()
     };
+
+    // ✅ SOLUÇÃO BUG PARALELISMO: Armazenar no mapa do agente correto
+    this.progressMessages.set(targetInstanceId, message);
   }
 
-  private updateProgressMessage(text: string): void {
-    if (this.progressMessage) {
-      this.progressMessage = { ...this.progressMessage, content: text };
+  private updateProgressMessage(text: string, instanceId?: string): void {
+    const targetInstanceId = instanceId || this.activeAgentId;
+    if (!targetInstanceId) return;
+
+    const existingMessage = this.progressMessages.get(targetInstanceId);
+
+    if (existingMessage) {
+      // ✅ SOLUÇÃO BUG PARALELISMO: Atualizar mensagem do agente correto
+      this.progressMessages.set(targetInstanceId, { ...existingMessage, content: text });
     } else {
-      this.addProgressMessage(text);
+      this.addProgressMessage(text, targetInstanceId);
     }
   }
 
-  private appendToStreamingMessage(token: string): void {
-    if (!this.streamingMessage) {
-      this.streamingMessage = {
+  private appendToStreamingMessage(token: string, instanceId?: string): void {
+    const targetInstanceId = instanceId || this.activeAgentId;
+    if (!targetInstanceId) return;
+
+    const existingMessage = this.streamingMessages.get(targetInstanceId);
+
+    if (!existingMessage) {
+      // ✅ SOLUÇÃO BUG PARALELISMO: Criar nova mensagem de streaming para o agente correto
+      this.streamingMessages.set(targetInstanceId, {
         id: `stream-${Date.now()}`,
         content: token,
         type: 'bot',
         timestamp: new Date()
-      };
+      });
     } else {
-      this.streamingMessage = {
-        ...this.streamingMessage,
-        content: this.streamingMessage.content + token
-      };
+      // ✅ SOLUÇÃO BUG PARALELISMO: Atualizar mensagem de streaming do agente correto
+      this.streamingMessages.set(targetInstanceId, {
+        ...existingMessage,
+        content: existingMessage.content + token
+      });
     }
   }
 
-  private handleError(error: string): void {
-    this.progressMessage = null;
-    this.streamingMessage = null;
+  private handleError(error: string, instanceId?: string): void {
+    const targetInstanceId = instanceId || this.activeAgentId;
+
+    // ✅ SOLUÇÃO BUG PARALELISMO: Limpar mensagens temporárias do agente correto
+    if (targetInstanceId) {
+      this.progressMessages.set(targetInstanceId, null);
+      this.streamingMessages.set(targetInstanceId, null);
+    }
 
     const errorMessage: Message = {
       id: (Date.now() + 1).toString(),
@@ -1432,7 +1519,20 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
 
-    this.chatState.messages = [...this.chatState.messages, errorMessage];
+    // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar erro ao histórico do agente correto
+    if (targetInstanceId) {
+      const agentHistory = this.chatHistories.get(targetInstanceId) || [];
+      this.chatHistories.set(targetInstanceId, [...agentHistory, errorMessage]);
+
+      // Atualizar exibição APENAS se for o agente ativo
+      if (this.activeAgentId === targetInstanceId) {
+        this.chatState.messages = this.chatHistories.get(targetInstanceId) || [];
+      }
+    } else {
+      // Sem agente ativo: comportamento padrão
+      this.chatState.messages = [...this.chatState.messages, errorMessage];
+    }
+
     this.chatState.isLoading = false;
   }
 
@@ -1494,6 +1594,19 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     console.log('   - this.selectedAgentName:', this.selectedAgentName);
     console.log('   - this.selectedAgentEmoji:', this.selectedAgentEmoji);
     console.log('   - this.activeScreenplayId:', this.activeScreenplayId);
+
+    // ✅ SOLUÇÃO BUG PARALELISMO: Verificar se já temos histórico em cache
+    const cachedHistory = this.chatHistories.get(instanceId);
+    if (cachedHistory) {
+      console.log('✅ [CHAT] Histórico encontrado em cache local (paralelismo)');
+      console.log('   - Mensagens em cache:', cachedHistory.length);
+      this.chatState.messages = cachedHistory;
+      this.chatState.isLoading = false;
+
+      // Ainda assim, carregar contexto do MongoDB em background para atualizar persona/cwd
+      this.loadContextFromBackend(instanceId, cwd);
+      return;
+    }
 
     this.subscriptions.add(
       this.agentService.getAgentContext(instanceId).subscribe({
@@ -1577,6 +1690,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
             });
           }
 
+          // ✅ SOLUÇÃO BUG PARALELISMO: Armazenar histórico no mapa isolado por agente
+          this.chatHistories.set(instanceId, historyMessages);
+          console.log('✅ [CHAT] Histórico armazenado no mapa para instance_id:', instanceId);
+
+          // Exibir histórico do agente selecionado
           this.chatState.messages = historyMessages;
           this.chatState.isLoading = false;
           console.log('✅ [CHAT] isLoading definido como FALSE após carregar contexto');
@@ -1607,6 +1725,38 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Load agent context from backend (MongoDB) in background
+   * Used when we already have cached history but need to update persona/cwd
+   * @param instanceId - The agent instance ID
+   * @param cwd - Optional working directory override
+   */
+  private loadContextFromBackend(instanceId: string, cwd?: string): void {
+    this.subscriptions.add(
+      this.agentService.getAgentContext(instanceId).subscribe({
+        next: (context: AgentContext) => {
+          console.log('✅ [CHAT] Contexto carregado do MongoDB (background):', context);
+          this.activeAgentContext = context;
+
+          // Load cwd from context
+          if (context.cwd) {
+            this.activeAgentCwd = context.cwd;
+            console.log('✅ [CHAT] CWD atualizado do MongoDB:', this.activeAgentCwd);
+          } else if (cwd) {
+            this.activeAgentCwd = cwd;
+          } else {
+            const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
+            this.activeAgentCwd = storedCwd || null;
+          }
+        },
+        error: (error) => {
+          console.warn('⚠️ [CHAT] Erro ao carregar contexto em background:', error);
+          // Não é crítico - já temos o histórico em cache
+        }
+      })
+    );
+  }
+
+  /**
    * Clear agent context and return to welcome state
    */
   clear(): void {
@@ -1618,6 +1768,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentEmoji = null;
     this.chatState.messages = [];
     this.showPersonaModal = false;
+
+    // ✅ SOLUÇÃO BUG PARALELISMO: Limpar mapas isolados
+    this.chatHistories.clear();
+    this.progressMessages.clear();
+    this.streamingMessages.clear();
+    console.log('✅ [CHAT] Mapas de históricos e mensagens temporárias limpos');
+
     this.initializeChat();
   }
 
