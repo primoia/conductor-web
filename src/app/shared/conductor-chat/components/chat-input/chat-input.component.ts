@@ -1,362 +1,323 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
-import { SpeechRecognitionService } from '../../services/speech-recognition.service';
-import { ChatMode } from '../../models/chat.models';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import { lowlight } from 'lowlight/lib/common';
+import TurndownService from 'turndown';
 
 @Component({
   selector: 'app-chat-input',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   template: `
     <div class="chat-input-wrapper">
-      <!-- Input group com borda azul única -->
-      <div class="chat-input-container">
-        <div class="input-group-border">
-          <textarea
-            #messageInput
-            [(ngModel)]="message"
-            (keydown)="onKeyDown($event)"
-            (input)="adjustTextareaHeight()"
-            placeholder="Digite ou fale sua mensagem... (Shift+Enter para nova linha)"
-            [disabled]="isLoading"
-            autocomplete="off"
-            rows="1"
-          ></textarea>
-          <!-- Linha inferior: Provider + Botões -->
-          <div class="controls-row">
-            <select
-              id="provider-select"
-              [(ngModel)]="selectedProvider"
-              class="provider-dropdown"
-              [disabled]="isLoading"
-              title="Selecione o AI Provider para esta mensagem"
-            >
-              <option value="">Padrão</option>
-              <option value="claude">Claude</option>
-              <option value="gemini">Gemini</option>
-              <option value="cursor-agent">Cursor Agent</option>
-            </select>
-            <!-- Send button -->
-            <button
-              class="icon-button send-button"
-              (click)="sendMessage()"
-              [disabled]="isLoading || !message.trim()"
-              [title]="isLoading ? 'Enviando...' : 'Enviar mensagem'"
-            >
-              <span *ngIf="!isLoading">⬆️</span>
-              <span *ngIf="isLoading">⏳</span>
-            </button>
-            <!-- Mic button -->
-            <button
-              class="icon-button mic-button"
-              [class.recording]="isRecording"
-              (click)="toggleRecording()"
-              [disabled]="isLoading || !speechSupported"
-              [title]="getMicTitle()"
-            >
-              {{ isRecording ? '🔴' : '🎤' }}
-            </button>
-            <!-- Mode toggle switch -->
-            <button
-              class="icon-button mode-toggle"
-              [class.agent-mode]="selectedMode === 'agent'"
-              (click)="toggleMode()"
-              [disabled]="isLoading"
-              [title]="selectedMode === 'ask' ? 'Modo Ask (consulta)' : 'Modo Agent (modificar)'"
-            >
-              {{ selectedMode === 'ask' ? '💬' : '🤖' }}
-            </button>
-          </div>
-        </div>
-      </div>
+      <!-- Editor TipTap - APENAS o editor, sem controls -->
+      <div
+        #editorContainer
+        class="tiptap-editor-container"
+      ></div>
     </div>
   `,
   styles: [`
+    /* ============================================ */
+    /* ESTRUTURA SIMPLIFICADA - APENAS EDITOR */
+    /* ============================================ */
+    /* Este componente agora contém APENAS o editor TipTap */
+    /* Os controls foram movidos para o conductor-chat.component.ts */
+    /* O wrapper preenche 100% da altura do chat-input-area (pai) */
+
     .chat-input-wrapper {
-      border-top: 1px solid #e1e4e8;
       background: white;
-    }
-
-    .chat-input-container {
-      padding: 12px 16px;
-    }
-
-    /* Div com borda azul única ao redor de tudo */
-    .input-group-border {
-      border: 2px solid #e1e4e8;
-      border-radius: 12px;
-      padding: 12px;
-      transition: border-color 0.2s;
-      background: white;
-    }
-
-    /* Borda azul fica visível quando textarea está em foco */
-    .input-group-border:focus-within {
-      border-color: #a8b9ff;
-    }
-
-    /* Textarea sem borda própria */
-    .input-group-border textarea {
+      padding: 0;
       width: 100%;
-      padding: 8px;
-      border: none;
-      outline: none;
-      font-size: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.5;
-      resize: none;
-      min-height: 144px;
-      max-height: 200px;
-      overflow-y: auto;
+      height: 100%; /* CRITICAL: Must be 100% of parent (chat-input-area) */
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      overflow: hidden; /* Prevent any overflow */
+      position: relative;
+    }
+
+    /* ============================================ */
+    /* EDITOR CONTAINER - Ocupa 100% do wrapper */
+    /* ============================================ */
+    /* CRITICAL: flex: 1 - cresce para preencher todo o wrapper */
+    /* CRITICAL: min-height: 0 - permite scroll funcionar no flex */
+    /* CRITICAL: overflow-y: auto - scroll quando conteúdo excede altura */
+    .tiptap-editor-container {
+      width: 100%;
+      flex: 1; /* Cresce para preencher 100% do wrapper */
+      min-height: 0; /* CRÍTICO: Permite scroll dentro do flex container */
+      overflow-y: auto; /* Scroll quando conteúdo excede altura */
+      overflow-x: hidden;
+      position: relative;
+      background: transparent;
+      border: none !important;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+
+    /* Scrollbar styling */
+    .tiptap-editor-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .tiptap-editor-container::-webkit-scrollbar-track {
       background: transparent;
     }
 
-    .input-group-border textarea:disabled {
-      background: #f7fafc;
-      cursor: not-allowed;
-      opacity: 0.7;
+    .tiptap-editor-container::-webkit-scrollbar-thumb {
+      background: #cbd5e0;
+      border-radius: 3px;
     }
 
-    /* Linha inferior: Provider + Botões (horizontal) */
-    .controls-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #f0f0f0;
+    .tiptap-editor-container::-webkit-scrollbar-thumb:hover {
+      background: #a0aec0;
     }
 
-    /* Provider dropdown - sem borda externa */
-    .provider-dropdown {
-      flex: 1;
-      padding: 8px 12px;
-      border: none;
-      background-color: #f7fafc;
-      color: #2d3748;
-      font-size: 13px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-      outline: none;
-      min-width: 100px;
+    /* Remove ALL possible borders from any child element */
+    .tiptap-editor-container :deep(*) {
+      border: none !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
 
-    .provider-dropdown:hover:not(:disabled) {
-      background-color: #e2e8f0;
-    }
-
-    .provider-dropdown:focus {
-      background-color: #e2e8f0;
-    }
-
-    .provider-dropdown:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .provider-dropdown option {
-      padding: 8px;
-      background: white;
-      color: #2d3748;
-    }
-
-    /* Botões em linha horizontal */
-    .icon-button {
-      width: 36px;
-      height: 36px;
+    /* TipTap Editor Styles - Ultra Clean, NO BORDERS, NO fixed heights that cause growth */
+    /* CRITICAL: NO height/min-height that makes it grow - let container handle scrolling */
+    .tiptap-editor-container :deep(.ProseMirror) {
       padding: 0;
-      border: none;
-      border-radius: 50%;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.2s;
-      outline: none;
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      font-size: 13px;
+      line-height: 1.5;
+      /* NO min-height or height here - it would make content push controls down */
+      color: #2c3e50;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    /* Force remove any TipTap default borders */
+    .tiptap-editor-container :deep(.ProseMirror-focused) {
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+      color: #cbd5e0;
+      content: attr(data-placeholder);
+      float: left;
+      height: 0;
+      pointer-events: none;
+      font-size: 13px;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror:focus),
+    .tiptap-editor-container :deep(.ProseMirror:focus-visible) {
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+    }
+
+    /* Preserve pasted formatting */
+    .tiptap-editor-container :deep(.ProseMirror strong) {
+      font-weight: 600;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror em) {
+      font-style: italic;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror code) {
+      background: #f3f4f6;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror pre) {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 3px 0;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror pre code) {
+      background: transparent;
+      padding: 0;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror ul),
+    .tiptap-editor-container :deep(.ProseMirror ol) {
+      padding-left: 20px;
+      margin-bottom: 8px;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror ul[data-type="taskList"]) {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .tiptap-editor-container :deep(.ProseMirror ul[data-type="taskList"] li) {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
+      align-items: flex-start;
+      gap: 5px;
     }
 
-    .mode-toggle {
-      background: #e3f2fd;
-      color: #1976d2;
-      border: 1px solid #bbdefb;
+    .tiptap-editor-container :deep(.ProseMirror ul[data-type="taskList"] li input[type="checkbox"]) {
+      margin-top: 3px;
     }
 
-    .mode-toggle:hover:not(:disabled) {
-      background: #bbdefb;
-      border-color: #90caf9;
-      transform: scale(1.1);
+    .tiptap-editor-container :deep(.ProseMirror p) {
+      margin-top: 0;
+      margin-bottom: 8px;
     }
 
-    .mode-toggle.agent-mode {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: 1px solid #5a67d8;
+    .tiptap-editor-container :deep(.ProseMirror h1),
+    .tiptap-editor-container :deep(.ProseMirror h2),
+    .tiptap-editor-container :deep(.ProseMirror h3) {
+      font-weight: 600;
+      margin: 3px 0;
+      color: #1a202c;
     }
 
-    .mode-toggle.agent-mode:hover:not(:disabled) {
-      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-      transform: scale(1.1);
-    }
-
-    .mic-button {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    .mic-button:hover:not(:disabled) {
-      background: #e0e0e0;
-      transform: scale(1.1);
-    }
-
-    .mic-button.recording {
-      background: #ff4444;
-      color: white;
-      animation: pulse 1s infinite;
-    }
-
-    .send-button {
-      background: #ffffff;
-      color: #667eea;
-      border: 2px solid #667eea;
-    }
-
-    .send-button:hover:not(:disabled) {
-      background: #f0f4ff;
-      transform: scale(1.1);
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-    }
-
-    .icon-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.7;
-      }
-    }
   `]
 })
-export class ChatInputComponent implements OnInit, OnDestroy, AfterViewInit {
+export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @Input() isLoading: boolean = false;
-  @Input() mode: ChatMode = 'ask';
-  @Output() messageSent = new EventEmitter<{message: string, provider?: string}>();
-  @Output() modeChanged = new EventEmitter<ChatMode>();
+  @Output() messageContentChanged = new EventEmitter<string>();
 
-  @ViewChild('messageInput') messageInput!: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
 
-  message: string = '';
-  selectedMode: ChatMode = 'ask';
-  selectedProvider: string = ''; // '' = usar provider padrão do config.yaml
-  isRecording: boolean = false;
-  speechSupported: boolean = false;
+  editor!: Editor;
+  private turndownService: TurndownService;
 
-  private subscriptions = new Subscription();
-
-  constructor(private speechService: SpeechRecognitionService) {}
+  constructor() {
+    // Initialize Turndown for HTML to Markdown conversion
+    this.turndownService = new TurndownService({
+      headingStyle: 'atx',
+      codeBlockStyle: 'fenced',
+      bulletListMarker: '-'
+    });
+  }
 
   ngOnInit(): void {
-    this.selectedMode = this.mode;
-    this.speechSupported = this.speechService.isSupported;
+    // Component simplified - only editor logic here
+  }
 
-    // Subscribe to recording state
-    this.subscriptions.add(
-      this.speechService.isRecording$.subscribe(recording => {
-        this.isRecording = recording;
-      })
-    );
-
-    // Subscribe to transcript
-    this.subscriptions.add(
-      this.speechService.transcript$.subscribe(transcript => {
-        if (transcript) {
-          this.message = transcript;
-          this.speechService.clearTranscript();
-        }
-      })
-    );
+  ngOnChanges(changes: SimpleChanges): void {
+    // Update editor state when isLoading changes
+    if (changes['isLoading'] && this.editor) {
+      this.updateEditorState();
+    }
   }
 
   ngAfterViewInit(): void {
-    // Initial height adjustment
+    // Initialize TipTap Editor
     setTimeout(() => {
-      this.adjustTextareaHeight();
+      this.initializeEditor();
     }, 0);
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
-  }
-
-  sendMessage(): void {
-    if (this.message.trim() && !this.isLoading) {
-      console.log('🤖 Provider selecionado:', this.selectedProvider || 'Padrão (config.yaml)');
-      // Emite objeto com mensagem e provider (se selecionado)
-      this.messageSent.emit({
-        message: this.message.trim(),
-        provider: this.selectedProvider || undefined // undefined se vazio
-      });
-      this.message = '';
-      // Nota: NÃO limpar selectedProvider - manter seleção para próxima mensagem
-      // Reset textarea height after sending
-      setTimeout(() => {
-        this.adjustTextareaHeight();
-      }, 0);
+    if (this.editor) {
+      this.editor.destroy();
     }
   }
 
-  onKeyDown(event: KeyboardEvent): void {
-    // Enter without Shift = send message
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      this.sendMessage();
+  private initializeEditor(): void {
+    if (!this.editorContainer) {
+      console.error('Editor container not found');
+      return;
     }
-    // Shift+Enter = new line (default behavior, no preventDefault needed)
+
+    this.editor = new Editor({
+      element: this.editorContainer.nativeElement,
+      extensions: [
+        StarterKit.configure({
+          codeBlock: false, // We'll use CodeBlockLowlight instead
+        }),
+        CodeBlockLowlight.configure({
+          lowlight,
+          defaultLanguage: 'plaintext',
+        }),
+        Placeholder.configure({
+          placeholder: 'Digite ou fale sua mensagem... (Shift+Enter para nova linha)',
+        }),
+        TaskList,
+        TaskItem.configure({
+          nested: true,
+        }),
+      ],
+      editorProps: {
+        attributes: {
+          class: 'ProseMirror',
+        },
+        // Handle paste - convert HTML to Markdown
+        handlePaste: (view, event) => {
+          const html = event.clipboardData?.getData('text/html');
+          if (html) {
+            try {
+              const markdown = this.turndownService.turndown(html);
+              // Insert as plain text to preserve Markdown
+              const { state } = view;
+              const { selection } = state;
+              const transaction = state.tr.insertText(markdown, selection.from, selection.to);
+              view.dispatch(transaction);
+              return true; // Prevent default paste
+            } catch (e) {
+              console.warn('Failed to convert HTML to Markdown:', e);
+            }
+          }
+          return false; // Use default paste
+        },
+      },
+      onUpdate: ({ editor }) => {
+        // Emit content changes to parent (conductor-chat component)
+        const html = editor.getHTML();
+        const markdown = this.turndownService.turndown(html);
+        this.messageContentChanged.emit(markdown.trim());
+      },
+    });
+
+    // Note: Enter handling is now managed by parent component (conductor-chat)
+    // Shift+Enter for new lines works by default in TipTap
+
+    // Set editor editable state based on loading
+    this.updateEditorState();
   }
 
-  adjustTextareaHeight(): void {
-    if (!this.messageInput) return;
-
-    const textarea = this.messageInput.nativeElement;
-
-    // Reset height to auto to get the correct scrollHeight
-    textarea.style.height = 'auto';
-
-    // Set new height based on content, with min and max constraints
-    const newHeight = Math.min(Math.max(textarea.scrollHeight, 144), 200);
-    textarea.style.height = `${newHeight}px`;
-  }
-
-  toggleRecording(): void {
-    this.speechService.toggleRecording();
-  }
-
-  toggleMode(): void {
-    this.selectedMode = this.selectedMode === 'ask' ? 'agent' : 'ask';
-    this.modeChanged.emit(this.selectedMode);
-  }
-
-  onModeChange(mode: ChatMode): void {
-    this.modeChanged.emit(mode);
-  }
-
-  getMicTitle(): string {
-    if (!this.speechSupported) {
-      return 'Reconhecimento de voz não suportado';
+  private updateEditorState(): void {
+    if (this.editor) {
+      this.editor.setEditable(!this.isLoading);
     }
-    return this.isRecording
-      ? 'Gravando... Clique para parar'
-      : 'Clique para falar';
+  }
+
+  /**
+   * Clear editor content (called from parent after sending message)
+   */
+  clearEditor(): void {
+    if (this.editor) {
+      this.editor.commands.clearContent();
+      this.editor.commands.focus();
+    }
+  }
+
+  /**
+   * Check if editor is empty
+   */
+  isEmpty(): boolean {
+    return !this.editor || this.editor.isEmpty;
   }
 }

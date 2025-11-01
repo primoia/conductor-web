@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
@@ -89,6 +89,13 @@ export class ReportModalComponent {
   showJson = false;
 
   constructor(private sanitizer: DomSanitizer) {}
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    if (this.isVisible) {
+      this.requestClose();
+    }
+  }
 
   requestClose(): void { this.close.emit(); }
   requestRefresh(): void { this.refresh.emit(); }

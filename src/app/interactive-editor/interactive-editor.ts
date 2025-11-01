@@ -6,7 +6,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { createLowlight } from 'lowlight';
+import { lowlight } from 'lowlight/lib/common';
 import TurndownService from 'turndown';
 
 @Component({
@@ -67,7 +67,7 @@ export class InteractiveEditor implements OnInit, OnDestroy, OnChanges {
   }
 
   private initializeEditor(): void {
-    const lowlight = createLowlight();
+    // lowlight is already imported as a singleton from lowlight/lib/common
 
     this.editor = new Editor({
       element: this.editorRef.nativeElement,

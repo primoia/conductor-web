@@ -30,33 +30,36 @@
           *ngFor="let file of project.children"
           class="file-node"
           (click)="onFileClick(file.screenplay!)">
-          <div class="file-info">
+          <!-- Linha 1: Nome + Ações -->
+          <div class="file-row-1">
             <span class="file-icon">📄</span>
-            <div class="file-details">
-              <div class="file-name">{{ file.screenplay!.name }}</div>
-              <div class="file-meta">
-                <span class="file-version">v{{ file.screenplay!.version }}</span>
-                <span class="file-time">{{ getRelativeTime(file.screenplay!.updatedAt) }}</span>
-              </div>
-              <div class="file-path" *ngIf="file.screenplay!.importPath">
-                {{ getDisplayPath(file.screenplay!) }}
-              </div>
+            <span class="file-name">{{ file.screenplay!.name }}</span>
+            <div class="file-actions">
+              <button
+                class="action-btn"
+                (click)="onEditClick(file.screenplay!, $event)"
+                title="Editar roteiro">
+                ✏️
+              </button>
+              <button
+                class="action-btn"
+                (click)="onReloadClick(file.screenplay!, $event)"
+                title="Recarregar do disco"
+                [disabled]="!file.screenplay!.importPath">
+                🔄
+              </button>
             </div>
           </div>
-          <div class="file-actions">
-            <button
-              class="action-btn"
-              (click)="onEditClick(file.screenplay!, $event)"
-              title="Editar roteiro">
-              ✏️
-            </button>
-            <button
-              class="action-btn"
-              (click)="onReloadClick(file.screenplay!, $event)"
-              title="Recarregar do disco"
-              [disabled]="!file.screenplay!.importPath">
-              🔄
-            </button>
+
+          <!-- Linha 2: Metadados + Caminho -->
+          <div class="file-row-2">
+            <span class="file-time">{{ getRelativeTime(file.screenplay!.updatedAt) }}</span>
+            <span class="file-separator">•</span>
+            <span class="file-version">v{{ file.screenplay!.version }}</span>
+            <span class="file-path" *ngIf="file.screenplay!.importPath">
+              <span class="file-separator">•</span>
+              {{ getDisplayPath(file.screenplay!) }}
+            </span>
           </div>
         </div>
       </div>

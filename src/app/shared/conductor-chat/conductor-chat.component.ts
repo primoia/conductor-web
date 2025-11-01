@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener, Output, EventEmitter, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, Output, EventEmitter, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -12,6 +12,7 @@ import { AgentService, AgentContext, ChatMessage } from '../../services/agent.se
 import { AgentExecutionService, AgentExecutionState } from '../../services/agent-execution';
 import { PersonaEditService } from '../../services/persona-edit.service';
 import { PersonaEditModalComponent } from '../persona-edit-modal/persona-edit-modal.component';
+import { SpeechRecognitionService } from './services/speech-recognition.service';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -206,7 +207,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
         </div>
       </div>
 
-      <div class="chat-footer">
+      <!-- Resize handle entre chat-messages e chat-input -->
+      <div
+        class="resize-handle"
+        (mousedown)="onResizeStart($event)"
+        title="Arraste para redimensionar o editor"
+      >
+        <div class="resize-handle-bar"></div>
+      </div>
+
+      <!-- CHAT INPUT AREA: Apenas editor, altura redimensionável -->
+      <div class="chat-input-area" [style.height]="chatInputHeight">
         <!-- Block input if agent is selected but no cwd is defined -->
         <div class="input-blocked-overlay" *ngIf="isInputBlocked()">
           <div class="blocked-message">
@@ -220,10 +231,56 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
         <app-chat-input
           [isLoading]="chatState.isLoading"
-          [mode]="currentMode"
-          (messageSent)="handleSendMessage($event)"
-          (modeChanged)="handleModeChange($event)"
+          (messageContentChanged)="onMessageContentChanged($event)"
         />
+      </div>
+
+      <!-- CHAT FOOTER: Apenas controls, SEMPRE 60px, NUNCA se move -->
+      <div class="chat-footer">
+        <div class="controls-row">
+          <select
+            id="provider-select"
+            [(ngModel)]="selectedProvider"
+            class="provider-dropdown"
+            [disabled]="chatState.isLoading"
+            title="Selecione o AI Provider para esta mensagem"
+          >
+            <option value="">Padrão</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="cursor-agent">Cursor Agent</option>
+          </select>
+          <!-- Send button -->
+          <button
+            class="icon-button send-button"
+            (click)="sendMessage()"
+            [disabled]="chatState.isLoading || isEditorEmpty()"
+            [title]="chatState.isLoading ? 'Enviando...' : 'Enviar mensagem'"
+          >
+            <span *ngIf="!chatState.isLoading">⬆️</span>
+            <span *ngIf="chatState.isLoading">⏳</span>
+          </button>
+          <!-- Mic button -->
+          <button
+            class="icon-button mic-button"
+            [class.recording]="isRecording"
+            (click)="toggleRecording()"
+            [disabled]="chatState.isLoading || !speechSupported"
+            [title]="getMicTitle()"
+          >
+            {{ isRecording ? '🔴' : '🎤' }}
+          </button>
+          <!-- Mode toggle switch -->
+          <button
+            class="icon-button mode-toggle"
+            [class.agent-mode]="currentMode === 'agent'"
+            (click)="toggleMode()"
+            [disabled]="chatState.isLoading"
+            [title]="currentMode === 'ask' ? 'Modo Ask (consulta)' : 'Modo Agent (modificar)'"
+          >
+            {{ currentMode === 'ask' ? '💬' : '🤖' }}
+          </button>
+        </div>
       </div>
 
       <!-- Dock Info Modal (merged with header info) -->
@@ -325,13 +382,12 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .chat-body {
-      flex: 1 1 auto;
-      min-height: 0;
-      height: 0;
+      flex: 1;
       display: flex;
       flex-direction: column;
       background: #ffffff;
       overflow: hidden;
+      min-height: 0;
     }
 
     .chat-body-content {
@@ -624,11 +680,198 @@ const DEFAULT_CONFIG: ConductorConfig = {
       border: 1px solid #e1e4e8;
     }
 
-    .chat-footer {
-      background: #f0f3f7;
+    /* Resize Handle */
+    .resize-handle {
+      height: 12px;
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafbfc;
       border-top: 1px solid #e1e4e8;
+      border-bottom: 1px solid #e1e4e8;
+      user-select: none;
       flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .resize-handle:hover {
+      background: #f0f3f7;
+    }
+
+    .resize-handle:hover .resize-handle-bar {
+      background: #a8b9ff;
+    }
+
+    .resize-handle-bar {
+      width: 40px;
+      height: 3px;
+      background: #e1e4e8;
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
+
+    .resize-handle.resizing {
+      background: #e8eaf6;
+    }
+
+    .resize-handle.resizing .resize-handle-bar {
+      background: #667eea;
+    }
+
+    /* ============================================ */
+    /* CHAT INPUT AREA - Redimensionável, APENAS editor */
+    /* ============================================ */
+    .chat-input-area {
+      background: white;
+      flex-shrink: 0; /* NEVER compress - maintains set height */
+      min-height: 100px; /* Minimum: ~5 lines of text */
+      max-height: 500px; /* Maximum: prevents taking too much space */
+      display: flex;
+      flex-direction: column;
       position: relative;
+      overflow: hidden; /* CRITICAL: Prevents content from pushing outside bounds */
+      border-top: 1px solid #e1e4e8;
+    }
+
+    /* ============================================ */
+    /* CHAT FOOTER - SEMPRE 60px, NUNCA redimensiona */
+    /* ============================================ */
+    .chat-footer {
+      background: white;
+      border-top: 1px solid #e8eaed;
+      flex-shrink: 0; /* NEVER compress */
+      height: 60px; /* ALWAYS 60px - NEVER changes */
+      min-height: 60px;
+      max-height: 60px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 10; /* Always on top */
+    }
+
+    /* ============================================ */
+    /* CONTROLS ROW - Dentro do footer fixo */
+    /* ============================================ */
+    .controls-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: white;
+      height: 100%; /* Fill footer height (60px) */
+    }
+
+    /* Provider dropdown */
+    .provider-dropdown {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background-color: #f7fafc;
+      color: #2d3748;
+      font-size: 13px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      outline: none;
+      min-width: 100px;
+    }
+
+    .provider-dropdown:hover:not(:disabled) {
+      background-color: #e2e8f0;
+    }
+
+    .provider-dropdown:focus {
+      background-color: #e2e8f0;
+    }
+
+    .provider-dropdown:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Icon buttons */
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .mode-toggle {
+      background: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+
+    .mode-toggle:hover:not(:disabled) {
+      background: #bbdefb;
+      border-color: #90caf9;
+      transform: scale(1.1);
+    }
+
+    .mode-toggle.agent-mode {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: 1px solid #5a67d8;
+    }
+
+    .mode-toggle.agent-mode:hover:not(:disabled) {
+      background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+      transform: scale(1.1);
+    }
+
+    .mic-button {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .mic-button:hover:not(:disabled) {
+      background: #e0e0e0;
+      transform: scale(1.1);
+    }
+
+    .mic-button.recording {
+      background: #ff4444;
+      color: white;
+      animation: pulse 1s infinite;
+    }
+
+    .send-button {
+      background: #ffffff;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .send-button:hover:not(:disabled) {
+      background: #f0f4ff;
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+
+    .icon-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.7;
+      }
     }
 
     /* CWD Warning Banner */
@@ -1083,6 +1326,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() deleteAgentRequested = new EventEmitter<void>();
   @Output() agentDockClicked = new EventEmitter<any>();
 
+  @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
+
   chatState: ChatState = {
     messages: [],
     isConnected: false,
@@ -1115,6 +1360,22 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   // Dock info modal
   showDockInfoModal = false;
 
+  // Resize functionality - controls chat INPUT AREA height (ONLY editor, not controls)
+  // Initial height calculation:
+  // - Text area for ~5 lines: 5 × 1.5 line-height × 13px font = ~97px
+  // - Editor padding: 24px (12px top + 12px bottom)
+  // - Total: ~160px for editor area (controls are separate, always 60px)
+  chatInputHeight: string = '160px'; // Initial height (comfortable 5+ lines visible)
+  private isResizing: boolean = false;
+  private startY: number = 0;
+  private startHeight: number = 0;
+
+  // Controls state (moved from chat-input component)
+  selectedProvider: string = ''; // '' = usar provider padrão do config.yaml
+  isRecording: boolean = false;
+  speechSupported: boolean = false;
+  private messageContent: string = ''; // Content from editor
+
   // ✅ SOLUÇÃO BUG PARALELISMO: Mapa de históricos isolados por agente
   private chatHistories: Map<string, Message[]> = new Map();
 
@@ -1141,7 +1402,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private screenplayService: ScreenplayService,
     private agentService: AgentService,
     private agentExecutionService: AgentExecutionService,
-    private personaEditService: PersonaEditService
+    private personaEditService: PersonaEditService,
+    private speechService: SpeechRecognitionService
   ) { }
 
   ngOnInit(): void {
@@ -1150,6 +1412,16 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.connectionCheckInterval = setInterval(() => {
       this.checkConnectionStatus();
     }, 30000);
+
+    // Initialize speech recognition
+    this.speechSupported = this.speechService.isSupported;
+
+    // Subscribe to recording state
+    this.subscriptions.add(
+      this.speechService.isRecording$.subscribe(recording => {
+        this.isRecording = recording;
+      })
+    );
   }
 
   ngOnDestroy(): void {
@@ -1157,6 +1429,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     if (this.connectionCheckInterval) {
       clearInterval(this.connectionCheckInterval);
     }
+    // Remove resize listeners
+    document.removeEventListener('mousemove', this.onResizeMove);
+    document.removeEventListener('mouseup', this.onResizeEnd);
   }
 
   private initializeChat(): void {
@@ -1177,6 +1452,69 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     } catch (error) {
       this.chatState.isConnected = false;
     }
+  }
+
+  /**
+   * Handle message content changes from editor
+   */
+  onMessageContentChanged(content: string): void {
+    this.messageContent = content;
+  }
+
+  /**
+   * Send message (called from controls-row in template)
+   */
+  sendMessage(): void {
+    if (!this.messageContent.trim() || this.chatState.isLoading) return;
+
+    const data = {
+      message: this.messageContent.trim(),
+      provider: this.selectedProvider || undefined
+    };
+
+    this.handleSendMessage(data);
+
+    // Clear editor after sending
+    if (this.chatInputComponent) {
+      this.chatInputComponent.clearEditor();
+    }
+
+    // Reset messageContent
+    this.messageContent = '';
+  }
+
+  /**
+   * Check if editor is empty
+   */
+  isEditorEmpty(): boolean {
+    return !this.messageContent || this.messageContent.trim().length === 0;
+  }
+
+  /**
+   * Toggle speech recording
+   */
+  toggleRecording(): void {
+    this.speechService.toggleRecording();
+  }
+
+  /**
+   * Toggle chat mode
+   */
+  toggleMode(): void {
+    this.currentMode = this.currentMode === 'ask' ? 'agent' : 'ask';
+    this.handleModeChange(this.currentMode);
+  }
+
+  /**
+   * Get microphone button title
+   */
+  getMicTitle(): string {
+    if (!this.speechSupported) {
+      return 'Reconhecimento de voz não suportado';
+    }
+    return this.isRecording
+      ? 'Gravando... Clique para parar'
+      : 'Clique para falar';
   }
 
   handleSendMessage(data: {message: string, provider?: string}): void {
@@ -2091,16 +2429,69 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     // Check if we have an active screenplay ID and need to force save
     if (this.activeScreenplayId) {
       console.log('💾 [CHAT] Verificando se precisa forçar salvamento do screenplay...');
-      
+
       // Emit a custom event to notify the screenplay component to force save
       const forceSaveEvent = new CustomEvent('forceSaveScreenplay', {
         detail: { screenplayId: this.activeScreenplayId }
       });
-      
+
       // Dispatch the event on the document so the screenplay component can listen to it
       document.dispatchEvent(forceSaveEvent);
-      
+
       console.log('📤 [CHAT] Evento forceSaveScreenplay disparado para screenplay:', this.activeScreenplayId);
     }
   }
+
+  /**
+   * Resize functionality - ONLY controls chat-input-area height (editor)
+   * Footer with controls remains ALWAYS 60px fixed
+   */
+  onResizeStart(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizing = true;
+    this.startY = event.clientY;
+
+    // Get current height of chat-input-area (ONLY editor, not footer) in pixels
+    const chatInputElement = document.querySelector('.chat-input-area') as HTMLElement;
+    if (chatInputElement) {
+      this.startHeight = chatInputElement.offsetHeight;
+    }
+
+    document.addEventListener('mousemove', this.onResizeMove);
+    document.addEventListener('mouseup', this.onResizeEnd);
+
+    // Add resizing class
+    const handle = event.currentTarget as HTMLElement;
+    handle.classList.add('resizing');
+  }
+
+  private onResizeMove = (event: MouseEvent): void => {
+    if (!this.isResizing) return;
+
+    // INVERTED: dragging UP increases editor area (more space for text), dragging DOWN decreases it
+    // This feels more natural: pull handle up to get more text space
+    const deltaY = this.startY - event.clientY; // INVERTED calculation
+    const newHeight = this.startHeight + deltaY;
+
+    // Set min and max heights for the INPUT AREA (editor only, controls are separate)
+    // Min: 100px = ~5 lines of text with padding
+    // Max: 500px = reasonable limit
+    const minHeight = 100; // Minimum 100px (shows at least 5 lines)
+    const maxHeight = 500; // Maximum 500px (reasonable limit for editor)
+
+    const constrainedHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
+    this.chatInputHeight = `${constrainedHeight}px`;
+  };
+
+  private onResizeEnd = (event: MouseEvent): void => {
+    if (!this.isResizing) return;
+
+    this.isResizing = false;
+    document.removeEventListener('mousemove', this.onResizeMove);
+    document.removeEventListener('mouseup', this.onResizeEnd);
+
+    // Remove resizing class
+    const handles = document.querySelectorAll('.resize-handle');
+    handles.forEach(handle => handle.classList.remove('resizing'));
+  };
 }
