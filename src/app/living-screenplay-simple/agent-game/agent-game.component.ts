@@ -83,6 +83,19 @@ interface AgentFilter {
   searchTerm: string;
 }
 
+interface HeartParticle {
+  id: string;
+  position: { x: number, y: number };
+  velocity: { x: number, y: number };
+  alpha: number;
+  scale: number;
+  rotation: number;
+  rotationSpeed: number;
+  lifetime: number; // em millisegundos
+  createdAt: number; // timestamp
+  color: string;
+}
+
 @Component({
   selector: 'app-agent-game',
   standalone: true,
@@ -118,6 +131,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     { type: 'grass', emojis: ['🌱', '🌾', '🌿'], colors: ['#9ACD32', '#ADFF2F', '#7CFC00'] }
   ];
 
+  // Heart particle system (collision effect)
+  private heartParticles: HeartParticle[] = [];
+
   // Tooltip state
   selectedAgent: AgentCharacter | null = null;
   tooltipX = 0;
@@ -142,7 +158,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private readonly SYNC_INTERVAL_MS = 30000; // 30 segundos
 
   // Agent radius (smaller)
-  private readonly AGENT_RADIUS = 12;
+  private readonly AGENT_RADIUS = 24;
 
   // Debug panel state
   showDebugPanel = false;
@@ -280,9 +296,13 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
    * Cria sprites de personagens programaticamente
    */
   private createCharacterSprites(): void {
-    // Criar sprite de personagem básico (4 frames de caminhada)
-    const spriteData = this.createWalkingCharacterSprite();
-    this.spriteAnimations.set('character', spriteData);
+    // Criar sprite de personagem masculino (4 frames de caminhada)
+    const spriteMale = this.createWalkingCharacterSprite('male');
+    this.spriteAnimations.set('character-male', spriteMale);
+
+    // Criar sprite de personagem feminino (4 frames de caminhada)
+    const spriteFemale = this.createWalkingCharacterSprite('female');
+    this.spriteAnimations.set('character-female', spriteFemale);
   }
 
   /**
@@ -320,10 +340,11 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Cria um sprite de personagem caminhando usando canvas (MINION)
+   * @param gender - 'male' ou 'female' para personalização
    */
-  private createWalkingCharacterSprite(): SpriteAnimation {
-    const frameWidth = 32;
-    const frameHeight = 32;
+  private createWalkingCharacterSprite(gender: 'male' | 'female' = 'male'): SpriteAnimation {
+    const frameWidth = 64;
+    const frameHeight = 64;
     const totalFrames = 5; // 4 frames de caminhada + 1 frame idle
 
     // Criar canvas temporário para desenhar o sprite
@@ -343,97 +364,224 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       tempCtx.fillStyle = '#FFD700'; // Amarelo Minion
       // Corpo cilíndrico (retângulo arredondado)
       tempCtx.beginPath();
-      tempCtx.roundRect(6, 8, 20, 20, 10);
+      tempCtx.roundRect(12, 16, 40, 40, 20);
       tempCtx.fill();
 
-      // === MACACÃO AZUL ===
-      tempCtx.fillStyle = '#0066CC'; // Azul macacão
-      // Parte inferior do macacão
-      tempCtx.fillRect(8, 20, 16, 8);
-      // Alças do macacão
-      tempCtx.fillRect(10, 10, 3, 12); // Alça esquerda
-      tempCtx.fillRect(19, 10, 3, 12); // Alça direita
+      // === ROUPA (VESTIDO PARA MENINAS, MACACÃO PARA MENINOS) ===
+      if (gender === 'female') {
+        // VESTIDO ROSA
+        tempCtx.fillStyle = '#FF69B4'; // Rosa pink
+
+        // Parte superior do vestido (corpete)
+        tempCtx.fillRect(16, 24, 32, 12);
+
+        // Saia com forma trapezoidal (usando triângulos)
+        tempCtx.beginPath();
+        tempCtx.moveTo(16, 36); // Topo esquerdo da saia
+        tempCtx.lineTo(12, 56); // Base esquerda da saia (mais larga)
+        tempCtx.lineTo(52, 56); // Base direita da saia
+        tempCtx.lineTo(48, 36); // Topo direito da saia
+        tempCtx.closePath();
+        tempCtx.fill();
+
+        // Detalhes rosa escuro na barra do vestido
+        tempCtx.fillStyle = '#FF1493'; // Rosa escuro
+        tempCtx.fillRect(12, 52, 40, 4);
+
+        // Alças do vestido (fininhas)
+        tempCtx.fillStyle = '#FF69B4';
+        tempCtx.fillRect(20, 20, 4, 8); // Alça esquerda
+        tempCtx.fillRect(40, 20, 4, 8); // Alça direita
+
+        // CORAÇÃO PIXELADO COLORIDO no vestido
+        const heartPixels = [
+          // Linha 1 (topo)
+          { x: 26, y: 40, color: '#FF0080' }, // Rosa forte
+          { x: 28, y: 40, color: '#FF0080' },
+          { x: 34, y: 40, color: '#FF0080' },
+          { x: 36, y: 40, color: '#FF0080' },
+          // Linha 2
+          { x: 24, y: 42, color: '#FF1493' }, // Rosa médio
+          { x: 26, y: 42, color: '#FFB6C1' }, // Rosa claro (centro)
+          { x: 28, y: 42, color: '#FF69B4' },
+          { x: 30, y: 42, color: '#FF1493' },
+          { x: 32, y: 42, color: '#FF69B4' },
+          { x: 34, y: 42, color: '#FFB6C1' }, // Rosa claro (centro)
+          { x: 36, y: 42, color: '#FF1493' },
+          { x: 38, y: 42, color: '#FF1493' },
+          // Linha 3 (mais larga)
+          { x: 24, y: 44, color: '#FF1493' },
+          { x: 26, y: 44, color: '#FFB6C1' }, // Brilho
+          { x: 28, y: 44, color: '#FFFFFF' }, // Brilho branco
+          { x: 30, y: 44, color: '#FFB6C1' },
+          { x: 32, y: 44, color: '#FFB6C1' },
+          { x: 34, y: 44, color: '#FFFFFF' }, // Brilho branco
+          { x: 36, y: 44, color: '#FFB6C1' },
+          { x: 38, y: 44, color: '#FF1493' },
+          // Linha 4
+          { x: 26, y: 46, color: '#FF0080' },
+          { x: 28, y: 46, color: '#FF69B4' },
+          { x: 30, y: 46, color: '#FFB6C1' },
+          { x: 32, y: 46, color: '#FFB6C1' },
+          { x: 34, y: 46, color: '#FF69B4' },
+          { x: 36, y: 46, color: '#FF0080' },
+          // Linha 5 (meio)
+          { x: 28, y: 48, color: '#FF0080' },
+          { x: 30, y: 48, color: '#FF1493' },
+          { x: 32, y: 48, color: '#FF1493' },
+          { x: 34, y: 48, color: '#FF0080' },
+          // Linha 6 (afunilando)
+          { x: 30, y: 50, color: '#FF0080' },
+          { x: 32, y: 50, color: '#FF0080' },
+          // Linha 7 (ponta)
+          { x: 31, y: 52, color: '#C71585' } // Rosa bem escuro (ponta)
+        ];
+
+        // Desenhar cada pixel do coração
+        heartPixels.forEach(pixel => {
+          tempCtx.fillStyle = pixel.color;
+          tempCtx.fillRect(pixel.x, pixel.y, 2, 2); // Pixel de 2x2
+        });
+
+      } else {
+        // MACACÃO AZUL (masculino)
+        tempCtx.fillStyle = '#0066CC'; // Azul macacão
+        // Parte inferior do macacão
+        tempCtx.fillRect(16, 40, 32, 16);
+        // Alças do macacão
+        tempCtx.fillRect(20, 20, 6, 24); // Alça esquerda
+        tempCtx.fillRect(38, 20, 6, 24); // Alça direita
+      }
 
       // === ÓCULOS MINION (olho único grande) ===
       // Armação cinza
       tempCtx.fillStyle = '#444444';
       tempCtx.beginPath();
-      tempCtx.arc(16, 14, 6, 0, Math.PI * 2);
+      tempCtx.arc(32, 28, 12, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Lente branca
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.beginPath();
-      tempCtx.arc(16, 14, 5, 0, Math.PI * 2);
+      tempCtx.arc(32, 28, 10, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Íris marrom
       tempCtx.fillStyle = '#8B4513';
       tempCtx.beginPath();
-      tempCtx.arc(16, 14, 3, 0, Math.PI * 2);
+      tempCtx.arc(32, 28, 6, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Pupila preta
       tempCtx.fillStyle = '#000000';
       tempCtx.beginPath();
-      tempCtx.arc(16, 14, 1.5, 0, Math.PI * 2);
+      tempCtx.arc(32, 28, 3, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Brilho no olho
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.beginPath();
-      tempCtx.arc(17, 13, 1, 0, Math.PI * 2);
+      tempCtx.arc(34, 26, 2, 0, Math.PI * 2);
       tempCtx.fill();
 
-      // === CABELO PRETO (poucos fios no topo) ===
-      tempCtx.fillStyle = '#000000';
-      tempCtx.fillRect(13, 3, 2, 4); // Fio 1
-      tempCtx.fillRect(16, 2, 2, 5); // Fio 2 (mais alto)
-      tempCtx.fillRect(19, 3, 2, 4); // Fio 3
+      // === CABELO ===
+      if (gender === 'female') {
+        // Cabelo longo feminino com laço
+        tempCtx.fillStyle = '#000000';
+
+        // Cabelo longo dos lados
+        tempCtx.fillRect(16, 10, 6, 20); // Lado esquerdo
+        tempCtx.fillRect(42, 10, 6, 20); // Lado direito
+
+        // Franja
+        tempCtx.fillRect(22, 6, 20, 6);
+
+        // Laço rosa no topo
+        tempCtx.fillStyle = '#FF69B4';
+        tempCtx.beginPath();
+        tempCtx.arc(24, 8, 6, 0, Math.PI * 2);
+        tempCtx.fill();
+        tempCtx.beginPath();
+        tempCtx.arc(40, 8, 6, 0, Math.PI * 2);
+        tempCtx.fill();
+        // Centro do laço
+        tempCtx.fillRect(28, 4, 8, 8);
+
+        // Cílios
+        tempCtx.strokeStyle = '#000000';
+        tempCtx.lineWidth = 2;
+        tempCtx.beginPath();
+        tempCtx.moveTo(24, 24);
+        tempCtx.lineTo(22, 22);
+        tempCtx.moveTo(40, 24);
+        tempCtx.lineTo(42, 22);
+        tempCtx.stroke();
+      } else {
+        // Cabelo masculino (poucos fios no topo)
+        tempCtx.fillStyle = '#000000';
+        tempCtx.fillRect(26, 6, 4, 8); // Fio 1
+        tempCtx.fillRect(32, 4, 4, 10); // Fio 2 (mais alto)
+        tempCtx.fillRect(38, 6, 4, 8); // Fio 3
+      }
 
       // === BOCA ===
-      tempCtx.strokeStyle = '#000000';
-      tempCtx.lineWidth = 1;
-      tempCtx.beginPath();
-      tempCtx.arc(16, 22, 3, 0.2, Math.PI - 0.2);
-      tempCtx.stroke();
+      if (gender === 'female') {
+        // Boca com batom
+        tempCtx.fillStyle = '#FF1493';
+        tempCtx.beginPath();
+        tempCtx.ellipse(32, 44, 6, 3, 0, 0, Math.PI * 2);
+        tempCtx.fill();
+
+        // Brilho nos lábios
+        tempCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        tempCtx.beginPath();
+        tempCtx.ellipse(32, 43, 3, 1.6, 0, 0, Math.PI * 2);
+        tempCtx.fill();
+      } else {
+        // Boca normal
+        tempCtx.strokeStyle = '#000000';
+        tempCtx.lineWidth = 2;
+        tempCtx.beginPath();
+        tempCtx.arc(32, 44, 6, 0.2, Math.PI - 0.2);
+        tempCtx.stroke();
+      }
 
       // === PERNAS E BRAÇOS (com animação) ===
       if (frame === 0) {
         // IDLE - Pernas paradas
         tempCtx.fillStyle = '#0066CC'; // Azul macacão
-        tempCtx.fillRect(10, 28, 4, 6); // Perna esquerda
-        tempCtx.fillRect(18, 28, 4, 6); // Perna direita
+        tempCtx.fillRect(20, 56, 8, 12); // Perna esquerda
+        tempCtx.fillRect(36, 56, 8, 12); // Perna direita
 
         // Sapatos pretos
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(9, 32, 6, 2); // Sapato esquerdo
-        tempCtx.fillRect(17, 32, 6, 2); // Sapato direito
+        tempCtx.fillRect(18, 64, 12, 4); // Sapato esquerdo
+        tempCtx.fillRect(34, 64, 12, 4); // Sapato direito
 
         // Braços parados (luvas pretas)
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(3, 18, 3, 6); // Braço esquerdo
-        tempCtx.fillRect(26, 18, 3, 6); // Braço direito
+        tempCtx.fillRect(6, 36, 6, 12); // Braço esquerdo
+        tempCtx.fillRect(52, 36, 6, 12); // Braço direito
       } else {
         // CAMINHADA - Movimento alternado
         const walkFrame = frame - 1;
-        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 3;
-        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 2;
+        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 6;
+        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 4;
 
         // Pernas com movimento
         tempCtx.fillStyle = '#0066CC'; // Azul macacão
-        tempCtx.fillRect(10 - legOffset, 28, 4, 6); // Perna esquerda
-        tempCtx.fillRect(18 + legOffset, 28, 4, 6); // Perna direita
+        tempCtx.fillRect(20 - legOffset, 56, 8, 12); // Perna esquerda
+        tempCtx.fillRect(36 + legOffset, 56, 8, 12); // Perna direita
 
         // Sapatos pretos com movimento
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(9 - legOffset, 32, 6, 2); // Sapato esquerdo
-        tempCtx.fillRect(17 + legOffset, 32, 6, 2); // Sapato direito
+        tempCtx.fillRect(18 - legOffset, 64, 12, 4); // Sapato esquerdo
+        tempCtx.fillRect(34 + legOffset, 64, 12, 4); // Sapato direito
 
         // Braços com movimento (luvas pretas)
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(3 - armOffset, 18, 3, 6); // Braço esquerdo
-        tempCtx.fillRect(26 + armOffset, 18, 3, 6); // Braço direito
+        tempCtx.fillRect(6 - armOffset, 36, 6, 12); // Braço esquerdo
+        tempCtx.fillRect(52 + armOffset, 36, 6, 12); // Braço direito
       }
 
       tempCtx.restore();
@@ -543,8 +691,10 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     // Find non-overlapping position
     const position = this.findNonOverlappingPosition();
 
-    // Obter sprite de personagem
-    const characterSprite = this.spriteAnimations.get('character');
+    // Obter sprite de personagem (50% chance de ser masculino ou feminino)
+    const isFemale = Math.random() > 0.5;
+    const spriteKey = isFemale ? 'character-female' : 'character-male';
+    const characterSprite = this.spriteAnimations.get(spriteKey);
     if (!characterSprite) {
       console.warn('⚠️ [SPRITE] Sprite de personagem não encontrado, usando emoji como fallback');
     }
@@ -1112,6 +1262,11 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
               const sin = Math.sin(angle);
               const cos = Math.cos(angle);
 
+              // 💖 EFEITO DE CORAÇÃO: Spawn de partículas na colisão
+              const midX = (agent.position.x + other.position.x) / 2;
+              const midY = (agent.position.y + other.position.y) / 2;
+              this.spawnHeartParticles(midX, midY);
+
               if (other.isActive) {
                 // Both active: bounce off each other
                 const vx1 = agent.velocity.x * cos + agent.velocity.y * sin;
@@ -1227,6 +1382,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
         }
       }
     });
+
+    // 💖 Atualizar partículas de coração
+    this.updateHeartParticles(deltaTime);
   }
 
   private render(): void {
@@ -1249,6 +1407,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
         this.renderAgent(agent as AgentCharacter);
       }
     });
+
+    // 💖 Renderizar partículas de coração (acima dos agentes)
+    this.renderHeartParticles();
   }
 
   /**
@@ -1518,13 +1679,173 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private renderActivityIndicator(x: number, y: number): void {
     const time = Date.now() / 1000;
     const pulseSize = 8 + Math.sin(time * 4) * 2;
-    
+
     this.ctx.beginPath();
     this.ctx.arc(x, y - 30, pulseSize, 0, Math.PI * 2);
     this.ctx.fillStyle = '#00FF00';
     this.ctx.globalAlpha = 0.7;
     this.ctx.fill();
     this.ctx.globalAlpha = 1.0;
+  }
+
+  /**
+   * Cria partículas de coração quando dois minions se encostam
+   */
+  private spawnHeartParticles(x: number, y: number): void {
+    const particleCount = 3 + Math.floor(Math.random() * 3); // 3-5 corações
+    const now = Date.now();
+
+    for (let i = 0; i < particleCount; i++) {
+      // Velocidade e direção aleatórias para cima
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 3; // Cone de 60° para cima
+      const speed = 1.5 + Math.random() * 1.5; // Velocidade entre 1.5 e 3
+
+      const particle: HeartParticle = {
+        id: `heart-${now}-${i}`,
+        position: {
+          x: x + (Math.random() - 0.5) * 20, // Espalha em X
+          y: y + (Math.random() - 0.5) * 20  // Espalha em Y
+        },
+        velocity: {
+          x: Math.cos(angle) * speed,
+          y: Math.sin(angle) * speed
+        },
+        alpha: 1.0,
+        scale: 0.1, // 💖 COMEÇA PEQUENO! (era 0.5 + random)
+        rotation: Math.random() * Math.PI * 2, // Rotação inicial aleatória
+        rotationSpeed: (Math.random() - 0.5) * 0.1, // Rotação aleatória
+        lifetime: 1500 + Math.random() * 500, // Vive entre 1.5 e 2 segundos
+        createdAt: now,
+        color: this.getRandomHeartColor()
+      };
+
+      this.heartParticles.push(particle);
+    }
+  }
+
+  /**
+   * Retorna cor aleatória para corações (tons de rosa/vermelho)
+   */
+  private getRandomHeartColor(): string {
+    const colors = [
+      '#FF1493', // Deep Pink
+      '#FF69B4', // Hot Pink
+      '#FFB6C1', // Light Pink
+      '#FF0080', // Magenta Pink
+      '#FF6EB4', // Pink
+      '#FF007F'  // Rose
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  /**
+   * Atualiza partículas de coração (movimento, crescimento e fade)
+   */
+  private updateHeartParticles(deltaTime: number): void {
+    const now = Date.now();
+
+    // Atualizar cada partícula
+    this.heartParticles.forEach(particle => {
+      // Atualizar posição
+      particle.position.x += particle.velocity.x;
+      particle.position.y += particle.velocity.y;
+
+      // Aplicar gravidade suave (acelera para baixo levemente)
+      particle.velocity.y += 0.02;
+
+      // Atualizar rotação
+      particle.rotation += particle.rotationSpeed;
+
+      // Calcular progresso de vida
+      const age = now - particle.createdAt;
+      const lifeProgress = age / particle.lifetime;
+
+      // 💖 EFEITO DE CRESCIMENTO: começa pequeno (0.1) e cresce até grande (1.5)
+      // Primeira metade da vida: cresce rapidamente
+      // Segunda metade: mantém tamanho e desaparece
+      if (lifeProgress < 0.5) {
+        // Fase de crescimento (0 a 50% da vida)
+        const growthProgress = lifeProgress * 2; // 0 a 1
+        particle.scale = 0.1 + growthProgress * 1.4; // De 0.1 até 1.5
+      } else {
+        // Fase de manutenção (50 a 100% da vida)
+        particle.scale = 1.5; // Mantém tamanho máximo
+      }
+
+      // Fade out gradual (só começa depois de 50% da vida)
+      if (lifeProgress < 0.5) {
+        particle.alpha = 1.0; // Opaco durante crescimento
+      } else {
+        const fadeProgress = (lifeProgress - 0.5) * 2; // 0 a 1 na segunda metade
+        particle.alpha = Math.max(0, 1 - fadeProgress);
+      }
+    });
+
+    // Remover partículas mortas
+    this.heartParticles = this.heartParticles.filter(particle => {
+      const age = now - particle.createdAt;
+      return age < particle.lifetime;
+    });
+  }
+
+  /**
+   * Renderiza todas as partículas de coração
+   */
+  private renderHeartParticles(): void {
+    this.heartParticles.forEach(particle => {
+      this.ctx.save();
+
+      // Aplicar transformações
+      this.ctx.globalAlpha = particle.alpha;
+      this.ctx.translate(particle.position.x, particle.position.y);
+      this.ctx.rotate(particle.rotation);
+      this.ctx.scale(particle.scale, particle.scale);
+
+      // Desenhar coração pixel art (14x14 pixels dobrados = 28x28)
+      this.drawPixelHeart(this.ctx, particle.color);
+
+      this.ctx.restore();
+    });
+  }
+
+  /**
+   * Desenha um coração em estilo pixel art
+   */
+  private drawPixelHeart(ctx: CanvasRenderingContext2D, color: string): void {
+    const pixelSize = 2; // Tamanho de cada pixel (dobrado)
+
+    // Padrão de coração pixel art (7x7 grid, dobrado para 14x14)
+    const heartPattern = [
+      [0,1,1,0,1,1,0],
+      [1,1,1,1,1,1,1],
+      [1,1,1,1,1,1,1],
+      [0,1,1,1,1,1,0],
+      [0,0,1,1,1,0,0],
+      [0,0,0,1,0,0,0]
+    ];
+
+    ctx.fillStyle = color;
+
+    // Desenhar pixels (centralizado em 0,0)
+    const offsetX = -(heartPattern[0].length * pixelSize) / 2;
+    const offsetY = -(heartPattern.length * pixelSize) / 2;
+
+    heartPattern.forEach((row, y) => {
+      row.forEach((pixel, x) => {
+        if (pixel === 1) {
+          ctx.fillRect(
+            offsetX + x * pixelSize,
+            offsetY + y * pixelSize,
+            pixelSize,
+            pixelSize
+          );
+        }
+      });
+    });
+
+    // Adicionar brilho branco no topo esquerdo
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillRect(offsetX + pixelSize, offsetY + pixelSize, pixelSize, pixelSize);
   }
 
   /**
@@ -1860,8 +2181,10 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DFE6E9', '#74B9FF'];
     const position = this.findNonOverlappingPosition();
 
-    // Obter sprite de personagem
-    const characterSprite = this.spriteAnimations.get('character');
+    // Obter sprite de personagem (50% chance de ser masculino ou feminino)
+    const isFemale = Math.random() > 0.5;
+    const spriteKey = isFemale ? 'character-female' : 'character-male';
+    const characterSprite = this.spriteAnimations.get(spriteKey);
 
     const newAgent: AgentCharacter = {
       id: agentData.instanceId || `agent_${Date.now()}`,
