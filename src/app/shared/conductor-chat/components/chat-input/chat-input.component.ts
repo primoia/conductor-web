@@ -14,7 +14,7 @@ import TurndownService from 'turndown';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="chat-input-wrapper">
+    <div class="chat-input-wrapper" (click)="focusEditor()">
       <!-- Editor TipTap - APENAS o editor, sem controls -->
       <div
         #editorContainer
@@ -46,12 +46,11 @@ import TurndownService from 'turndown';
     /* EDITOR CONTAINER - Ocupa 100% do wrapper */
     /* ============================================ */
     /* CRITICAL: flex: 1 - cresce para preencher todo o wrapper */
-    /* CRITICAL: min-height: 0 - permite scroll funcionar no flex */
+    /* CRITICAL: min-height para garantir 5 linhas visíveis */
     /* CRITICAL: overflow-y: auto - scroll quando conteúdo excede altura */
     .tiptap-editor-container {
       width: 100%;
-      flex: 1; /* Cresce para preencher 100% do wrapper */
-      min-height: 0; /* CRÍTICO: Permite scroll dentro do flex container */
+      height: 100%; /* CRITICAL: Ocupa 100% da altura do wrapper */
       overflow-y: auto; /* Scroll quando conteúdo excede altura */
       overflow-x: hidden;
       position: relative;
@@ -79,34 +78,45 @@ import TurndownService from 'turndown';
       background: #a0aec0;
     }
 
-    /* Remove ALL possible borders from any child element */
-    .tiptap-editor-container :deep(*) {
+    /* Remove borders from child elements (except ProseMirror itself) */
+    .tiptap-editor-container :deep(p),
+    .tiptap-editor-container :deep(h1),
+    .tiptap-editor-container :deep(h2),
+    .tiptap-editor-container :deep(h3),
+    .tiptap-editor-container :deep(ul),
+    .tiptap-editor-container :deep(ol),
+    .tiptap-editor-container :deep(li) {
       border: none !important;
-      box-shadow: none !important;
       outline: none !important;
     }
 
-    /* TipTap Editor Styles - Ultra Clean, NO BORDERS, NO fixed heights that cause growth */
-    /* CRITICAL: NO height/min-height that makes it grow - let container handle scrolling */
+    /* TipTap Editor Styles - Ultra Clean, Área clicável completa */
+    /* CRITICAL: height: 100% + min-height para preencher container */
     .tiptap-editor-container :deep(.ProseMirror) {
-      padding: 0;
+      padding: 12px;
       outline: none !important;
-      border: none !important;
+      border: 2px solid transparent !important; /* Transparent border for spacing */
+      border-radius: 6px;
       box-shadow: none !important;
-      background: transparent !important;
+      background: #fafbfc !important;
       font-size: 13px;
       line-height: 1.5;
-      /* NO min-height or height here - it would make content push controls down */
+      min-height: 100%; /* CRITICAL: Preenche 100% do container (160px - 24px padding = 136px) */
+      height: auto; /* Cresce com o conteúdo, mas nunca menor que min-height */
       color: #2c3e50;
       word-wrap: break-word;
       overflow-wrap: break-word;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+      box-sizing: border-box;
     }
 
-    /* Force remove any TipTap default borders */
+    /* Borda azul quando focado */
+    .tiptap-editor-container :deep(.ProseMirror:focus),
     .tiptap-editor-container :deep(.ProseMirror-focused) {
       outline: none !important;
-      border: none !important;
-      box-shadow: none !important;
+      border: 2px solid #667eea !important; /* Borda azul ao clicar */
+      background: #ffffff !important;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important; /* Sombra azul suave */
     }
 
     .tiptap-editor-container :deep(.ProseMirror p.is-editor-empty:first-child::before) {
@@ -197,6 +207,7 @@ import TurndownService from 'turndown';
 export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @Input() isLoading: boolean = false;
   @Output() messageContentChanged = new EventEmitter<string>();
+  @Output() enterPressed = new EventEmitter<void>(); // Enter envia mensagem
 
   @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
 
@@ -291,8 +302,22 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
       },
     });
 
-    // Note: Enter handling is now managed by parent component (conductor-chat)
-    // Shift+Enter for new lines works by default in TipTap
+    // Add custom keyboard shortcuts
+    this.editor.setOptions({
+      editorProps: {
+        ...this.editor.options.editorProps,
+        handleKeyDown: (view, event) => {
+          // Enter without Shift = send message
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            this.enterPressed.emit(); // Notify parent to send
+            return true;
+          }
+          // Shift+Enter = new line (default behavior)
+          return false;
+        },
+      },
+    });
 
     // Set editor editable state based on loading
     this.updateEditorState();
@@ -319,5 +344,14 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
    */
   isEmpty(): boolean {
     return !this.editor || this.editor.isEmpty;
+  }
+
+  /**
+   * Focus editor when clicking anywhere in the input area
+   */
+  focusEditor(): void {
+    if (this.editor && !this.isLoading) {
+      this.editor.commands.focus('end'); // Focus at end of content
+    }
   }
 }

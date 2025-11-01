@@ -217,13 +217,13 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </div>
 
       <!-- CHAT INPUT AREA: Apenas editor, altura redimensionável -->
-      <div class="chat-input-area" [style.height]="chatInputHeight">
+      <div class="chat-input-area" [style.height]="chatInputHeight" (click)="focusEditorInput()">
         <!-- Block input if agent is selected but no cwd is defined -->
         <div class="input-blocked-overlay" *ngIf="isInputBlocked()">
           <div class="blocked-message">
             <span class="blocked-icon">🔒</span>
             <span>Chat bloqueado. Defina o diretório de trabalho primeiro.</span>
-            <button class="blocked-btn" (click)="openCwdDefinitionModal()">
+            <button class="blocked-btn" (click)="openCwdDefinitionModal(); $event.stopPropagation()">
               Definir agora
             </button>
           </div>
@@ -232,6 +232,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
         <app-chat-input
           [isLoading]="chatState.isLoading"
           (messageContentChanged)="onMessageContentChanged($event)"
+          (enterPressed)="sendMessage()"
         />
       </div>
 
@@ -1515,6 +1516,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     return this.isRecording
       ? 'Gravando... Clique para parar'
       : 'Clique para falar';
+  }
+
+  /**
+   * Focus editor when clicking on chat-input-area
+   */
+  focusEditorInput(): void {
+    if (this.chatInputComponent && !this.chatState.isLoading) {
+      this.chatInputComponent.focusEditor();
+    }
   }
 
   handleSendMessage(data: {message: string, provider?: string}): void {
