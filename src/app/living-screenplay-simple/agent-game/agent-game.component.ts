@@ -641,7 +641,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       console.log('🎮 [AGENT-GAME] Base URL:', baseUrl);
 
       // Fetch agent instances from BFF
-      const url = `${baseUrl}/api/agents/instances?limit=500`;
+      const url = `${baseUrl}/agents/instances?limit=500`;
       console.log('🎮 [AGENT-GAME] Fetching from:', url);
 
       const response = await this.http.get<{ success: boolean, count: number, instances: any[] }>(url).toPromise();
@@ -939,7 +939,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private loadAgentStatisticsFromAPI(agent: AgentCharacter): void {
     const instanceId = agent.id;
     const baseUrl = this.getBaseUrl();
-    const apiUrl = `${baseUrl}/api/agents/instances/${instanceId}`;
+    const apiUrl = `${baseUrl}/agents/instances/${instanceId}`;
 
     console.log(`🔄 [API] Carregando stats para ${agent.name} (${instanceId})`);
 

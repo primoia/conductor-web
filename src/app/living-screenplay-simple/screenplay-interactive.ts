@@ -549,7 +549,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       
       this.logging.info(`💾 ${logPrefix} Criando instância no MongoDB:`, 'ScreenplayInteractive', payload);
 
-      const response = await fetch(`${baseUrl}/api/agents/instances`, {
+      const response = await fetch(`${baseUrl}/agents/instances`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -582,8 +582,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   private updateAgentInMongoDB(instanceId: string, updates: any): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
-    
-    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+
+    fetch(`${baseUrl}/agents/instances/${instanceId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -639,8 +639,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   private deleteAgentFromMongoDB(instanceId: string): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
-    
-    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+
+    fetch(`${baseUrl}/agents/instances/${instanceId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -3287,7 +3287,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
       // Call DELETE endpoint (soft delete by default)
       const baseUrl = this.getBaseUrl();
-      const deleteUrl = `${baseUrl}/api/agents/instances/${instanceId}`;
+      const deleteUrl = `${baseUrl}/agents/instances/${instanceId}`;
 
       await this.http.delete(deleteUrl).toPromise();
 
@@ -3609,7 +3609,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private async checkProcessingTasks(): Promise<void> {
     try {
       const baseUrl = this.agentService['baseUrl'] || '';
-      const url = `${baseUrl}/api/tasks/processing`;
+      const url = `${baseUrl}/tasks/processing`;
 
       const response = await this.http.get<{
         success: boolean;
