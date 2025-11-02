@@ -138,6 +138,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
             [progressMessage]="progressMessage"
             [streamingMessage]="streamingMessage"
             [autoScroll]="config.autoScroll"
+            (messageDeleted)="onMessageDeleted($event)"
           />
 
           <!-- Agent Launcher Dock -->
@@ -1999,7 +2000,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
                 id: `history-user-${index}`,
                 content: record.user_input,
                 type: 'user',
-                timestamp: new Date(record.timestamp * 1000 || record.createdAt)
+                timestamp: new Date(record.timestamp * 1000 || record.createdAt),
+                _historyId: record._id, // MongoDB _id for deletion
+                isDeleted: record.isDeleted || false // Soft delete flag
               });
             }
 
@@ -2015,7 +2018,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
                   id: `history-bot-${index}`,
                   content: aiContent,
                   type: 'bot',
-                  timestamp: new Date(record.timestamp * 1000 || record.createdAt)
+                  timestamp: new Date(record.timestamp * 1000 || record.createdAt),
+                  _historyId: record._id, // MongoDB _id for deletion
+                  isDeleted: record.isDeleted || false // Soft delete flag
                 });
               }
             }
@@ -2238,6 +2243,46 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onDockAgentClick(agent: any): void {
     this.agentDockClicked.emit(agent);
+  }
+
+  /**
+   * Handle message deletion with optimistic update + rollback
+   */
+  async onMessageDeleted(message: Message): Promise<void> {
+    if (!message._historyId) {
+      console.warn('Cannot delete message without _historyId');
+      return;
+    }
+
+    // Optimistic update: mark as deleted in UI immediately
+    const originalDeletedState = message.isDeleted;
+    message.isDeleted = true;
+
+    try {
+      // Call backend API to soft delete the message
+      const conductorUrl = this.config.api.baseUrl || 'http://localhost:8000';
+      const response = await fetch(`${conductorUrl}/agents/history/${message._historyId}/delete`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete message: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Message marked as deleted:', result);
+
+    } catch (error) {
+      // Rollback on error
+      console.error('❌ Error deleting message, rolling back:', error);
+      message.isDeleted = originalDeletedState;
+
+      // Show error notification to user
+      alert('Erro ao inativar mensagem. Por favor, tente novamente.');
+    }
   }
 
   /**

@@ -158,7 +158,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private readonly SYNC_INTERVAL_MS = 30000; // 30 segundos
 
   // Agent radius (smaller)
-  private readonly AGENT_RADIUS = 24;
+  private readonly AGENT_RADIUS = 18; // 48px / 2 = 24, ajustado para 18 (75% do anterior)
 
   // Debug panel state
   showDebugPanel = false;
@@ -343,8 +343,8 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
    * @param gender - 'male' ou 'female' para personalização
    */
   private createWalkingCharacterSprite(gender: 'male' | 'female' = 'male'): SpriteAnimation {
-    const frameWidth = 64;
-    const frameHeight = 64;
+    const frameWidth = 48; // Tamanho ajustado (75% do anterior)
+    const frameHeight = 48; // Tamanho ajustado (75% do anterior)
     const totalFrames = 5; // 4 frames de caminhada + 1 frame idle
 
     // Criar canvas temporário para desenhar o sprite
@@ -362,226 +362,226 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
 
       // === CORPO MINION (Cilindro amarelo) ===
       tempCtx.fillStyle = '#FFD700'; // Amarelo Minion
-      // Corpo cilíndrico (retângulo arredondado)
+      // Corpo cilíndrico (retângulo arredondado) - 48px (75% do anterior)
       tempCtx.beginPath();
-      tempCtx.roundRect(12, 16, 40, 40, 20);
+      tempCtx.roundRect(9, 12, 30, 30, 15);
       tempCtx.fill();
 
       // === ROUPA (VESTIDO PARA MENINAS, MACACÃO PARA MENINOS) ===
       if (gender === 'female') {
-        // VESTIDO ROSA
+        // VESTIDO ROSA - 48px (75% do anterior)
         tempCtx.fillStyle = '#FF69B4'; // Rosa pink
 
         // Parte superior do vestido (corpete)
-        tempCtx.fillRect(16, 24, 32, 12);
+        tempCtx.fillRect(12, 18, 24, 9);
 
         // Saia com forma trapezoidal (usando triângulos)
         tempCtx.beginPath();
-        tempCtx.moveTo(16, 36); // Topo esquerdo da saia
-        tempCtx.lineTo(12, 56); // Base esquerda da saia (mais larga)
-        tempCtx.lineTo(52, 56); // Base direita da saia
-        tempCtx.lineTo(48, 36); // Topo direito da saia
+        tempCtx.moveTo(12, 27); // Topo esquerdo da saia
+        tempCtx.lineTo(9, 42); // Base esquerda da saia (mais larga)
+        tempCtx.lineTo(39, 42); // Base direita da saia
+        tempCtx.lineTo(36, 27); // Topo direito da saia
         tempCtx.closePath();
         tempCtx.fill();
 
         // Detalhes rosa escuro na barra do vestido
         tempCtx.fillStyle = '#FF1493'; // Rosa escuro
-        tempCtx.fillRect(12, 52, 40, 4);
+        tempCtx.fillRect(9, 39, 30, 3);
 
         // Alças do vestido (fininhas)
         tempCtx.fillStyle = '#FF69B4';
-        tempCtx.fillRect(20, 20, 4, 8); // Alça esquerda
-        tempCtx.fillRect(40, 20, 4, 8); // Alça direita
+        tempCtx.fillRect(15, 15, 3, 6); // Alça esquerda
+        tempCtx.fillRect(30, 15, 3, 6); // Alça direita
 
-        // CORAÇÃO PIXELADO COLORIDO no vestido
+        // CORAÇÃO PIXELADO COLORIDO no vestido - 48px (75% do anterior)
         const heartPixels = [
           // Linha 1 (topo)
-          { x: 26, y: 40, color: '#FF0080' }, // Rosa forte
-          { x: 28, y: 40, color: '#FF0080' },
-          { x: 34, y: 40, color: '#FF0080' },
-          { x: 36, y: 40, color: '#FF0080' },
+          { x: 19.5, y: 30, color: '#FF0080' }, // Rosa forte
+          { x: 21, y: 30, color: '#FF0080' },
+          { x: 25.5, y: 30, color: '#FF0080' },
+          { x: 27, y: 30, color: '#FF0080' },
           // Linha 2
-          { x: 24, y: 42, color: '#FF1493' }, // Rosa médio
-          { x: 26, y: 42, color: '#FFB6C1' }, // Rosa claro (centro)
-          { x: 28, y: 42, color: '#FF69B4' },
-          { x: 30, y: 42, color: '#FF1493' },
-          { x: 32, y: 42, color: '#FF69B4' },
-          { x: 34, y: 42, color: '#FFB6C1' }, // Rosa claro (centro)
-          { x: 36, y: 42, color: '#FF1493' },
-          { x: 38, y: 42, color: '#FF1493' },
+          { x: 18, y: 31.5, color: '#FF1493' }, // Rosa médio
+          { x: 19.5, y: 31.5, color: '#FFB6C1' }, // Rosa claro (centro)
+          { x: 21, y: 31.5, color: '#FF69B4' },
+          { x: 22.5, y: 31.5, color: '#FF1493' },
+          { x: 24, y: 31.5, color: '#FF69B4' },
+          { x: 25.5, y: 31.5, color: '#FFB6C1' }, // Rosa claro (centro)
+          { x: 27, y: 31.5, color: '#FF1493' },
+          { x: 28.5, y: 31.5, color: '#FF1493' },
           // Linha 3 (mais larga)
-          { x: 24, y: 44, color: '#FF1493' },
-          { x: 26, y: 44, color: '#FFB6C1' }, // Brilho
-          { x: 28, y: 44, color: '#FFFFFF' }, // Brilho branco
-          { x: 30, y: 44, color: '#FFB6C1' },
-          { x: 32, y: 44, color: '#FFB6C1' },
-          { x: 34, y: 44, color: '#FFFFFF' }, // Brilho branco
-          { x: 36, y: 44, color: '#FFB6C1' },
-          { x: 38, y: 44, color: '#FF1493' },
+          { x: 18, y: 33, color: '#FF1493' },
+          { x: 19.5, y: 33, color: '#FFB6C1' }, // Brilho
+          { x: 21, y: 33, color: '#FFFFFF' }, // Brilho branco
+          { x: 22.5, y: 33, color: '#FFB6C1' },
+          { x: 24, y: 33, color: '#FFB6C1' },
+          { x: 25.5, y: 33, color: '#FFFFFF' }, // Brilho branco
+          { x: 27, y: 33, color: '#FFB6C1' },
+          { x: 28.5, y: 33, color: '#FF1493' },
           // Linha 4
-          { x: 26, y: 46, color: '#FF0080' },
-          { x: 28, y: 46, color: '#FF69B4' },
-          { x: 30, y: 46, color: '#FFB6C1' },
-          { x: 32, y: 46, color: '#FFB6C1' },
-          { x: 34, y: 46, color: '#FF69B4' },
-          { x: 36, y: 46, color: '#FF0080' },
+          { x: 19.5, y: 34.5, color: '#FF0080' },
+          { x: 21, y: 34.5, color: '#FF69B4' },
+          { x: 22.5, y: 34.5, color: '#FFB6C1' },
+          { x: 24, y: 34.5, color: '#FFB6C1' },
+          { x: 25.5, y: 34.5, color: '#FF69B4' },
+          { x: 27, y: 34.5, color: '#FF0080' },
           // Linha 5 (meio)
-          { x: 28, y: 48, color: '#FF0080' },
-          { x: 30, y: 48, color: '#FF1493' },
-          { x: 32, y: 48, color: '#FF1493' },
-          { x: 34, y: 48, color: '#FF0080' },
+          { x: 21, y: 36, color: '#FF0080' },
+          { x: 22.5, y: 36, color: '#FF1493' },
+          { x: 24, y: 36, color: '#FF1493' },
+          { x: 25.5, y: 36, color: '#FF0080' },
           // Linha 6 (afunilando)
-          { x: 30, y: 50, color: '#FF0080' },
-          { x: 32, y: 50, color: '#FF0080' },
+          { x: 22.5, y: 37.5, color: '#FF0080' },
+          { x: 24, y: 37.5, color: '#FF0080' },
           // Linha 7 (ponta)
-          { x: 31, y: 52, color: '#C71585' } // Rosa bem escuro (ponta)
+          { x: 23.25, y: 39, color: '#C71585' } // Rosa bem escuro (ponta)
         ];
 
-        // Desenhar cada pixel do coração
+        // Desenhar cada pixel do coração - pixel de 1.5x1.5 (75% de 2x2)
         heartPixels.forEach(pixel => {
           tempCtx.fillStyle = pixel.color;
-          tempCtx.fillRect(pixel.x, pixel.y, 2, 2); // Pixel de 2x2
+          tempCtx.fillRect(pixel.x, pixel.y, 1.5, 1.5);
         });
 
       } else {
-        // MACACÃO AZUL (masculino)
+        // MACACÃO AZUL (masculino) - 48px (75% do anterior)
         tempCtx.fillStyle = '#0066CC'; // Azul macacão
         // Parte inferior do macacão
-        tempCtx.fillRect(16, 40, 32, 16);
+        tempCtx.fillRect(12, 30, 24, 12);
         // Alças do macacão
-        tempCtx.fillRect(20, 20, 6, 24); // Alça esquerda
-        tempCtx.fillRect(38, 20, 6, 24); // Alça direita
+        tempCtx.fillRect(15, 15, 4.5, 18); // Alça esquerda
+        tempCtx.fillRect(28.5, 15, 4.5, 18); // Alça direita
       }
 
-      // === ÓCULOS MINION (olho único grande) ===
+      // === ÓCULOS MINION (olho único grande) - 48px (75% do anterior) ===
       // Armação cinza
       tempCtx.fillStyle = '#444444';
       tempCtx.beginPath();
-      tempCtx.arc(32, 28, 12, 0, Math.PI * 2);
+      tempCtx.arc(24, 21, 9, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Lente branca
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.beginPath();
-      tempCtx.arc(32, 28, 10, 0, Math.PI * 2);
+      tempCtx.arc(24, 21, 7.5, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Íris marrom
       tempCtx.fillStyle = '#8B4513';
       tempCtx.beginPath();
-      tempCtx.arc(32, 28, 6, 0, Math.PI * 2);
+      tempCtx.arc(24, 21, 4.5, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Pupila preta
       tempCtx.fillStyle = '#000000';
       tempCtx.beginPath();
-      tempCtx.arc(32, 28, 3, 0, Math.PI * 2);
+      tempCtx.arc(24, 21, 2.25, 0, Math.PI * 2);
       tempCtx.fill();
 
       // Brilho no olho
       tempCtx.fillStyle = '#FFFFFF';
       tempCtx.beginPath();
-      tempCtx.arc(34, 26, 2, 0, Math.PI * 2);
+      tempCtx.arc(25.5, 19.5, 1.5, 0, Math.PI * 2);
       tempCtx.fill();
 
-      // === CABELO ===
+      // === CABELO - 48px (75% do anterior) ===
       if (gender === 'female') {
         // Cabelo longo feminino com laço
         tempCtx.fillStyle = '#000000';
 
         // Cabelo longo dos lados
-        tempCtx.fillRect(16, 10, 6, 20); // Lado esquerdo
-        tempCtx.fillRect(42, 10, 6, 20); // Lado direito
+        tempCtx.fillRect(12, 7.5, 4.5, 15); // Lado esquerdo
+        tempCtx.fillRect(31.5, 7.5, 4.5, 15); // Lado direito
 
         // Franja
-        tempCtx.fillRect(22, 6, 20, 6);
+        tempCtx.fillRect(16.5, 4.5, 15, 4.5);
 
         // Laço rosa no topo
         tempCtx.fillStyle = '#FF69B4';
         tempCtx.beginPath();
-        tempCtx.arc(24, 8, 6, 0, Math.PI * 2);
+        tempCtx.arc(18, 6, 4.5, 0, Math.PI * 2);
         tempCtx.fill();
         tempCtx.beginPath();
-        tempCtx.arc(40, 8, 6, 0, Math.PI * 2);
+        tempCtx.arc(30, 6, 4.5, 0, Math.PI * 2);
         tempCtx.fill();
         // Centro do laço
-        tempCtx.fillRect(28, 4, 8, 8);
+        tempCtx.fillRect(21, 3, 6, 6);
 
         // Cílios
         tempCtx.strokeStyle = '#000000';
-        tempCtx.lineWidth = 2;
+        tempCtx.lineWidth = 1.5;
         tempCtx.beginPath();
-        tempCtx.moveTo(24, 24);
-        tempCtx.lineTo(22, 22);
-        tempCtx.moveTo(40, 24);
-        tempCtx.lineTo(42, 22);
+        tempCtx.moveTo(18, 18);
+        tempCtx.lineTo(16.5, 16.5);
+        tempCtx.moveTo(30, 18);
+        tempCtx.lineTo(31.5, 16.5);
         tempCtx.stroke();
       } else {
         // Cabelo masculino (poucos fios no topo)
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(26, 6, 4, 8); // Fio 1
-        tempCtx.fillRect(32, 4, 4, 10); // Fio 2 (mais alto)
-        tempCtx.fillRect(38, 6, 4, 8); // Fio 3
+        tempCtx.fillRect(19.5, 4.5, 3, 6); // Fio 1
+        tempCtx.fillRect(24, 3, 3, 7.5); // Fio 2 (mais alto)
+        tempCtx.fillRect(28.5, 4.5, 3, 6); // Fio 3
       }
 
-      // === BOCA ===
+      // === BOCA - 48px (75% do anterior) ===
       if (gender === 'female') {
         // Boca com batom
         tempCtx.fillStyle = '#FF1493';
         tempCtx.beginPath();
-        tempCtx.ellipse(32, 44, 6, 3, 0, 0, Math.PI * 2);
+        tempCtx.ellipse(24, 33, 4.5, 2.25, 0, 0, Math.PI * 2);
         tempCtx.fill();
 
         // Brilho nos lábios
         tempCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
         tempCtx.beginPath();
-        tempCtx.ellipse(32, 43, 3, 1.6, 0, 0, Math.PI * 2);
+        tempCtx.ellipse(24, 32.25, 2.25, 1.2, 0, 0, Math.PI * 2);
         tempCtx.fill();
       } else {
         // Boca normal
         tempCtx.strokeStyle = '#000000';
-        tempCtx.lineWidth = 2;
+        tempCtx.lineWidth = 1.5;
         tempCtx.beginPath();
-        tempCtx.arc(32, 44, 6, 0.2, Math.PI - 0.2);
+        tempCtx.arc(24, 33, 4.5, 0.2, Math.PI - 0.2);
         tempCtx.stroke();
       }
 
-      // === PERNAS E BRAÇOS (com animação) ===
+      // === PERNAS E BRAÇOS (com animação) - 48px (75% do anterior) ===
       if (frame === 0) {
         // IDLE - Pernas paradas
         tempCtx.fillStyle = '#0066CC'; // Azul macacão
-        tempCtx.fillRect(20, 56, 8, 12); // Perna esquerda
-        tempCtx.fillRect(36, 56, 8, 12); // Perna direita
+        tempCtx.fillRect(15, 42, 6, 9); // Perna esquerda
+        tempCtx.fillRect(27, 42, 6, 9); // Perna direita
 
         // Sapatos pretos
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(18, 64, 12, 4); // Sapato esquerdo
-        tempCtx.fillRect(34, 64, 12, 4); // Sapato direito
+        tempCtx.fillRect(13.5, 48, 9, 3); // Sapato esquerdo
+        tempCtx.fillRect(25.5, 48, 9, 3); // Sapato direito
 
         // Braços parados (luvas pretas)
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(6, 36, 6, 12); // Braço esquerdo
-        tempCtx.fillRect(52, 36, 6, 12); // Braço direito
+        tempCtx.fillRect(4.5, 27, 4.5, 9); // Braço esquerdo
+        tempCtx.fillRect(39, 27, 4.5, 9); // Braço direito
       } else {
         // CAMINHADA - Movimento alternado
         const walkFrame = frame - 1;
-        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 6;
-        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 4;
+        const legOffset = Math.sin(walkFrame * Math.PI / 2) * 4.5; // 75% de 6
+        const armOffset = Math.sin(walkFrame * Math.PI / 2) * 3; // 75% de 4
 
         // Pernas com movimento
         tempCtx.fillStyle = '#0066CC'; // Azul macacão
-        tempCtx.fillRect(20 - legOffset, 56, 8, 12); // Perna esquerda
-        tempCtx.fillRect(36 + legOffset, 56, 8, 12); // Perna direita
+        tempCtx.fillRect(15 - legOffset, 42, 6, 9); // Perna esquerda
+        tempCtx.fillRect(27 + legOffset, 42, 6, 9); // Perna direita
 
         // Sapatos pretos com movimento
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(18 - legOffset, 64, 12, 4); // Sapato esquerdo
-        tempCtx.fillRect(34 + legOffset, 64, 12, 4); // Sapato direito
+        tempCtx.fillRect(13.5 - legOffset, 48, 9, 3); // Sapato esquerdo
+        tempCtx.fillRect(25.5 + legOffset, 48, 9, 3); // Sapato direito
 
         // Braços com movimento (luvas pretas)
         tempCtx.fillStyle = '#000000';
-        tempCtx.fillRect(6 - armOffset, 36, 6, 12); // Braço esquerdo
-        tempCtx.fillRect(52 + armOffset, 36, 6, 12); // Braço direito
+        tempCtx.fillRect(4.5 - armOffset, 27, 4.5, 9); // Braço esquerdo
+        tempCtx.fillRect(39 + armOffset, 27, 4.5, 9); // Braço direito
       }
 
       tempCtx.restore();

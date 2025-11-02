@@ -1,4 +1,4 @@
-import { Component, Input, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Message } from '../../models/chat.models';
@@ -16,6 +16,7 @@ import { marked } from 'marked';
         [class.user-message]="message.type === 'user'"
         [class.bot-message]="message.type === 'bot'"
         [class.system-message]="message.type === 'system'"
+        [class.deleted]="message.isDeleted"
       >
         <!-- User and System Messages -->
         <div *ngIf="message.type !== 'bot'" class="message-content">
@@ -25,10 +26,19 @@ import { marked } from 'marked';
 
         <!-- Bot Messages with Markdown and Copy Button -->
         <div *ngIf="message.type === 'bot'" class="message-content bot-content-wrapper">
-          <button class="copy-btn" (click)="copyToClipboard(message)">
-            <span *ngIf="copiedMessageId !== message.id">📋</span>
-            <span *ngIf="copiedMessageId === message.id">✅</span>
-          </button>
+          <div class="message-actions">
+            <button class="copy-btn" (click)="copyToClipboard(message)" title="Copiar mensagem">
+              <span *ngIf="copiedMessageId !== message.id">📋</span>
+              <span *ngIf="copiedMessageId === message.id">✅</span>
+            </button>
+            <button
+              class="delete-btn"
+              (click)="deleteMessage(message)"
+              title="Inativar mensagem (não será incluída no prompt)"
+              *ngIf="message._historyId && !message.isDeleted">
+              🗑️
+            </button>
+          </div>
           <strong>Conductor:</strong>
           <div class="markdown-content" [innerHTML]="formatMessage(message.content)"></div>
         </div>
@@ -115,8 +125,22 @@ import { marked } from 'marked';
       border: 1px solid #e1e4e8;
     }
 
-    .bot-message:hover .copy-btn {
+    .bot-message:hover .message-actions {
       opacity: 1;
+    }
+
+    .bot-message.deleted {
+      opacity: 0.5;
+      background: #f8f9fa;
+      border: 1px dashed #cbd5e0;
+    }
+
+    .bot-message.deleted::after {
+      content: ' [Mensagem Inativada]';
+      color: #6b7280;
+      font-size: 11px;
+      font-style: italic;
+      margin-left: 8px;
     }
 
     .system-message {
@@ -149,10 +173,18 @@ import { marked } from 'marked';
       font-weight: 600;
     }
 
-    .copy-btn {
+    .message-actions {
       position: absolute;
       top: 8px;
       right: 8px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .copy-btn,
+    .delete-btn {
       background: #f0f3f7;
       border: 1px solid #e1e4e8;
       color: #6b7280;
@@ -164,12 +196,23 @@ import { marked } from 'marked';
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0;
-      transition: opacity 0.2s ease;
+      transition: all 0.2s ease;
     }
 
-    .copy-btn:hover {
+    .copy-btn:hover,
+    .delete-btn:hover {
       background: #e1e4e8;
+      transform: scale(1.1);
+    }
+
+    .delete-btn {
+      background: #fee;
+      border-color: #fcc;
+    }
+
+    .delete-btn:hover {
+      background: #fdd;
+      border-color: #faa;
     }
 
     .markdown-content ::ng-deep pre {
@@ -267,6 +310,8 @@ export class ChatMessagesComponent implements AfterViewChecked {
   @Input() streamingMessage: Message | null = null;
   @Input() autoScroll: boolean = true;
 
+  @Output() messageDeleted = new EventEmitter<Message>();
+
   @ViewChild('messagesContainer') messagesContainer?: ElementRef;
 
   private shouldScrollToBottom = false;
@@ -312,5 +357,13 @@ export class ChatMessagesComponent implements AfterViewChecked {
     }).catch(err => {
       console.error('Failed to copy text: ', err);
     });
+  }
+
+  deleteMessage(message: Message): void {
+    if (!message || !message._historyId) {
+      console.warn('Cannot delete message without _historyId');
+      return;
+    }
+    this.messageDeleted.emit(message);
   }
 }

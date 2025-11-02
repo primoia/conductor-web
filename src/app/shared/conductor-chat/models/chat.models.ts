@@ -13,6 +13,8 @@ export interface Message {
   type: 'user' | 'bot' | 'system';
   timestamp: Date;
   isStreaming?: boolean;
+  isDeleted?: boolean;  // Soft delete flag
+  _historyId?: string;  // MongoDB _id for deletion API
 }
 
 export interface ChatState {
