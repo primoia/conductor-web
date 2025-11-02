@@ -42,6 +42,7 @@ export interface Conversation {
   active_agent?: AgentInfo;
   participants: AgentInfo[];
   messages: Message[];
+  screenplay_id?: string;
 }
 
 export interface ConversationSummary {
@@ -51,11 +52,13 @@ export interface ConversationSummary {
   updated_at: string;
   message_count: number;
   participant_count: number;
+  screenplay_id?: string;
 }
 
 export interface CreateConversationRequest {
   title?: string;
   active_agent?: AgentInfo;
+  screenplay_id?: string;
 }
 
 export interface AddMessageRequest {
@@ -83,7 +86,7 @@ export class ConversationService {
    */
   createConversation(request: CreateConversationRequest): Observable<{ conversation_id: string; title: string; created_at: string }> {
     return this.http.post<{ conversation_id: string; title: string; created_at: string }>(
-      this.apiUrl,
+      `${this.apiUrl}/`,
       request
     );
   }
@@ -118,15 +121,19 @@ export class ConversationService {
   /**
    * Lista conversas recentes.
    */
-  listConversations(limit: number = 20, skip: number = 0): Observable<{ total: number; conversations: ConversationSummary[] }> {
+  listConversations(limit: number = 20, skip: number = 0, screenplay_id?: string): Observable<{ total: number; conversations: ConversationSummary[] }> {
+    const params: any = {
+      limit: limit.toString(),
+      skip: skip.toString()
+    };
+
+    if (screenplay_id) {
+      params.screenplay_id = screenplay_id;
+    }
+
     return this.http.get<{ total: number; conversations: ConversationSummary[] }>(
-      this.apiUrl,
-      {
-        params: {
-          limit: limit.toString(),
-          skip: skip.toString()
-        }
-      }
+      `${this.apiUrl}/`,
+      { params }
     );
   }
 

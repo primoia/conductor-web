@@ -62,6 +62,7 @@ interface EmojiInfo {
 interface AgentInstance {
   id: string; // UUID v4 - anchor in Markdown and key in "database"
   agent_id?: string; // Agent ID from MongoDB (e.g., "ReadmeResume_Agent")
+  conversation_id?: string; // 🔥 NOVO: Vincula agente a uma conversa específica
   emoji: string;
   definition: { title: string; description: string; unicode: string; }; // Link to AGENT_DEFINITIONS
   status: 'pending' | 'queued' | 'running' | 'completed' | 'error';
@@ -272,6 +273,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Agent Dock properties
   public contextualAgents: AgentInstance[] = [];
   public activeAgentId: string | null = null;
+  public activeConversationId: string | null = null; // 🔥 NOVO: Conversa ativa
 
   // BUG FIX: Conteúdo do editor padrão agora é vazio para evitar agentes fantasma
   // Quando um novo screenplay é criado, o agente padrão é adicionado automaticamente
@@ -821,11 +823,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
 
-      // SAGA-005 v2: Clear chat when creating new screenplay
-      this.clearChatState();
-
       // Create new screenplay in database immediately
       await this.createNewScreenplayImmediately();
+
+      // SAGA-005 v3: Create new conversation for new screenplay (instead of clearing chat)
+      // This will trigger onActiveConversationChanged() which creates the default agent
+      if (this.conductorChat) {
+        this.conductorChat.createNewConversationForScreenplay();
+      }
 
       this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
     } catch (error) {
@@ -2055,9 +2060,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.agentInstances.clear();
     this.agents = [];
 
-    // SAGA-005 v2: Clear chat when loading new screenplay
-    this.clearChatState();
-
     // Set current screenplay
     this.currentScreenplay = screenplay;
     this.isDirty = false;
@@ -2090,6 +2092,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     setTimeout(() => {
       this.autoSaveTimeout = originalAutoSave;
     }, 100);
+
+    // 🔥 NOVO: Garantir que roteiro tem conversa e carregar conversas
+    this.ensureScreenplayConversation(screenplay.id);
 
     // Load agents specific to this screenplay
     this.loadInstancesFromMongoDB();
@@ -2845,6 +2850,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const newInstance: AgentInstance = {
       id: instanceId,
       agent_id: agent.id, // Agent name/identifier (e.g., "ReadmeResume_Agent")
+      conversation_id: this.activeConversationId || undefined, // 🔥 NOVO: Vincula à conversa ativa
       emoji: agent.emoji,
       definition: {
         title: agent.name,
@@ -3110,15 +3116,27 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private updateAgentDockLists(): void {
     // Popula agentes contextuais a partir das instâncias no documento
     // SAGA-006: Filter out hidden agents, deleted agents, and sort by creation date
+    // 🔥 NOVO: Filtrar também por conversation_id (se houver conversa ativa)
     this.contextualAgents = this.getAgentInstancesAsArray()
-      .filter(agent => !agent.is_hidden && !agent.isDeleted)
+      .filter(agent => {
+        // Filtros básicos
+        if (agent.is_hidden || agent.isDeleted) return false;
+
+        // 🔥 NOVO: Se há conversa ativa, mostrar apenas agentes dessa conversa
+        if (this.activeConversationId) {
+          return agent.conversation_id === this.activeConversationId;
+        }
+
+        // Se não há conversa ativa, mostrar todos (modo legado/compatibilidade)
+        return true;
+      })
       .sort((a, b) => {
         // Sort by creation date (oldest first)
         const dateA = a.config?.createdAt ? new Date(a.config.createdAt).getTime() : 0;
         const dateB = b.config?.createdAt ? new Date(b.config.createdAt).getTime() : 0;
         return dateA - dateB;
       });
-    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes no documento (ordem por criação)`, 'ScreenplayInteractive');
+    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes ${this.activeConversationId ? `na conversa ${this.activeConversationId}` : 'no documento'} (ordem por criação)`, 'ScreenplayInteractive');
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
@@ -3148,6 +3166,71 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.logging.error('❌ [DOCK-CLICK] ConductorChat is not available!', undefined, 'ScreenplayInteractive');
     }
+  }
+
+  /**
+   * 🔥 NOVO: Handler para mudanças de conversa ativa
+   */
+  public onActiveConversationChanged(conversationId: string | null): void {
+    this.logging.info(`🔄 [CONVERSATION-CHANGED] Conversa ativa mudou para: ${conversationId || 'nenhuma'}`, 'ScreenplayInteractive');
+    this.activeConversationId = conversationId;
+
+    // Atualizar o dock para mostrar apenas agentes da conversa ativa
+    this.updateAgentDockLists();
+
+    // 🔥 NOVO: Se é uma nova conversa e está vazia, criar agente default
+    if (conversationId) {
+      const agentsInConversation = Array.from(this.agentInstances.values())
+        .filter(agent => agent.conversation_id === conversationId);
+
+      if (agentsInConversation.length === 0) {
+        this.logging.info('🤖 [CONVERSATION-CHANGED] Nova conversa vazia, criando agente default...', 'ScreenplayInteractive');
+        this.createDefaultAgentInstance(conversationId);
+      }
+    }
+  }
+
+  /**
+   * 🔥 NOVO: Garante que o roteiro tem uma conversa e a carrega
+   */
+  private ensureScreenplayConversation(screenplayId: string): void {
+    if (!this.conductorChat) {
+      this.logging.warn('⚠️ [CONVERSATION] ConductorChat não disponível', 'ScreenplayInteractive');
+      return;
+    }
+
+    this.logging.info(`🔍 [CONVERSATION] Verificando conversas para screenplay: ${screenplayId}`, 'ScreenplayInteractive');
+
+    // Atualizar o activeScreenplayId no chat para filtrar conversas
+    this.conductorChat.activeScreenplayId = screenplayId;
+
+    // Buscar conversas deste roteiro
+    this.conductorChat['conversationService'].listConversations(20, 0, screenplayId).subscribe({
+      next: (response) => {
+        if (response.conversations.length > 0) {
+          // Já tem conversas, carregar a mais recente
+          const latestConversation = response.conversations[0];
+          this.logging.info(`✅ [CONVERSATION] Carregando conversa existente: ${latestConversation.conversation_id}`, 'ScreenplayInteractive');
+
+          this.conductorChat.activeConversationId = latestConversation.conversation_id;
+          this.conductorChat['loadConversation'](latestConversation.conversation_id);
+
+          // Refresh lista de conversas
+          if (this.conductorChat['conversationListComponent']) {
+            this.conductorChat['conversationListComponent'].refresh();
+          }
+        } else {
+          // Não tem conversas, criar uma automaticamente
+          this.logging.info(`🆕 [CONVERSATION] Criando conversa para roteiro sem conversas`, 'ScreenplayInteractive');
+          this.conductorChat.createNewConversationForScreenplay();
+        }
+      },
+      error: (error) => {
+        this.logging.error('❌ [CONVERSATION] Erro ao buscar conversas:', error, 'ScreenplayInteractive');
+        // Em caso de erro, criar conversa automaticamente
+        this.conductorChat.createNewConversationForScreenplay();
+      }
+    });
   }
 
   /**
@@ -3706,14 +3789,19 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * SAGA-006: Create default agent instance for new screenplays
+   * 🔥 NOVO: Aceita conversation_id opcional para vincular agente a conversa
    */
-  private async createDefaultAgentInstance(): Promise<void> {
-    this.logging.info('🤖 [DEFAULT AGENT] Creating default agent instance', 'ScreenplayInteractive');
-    
+  private async createDefaultAgentInstance(conversationId?: string): Promise<void> {
+    this.logging.info(`🤖 [DEFAULT AGENT] Creating default agent instance${conversationId ? ` for conversation ${conversationId}` : ''}`, 'ScreenplayInteractive');
+
     try {
-      // Check if we already have a default agent for this screenplay
+      // Check if we already have a default agent for this screenplay (or conversation)
       const existingDefaultAgent = Array.from(this.agentInstances.values())
-        .find(agent => agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent');
+        .find(agent => {
+          const sameType = agent.is_system_default === true && agent.agent_id === 'ScreenplayAssistant_Agent';
+          if (!conversationId) return sameType; // Modo legado
+          return sameType && agent.conversation_id === conversationId; // 🔥 NOVO: Verifica conversa
+        });
       
       if (existingDefaultAgent) {
         this.logging.warn('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation', 'ScreenplayInteractive', {
@@ -3736,6 +3824,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       const defaultInstance: AgentInstance = {
         id: instanceId,
         agent_id: agentId,
+        conversation_id: conversationId, // 🔥 NOVO: Vincula à conversa
         emoji: emoji,
         definition: {
           title: 'Assistente de Roteiro',

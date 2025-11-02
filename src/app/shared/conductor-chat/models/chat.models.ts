@@ -15,6 +15,12 @@ export interface Message {
   isStreaming?: boolean;
   isDeleted?: boolean;  // Soft delete flag
   _historyId?: string;  // MongoDB _id for deletion API
+  agent?: {  // 🔥 NOVO: Informações do agente (para modelo de conversas globais)
+    agent_id: string;
+    instance_id: string;
+    name: string;
+    emoji?: string;
+  };
 }
 
 export interface ChatState {

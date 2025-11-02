@@ -260,7 +260,8 @@
           [contextualAgents]="contextualAgents"
           (addAgentRequested)="openAgentSelector()"
           (deleteAgentRequested)="onDeleteAgentClick()"
-          (agentDockClicked)="onDockAgentClick($event)">
+          (agentDockClicked)="onDockAgentClick($event)"
+          (activeConversationChanged)="onActiveConversationChanged($event)">
         </app-conductor-chat>
       </div>
     </div>

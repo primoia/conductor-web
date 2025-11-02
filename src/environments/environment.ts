@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: '',  // Usa proxy nginx - rotas já têm /api/
+  apiUrl: '/api',  // Usa proxy nginx
 
   // 🔥 FEATURE FLAGS
   features: {

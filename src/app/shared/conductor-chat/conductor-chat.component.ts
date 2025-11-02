@@ -13,6 +13,9 @@ import { AgentExecutionService, AgentExecutionState } from '../../services/agent
 import { PersonaEditService } from '../../services/persona-edit.service';
 import { PersonaEditModalComponent } from '../persona-edit-modal/persona-edit-modal.component';
 import { SpeechRecognitionService } from './services/speech-recognition.service';
+import { environment } from '../../../environments/environment';
+import { ConversationService, Conversation, AgentInfo as ConvAgentInfo, Message as ConvMessage } from '../../services/conversation.service';
+import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -38,11 +41,25 @@ const DEFAULT_CONFIG: ConductorConfig = {
     ChatMessagesComponent,
     ChatInputComponent,
     StatusIndicatorComponent,
-    PersonaEditModalComponent
+    PersonaEditModalComponent,
+    ConversationListComponent
   ],
   template: `
-    <div class="conductor-chat">
-      <div class="chat-header">
+    <div class="conductor-chat-container">
+      <!-- 🔥 NOVO: Sidebar com lista de conversas -->
+      <div class="conversation-sidebar" *ngIf="environment.features?.useConversationModel">
+        <app-conversation-list
+          [activeConversationId]="activeConversationId"
+          [screenplayId]="activeScreenplayId"
+          (conversationSelected)="onSelectConversation($event)"
+          (conversationCreated)="onCreateNewConversation()"
+          (conversationDeleted)="onDeleteConversation($event)">
+        </app-conversation-list>
+      </div>
+
+      <!-- Chat principal -->
+      <div class="conductor-chat">
+        <div class="chat-header">
         <div class="header-actions-left">
           <div class="selected-agent" *ngIf="selectedAgentName">
             <app-status-indicator
@@ -372,12 +389,33 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </div>
 
       <!-- Header Info Modal removed - use dock ? button instead -->
-    </div>
+      </div> <!-- .conductor-chat -->
+    </div> <!-- .conductor-chat-container -->
   `,
   styles: [`
+    /* 🔥 NOVO: Container principal com sidebar */
+    .conductor-chat-container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 🔥 NOVO: Sidebar com lista de conversas */
+    .conversation-sidebar {
+      width: 300px;
+      min-width: 250px;
+      max-width: 400px;
+      flex-shrink: 0;
+      background: #f8f9fa;
+      border-right: 1px solid #dee2e6;
+      overflow: hidden;
+    }
+
+    /* Chat principal */
     .conductor-chat {
       display: flex;
       flex-direction: column;
+      flex: 1;
       height: 100vh;
       background: #fafbfc;
       border-left: 1px solid #e1e4e8;
@@ -1320,6 +1358,27 @@ const DEFAULT_CONFIG: ConductorConfig = {
       background: #667eea;
       border-radius: 2px;
     }
+
+    /* 🔥 NOVO: Responsividade para mobile */
+    @media (max-width: 768px) {
+      .conversation-sidebar {
+        position: absolute;
+        left: -300px;
+        top: 0;
+        bottom: 0;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .conversation-sidebar.mobile-open {
+        left: 0;
+      }
+
+      .conductor-chat {
+        border-left: none;
+      }
+    }
   `]
 })
 export class ConductorChatComponent implements OnInit, OnDestroy {
@@ -1327,8 +1386,10 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() addAgentRequested = new EventEmitter<void>();
   @Output() deleteAgentRequested = new EventEmitter<void>();
   @Output() agentDockClicked = new EventEmitter<any>();
+  @Output() activeConversationChanged = new EventEmitter<string | null>(); // 🔥 NOVO: Notifica mudança de conversa
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
+  @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
 
   chatState: ChatState = {
     messages: [],
@@ -1388,6 +1449,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
 
+  // 🔥 NOVO MODELO: Conversas globais
+  public activeConversationId: string | null = null;  // ID da conversa ativa (novo modelo)
+  private conversationParticipants: ConvAgentInfo[] = [];  // Participantes da conversa
+
+  // Expor environment para o template
+  public environment = environment;
+
   // ✅ SOLUÇÃO BUG PARALELISMO: Getters para retornar mensagens temporárias do agente ativo
   get progressMessage(): Message | null {
     if (!this.activeAgentId) return null;
@@ -1405,7 +1473,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private agentService: AgentService,
     private agentExecutionService: AgentExecutionService,
     private personaEditService: PersonaEditService,
-    private speechService: SpeechRecognitionService
+    private speechService: SpeechRecognitionService,
+    private conversationService: ConversationService  // 🔥 NOVO
   ) { }
 
   ngOnInit(): void {
@@ -1531,13 +1600,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   handleSendMessage(data: {message: string, provider?: string}): void {
     if (!data.message.trim() || this.chatState.isLoading) return;
 
-    // Block sending if agent is selected but no cwd is defined
     if (this.isInputBlocked()) {
       console.warn('⚠️ [CHAT] Bloqueado: defina o diretório de trabalho primeiro');
       return;
     }
 
-    // Force save screenplay if it has unsaved changes before sending message
     this.forceSaveScreenplayIfNeeded();
 
     const userMessage: Message = {
@@ -1547,14 +1614,138 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
 
-    // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar mensagem ao histórico do agente correto
-    // Remove placeholder messages before adding real user message
+    // 🔥 NOVO MODELO: Usar conversas globais
+    if (environment.features?.useConversationModel && this.activeConversationId && this.activeAgentId) {
+      this.handleSendMessageWithConversationModel(data, userMessage);
+      return;
+    }
+
+    // 🔄 MODELO LEGADO: Código original
+    this.handleSendMessageWithLegacyModel(data, userMessage);
+  }
+
+  /**
+   * 🔥 NOVO: Enviar mensagem usando modelo de conversas globais
+   */
+  private handleSendMessageWithConversationModel(data: {message: string, provider?: string}, userMessage: Message): void {
+    console.log('🔥 [CHAT] Enviando mensagem usando modelo de conversas');
+
+    // Adicionar mensagem do usuário à conversa no backend
+    const agentInfo: ConvAgentInfo = {
+      agent_id: this.selectedAgentDbId || '',
+      instance_id: this.activeAgentId || '',
+      name: this.selectedAgentName || 'Unknown',
+      emoji: this.selectedAgentEmoji || undefined
+    };
+
+    // Adicionar mensagem à UI imediatamente
+    this.chatState.messages = [...this.chatState.messages.filter(msg =>
+      !msg.id.startsWith('empty-')
+    ), userMessage];
+
+    this.chatState.isLoading = true;
+
+    // Adicionar mensagem ao backend
+    this.conversationService.addMessage(this.activeConversationId!, {
+      user_input: data.message.trim()
+    }).subscribe({
+      next: () => {
+        console.log('✅ [CHAT] Mensagem do usuário salva no backend');
+
+        // Executar agente
+        const currentInstanceId = this.activeAgentId!;
+        const currentAgentDbId = this.selectedAgentDbId!;
+
+        this.progressMessages.set(currentInstanceId, null);
+        this.streamingMessages.set(currentInstanceId, null);
+
+        const cwdMatch = data.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
+        const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
+
+        console.log('🎯 [CHAT] Executando agente (modelo conversas):');
+        console.log('   - conversation_id:', this.activeConversationId);
+        console.log('   - agent_id:', currentAgentDbId);
+        console.log('   - instance_id:', currentInstanceId);
+
+        this.addProgressMessage('🚀 Executando agente...', currentInstanceId);
+
+        const executionState: AgentExecutionState = {
+          id: this.activeAgentId!,
+          emoji: this.selectedAgentEmoji || '🤖',
+          title: this.selectedAgentName || 'Unknown Agent',
+          prompt: data.message.trim(),
+          status: 'running',
+          logs: ['🚀 Agent execution started']
+        };
+        this.agentExecutionService.executeAgent(executionState);
+
+        this.subscriptions.add(
+          this.agentService.executeAgent(currentAgentDbId, data.message.trim(), currentInstanceId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
+            next: (result) => {
+              this.progressMessages.set(currentInstanceId, null);
+              this.agentExecutionService.completeAgent(currentInstanceId, result);
+
+              let responseContent = result.result || result.data?.result || 'Execução concluída';
+              if (typeof responseContent === 'object') {
+                responseContent = JSON.stringify(responseContent, null, 2);
+              }
+
+              // Adicionar resposta ao backend
+              this.conversationService.addMessage(this.activeConversationId!, {
+                agent_response: responseContent,
+                agent_info: agentInfo
+              }).subscribe({
+                next: () => {
+                  console.log('✅ [CHAT] Resposta do agente salva no backend');
+
+                  // Recarregar conversa para exibir resposta
+                  this.loadConversation(this.activeConversationId!);
+                  this.chatState.isLoading = false;
+                },
+                error: (error) => {
+                  console.error('❌ [CHAT] Erro ao salvar resposta:', error);
+
+                  // Ainda assim mostrar resposta na UI
+                  const responseMessage: Message = {
+                    id: `response-${Date.now()}`,
+                    content: responseContent,
+                    type: 'bot',
+                    timestamp: new Date(),
+                    agent: agentInfo
+                  };
+                  this.chatState.messages = [...this.chatState.messages, responseMessage];
+                  this.chatState.isLoading = false;
+                }
+              });
+            },
+            error: (error) => {
+              console.error('❌ Agent execution error:', error);
+              this.progressMessages.set(currentInstanceId, null);
+              this.agentExecutionService.cancelAgent(currentInstanceId);
+              this.handleError(error.error || error.message || 'Erro ao executar agente', currentInstanceId);
+            }
+          })
+        );
+      },
+      error: (error) => {
+        console.error('❌ [CHAT] Erro ao salvar mensagem do usuário:', error);
+        this.chatState.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * 🔄 LEGADO: Enviar mensagem usando modelo antigo (código original)
+   */
+  private handleSendMessageWithLegacyModel(data: {message: string, provider?: string}, userMessage: Message): void {
+    console.log('🔄 [CHAT] Enviando mensagem usando modelo legado');
+
+    // Código original de handleSendMessage
     const filteredMessages = this.chatState.messages.filter(msg =>
       !msg.id.startsWith('empty-history-') &&
       msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
     );
 
-    // Se há um agente ativo, adiciona ao histórico isolado do agente
     if (this.activeAgentId) {
       const agentHistory = this.chatHistories.get(this.activeAgentId) || [];
       const filteredAgentHistory = agentHistory.filter(msg =>
@@ -1564,13 +1755,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.chatHistories.set(this.activeAgentId, [...filteredAgentHistory, userMessage]);
       this.chatState.messages = this.chatHistories.get(this.activeAgentId) || [];
     } else {
-      // Sem agente ativo: comportamento padrão
       this.chatState.messages = [...filteredMessages, userMessage];
     }
 
-    // Verificar se é um comando @agent (MVP)
+    // Verificar comando @agent
     if (this.currentMode === 'agent' && data.message.startsWith('@agent')) {
-      // Parsing simples para o MVP
       if (data.message.includes('adicione um título')) {
         this.screenplayService.dispatch({ intent: 'add_title' });
 
@@ -1581,49 +1770,30 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           timestamp: new Date()
         };
         this.chatState.messages = [...this.chatState.messages, confirmationMessage];
-
-        // Impede o envio da mensagem para a API de chat normal
         return;
       }
     }
 
     this.chatState.isLoading = true;
 
-    // Check if we have an active agent selected
     if (this.activeAgentId) {
       if (!this.selectedAgentDbId) {
         console.error('❌ [CHAT] Não é possível executar: agent_id está undefined!');
-        console.error('   - instance_id:', this.activeAgentId);
-        console.error('   - agent_id:', this.selectedAgentDbId);
-        this.handleError('Agente não tem agent_id definido. Verifique a âncora no markdown.', this.activeAgentId);
+        this.handleError('Agente não tem agent_id definido.', this.activeAgentId);
         return;
       }
 
-      // ✅ SOLUÇÃO BUG PARALELISMO: Capturar instanceId ANTES da execução assíncrona
       const currentInstanceId = this.activeAgentId;
       const currentAgentDbId = this.selectedAgentDbId;
 
-      // ✅ SOLUÇÃO BUG PARALELISMO: Limpar mensagens temporárias do agente correto
       this.progressMessages.set(currentInstanceId, null);
       this.streamingMessages.set(currentInstanceId, null);
 
-      // Extract cwd from message if present, or use saved cwd
-      // Matches any absolute path (starts with /) with at least 2 segments
-      // Examples: /mnt/ramdisk/foo, /home/user/project, /app/conductor
       const cwdMatch = data.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
       const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
 
-      console.log('🎯 [CHAT] Executando agente diretamente:');
-      console.log('   - agent_id (MongoDB):', currentAgentDbId);
-      console.log('   - instance_id (CAPTURADO):', currentInstanceId);
-      console.log('   - input_text:', data.message.trim());
-      console.log('   - cwd extraído:', cwd || 'não encontrado na mensagem');
-      console.log('   - ai_provider:', data.provider || 'padrão (config.yaml)');
-
-      // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar progresso ao agente correto
       this.addProgressMessage('🚀 Executando agente...', currentInstanceId);
 
-      // Notify AgentExecutionService to update agent-game
       const executionState: AgentExecutionState = {
         id: this.activeAgentId,
         emoji: this.selectedAgentEmoji || '🤖',
@@ -1637,18 +1807,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.subscriptions.add(
         this.agentService.executeAgent(currentAgentDbId, data.message.trim(), currentInstanceId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
           next: (result) => {
-            console.log('✅ Agent execution result:', result);
-
-            // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente correto
             this.progressMessages.set(currentInstanceId, null);
-
-            // Update execution status to completed
             this.agentExecutionService.completeAgent(currentInstanceId, result);
 
-            // Extract response content and ensure it's a string
             let responseContent = result.result || result.data?.result || 'Execução concluída';
             if (typeof responseContent === 'object') {
-              console.warn('⚠️ Response is an object, converting to string:', responseContent);
               responseContent = JSON.stringify(responseContent, null, 2);
             }
 
@@ -1659,38 +1822,18 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
               timestamp: new Date()
             };
 
-            // ✅ SOLUÇÃO BUG PARALELISMO: Adicionar resposta ao histórico do agente CORRETO
             const agentHistory = this.chatHistories.get(currentInstanceId) || [];
             this.chatHistories.set(currentInstanceId, [...agentHistory, responseMessage]);
 
-            console.log('✅ [CHAT] Resposta adicionada ao histórico do agente:', currentInstanceId);
-            console.log('   - Total de mensagens no histórico do agente:', this.chatHistories.get(currentInstanceId)?.length);
-
-            // Atualizar exibição APENAS se o agente correto ainda estiver ativo
             if (this.activeAgentId === currentInstanceId) {
               this.chatState.messages = this.chatHistories.get(currentInstanceId) || [];
-              console.log('✅ [CHAT] Exibição atualizada (agente ainda está ativo)');
-            } else {
-              console.log('ℹ️ [CHAT] Resposta salva, mas não exibida (usuário trocou de agente)');
-              console.log('   - Agente da resposta:', currentInstanceId);
-              console.log('   - Agente ativo atual:', this.activeAgentId);
             }
 
             this.chatState.isLoading = false;
-
-            // DON'T reload context - keep local chat history
-            // The backend will persist the history to MongoDB for next session
           },
           error: (error) => {
-            console.error('❌ Agent execution error:', error);
-
-            // ✅ SOLUÇÃO BUG PARALELISMO: Limpar progresso do agente correto
             this.progressMessages.set(currentInstanceId, null);
-
-            // Mark agent execution as failed
             this.agentExecutionService.cancelAgent(currentInstanceId);
-
-            // ✅ SOLUÇÃO BUG PARALELISMO: Tratar erro no agente correto
             this.handleError(error.error || error.message || 'Erro ao executar agente', currentInstanceId);
           }
         })
@@ -1699,12 +1842,10 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     }
 
     // No active agent: use MCP tools system
-    // Add mode context to message if in agent mode
     const messageWithContext = this.currentMode === 'agent'
       ? `[AGENT MODE - Can modify screenplay] ${data.message.trim()}`
       : data.message.trim();
 
-    // Send message via API
     this.subscriptions.add(
       this.apiService.sendMessage(messageWithContext, this.config.api).subscribe({
         next: (event: any) => {
@@ -1918,14 +2059,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     console.log('   - agentName:', agentName);
     console.log('   - agentEmoji:', agentEmoji);
     console.log('   - screenplayId:', screenplayId || 'não fornecido');
+    console.log('   - Feature Flag useConversationModel:', environment.features?.useConversationModel);
     console.log('================================================================================');
 
     if (!agentDbId) {
       console.error('================================================================================');
       console.error('❌ [CHAT] ERRO CRÍTICO: agentDbId (agent_id) está undefined/null!');
-      console.error('   O agente não poderá ser executado sem um agent_id válido do MongoDB.');
-      console.error('   Verifique se a instância do agente tem a propriedade agent_id definida.');
-      console.error('   Verifique a âncora no markdown: <!-- agent-instance: uuid, agent-id: NOME_DO_AGENTE -->');
       console.error('================================================================================');
     }
 
@@ -1933,83 +2072,168 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentDbId = agentDbId || null;
     this.selectedAgentName = agentName || null;
     this.selectedAgentEmoji = agentEmoji || null;
-    this.activeScreenplayId = screenplayId || null; // SAGA-006: Store screenplay ID for document association
-    // Don't set activeAgentCwd here - it will be loaded from MongoDB in getAgentContext
+    this.activeScreenplayId = screenplayId || null;
     this.chatState.isLoading = true;
 
-    console.log('✅ [CHAT] Variáveis de estado atualizadas:');
-    console.log('   - this.activeAgentId (instance_id):', this.activeAgentId);
-    console.log('   - this.selectedAgentDbId (agent_id):', this.selectedAgentDbId);
-    console.log('   - this.selectedAgentName:', this.selectedAgentName);
-    console.log('   - this.selectedAgentEmoji:', this.selectedAgentEmoji);
-    console.log('   - this.activeScreenplayId:', this.activeScreenplayId);
+    // 🔥 NOVO MODELO: Usar conversas globais
+    if (environment.features?.useConversationModel) {
+      this.loadContextWithConversationModel(instanceId, agentName, agentEmoji, agentDbId, cwd, screenplayId);
+      return;
+    }
 
-    // ✅ SOLUÇÃO BUG PARALELISMO: Verificar se já temos histórico em cache
+    // 🔄 MODELO LEGADO: Usar históricos isolados (código original)
+    this.loadContextWithLegacyModel(instanceId, cwd);
+  }
+
+  /**
+   * 🔥 NOVO: Carregar contexto usando modelo de conversas globais
+   */
+  private loadContextWithConversationModel(instanceId: string, agentName?: string, agentEmoji?: string, agentDbId?: string, cwd?: string, screenplayId?: string): void {
+    console.log('🔥 [CHAT] Usando NOVO modelo de conversas globais');
+
+    // Verificar se já existe uma conversa ativa ou se precisa criar
+    if (this.activeConversationId) {
+      // Trocar agente ativo na conversa existente
+      console.log('🔄 [CHAT] Trocando agente ativo na conversa:', this.activeConversationId);
+
+      const agentInfo: ConvAgentInfo = {
+        agent_id: agentDbId || '',
+        instance_id: instanceId,
+        name: agentName || 'Unknown Agent',
+        emoji: agentEmoji
+      };
+
+      // Atualizar agente ativo no backend
+      this.conversationService.setActiveAgent(this.activeConversationId, { agent_info: agentInfo }).subscribe({
+        next: () => {
+          console.log('✅ [CHAT] Agente ativo atualizado com sucesso');
+          // Recarregar conversa para mostrar mensagens atualizadas
+          this.loadConversation(this.activeConversationId!);
+        },
+        error: (error) => {
+          console.error('❌ [CHAT] Erro ao atualizar agente ativo:', error);
+          this.chatState.isLoading = false;
+        }
+      });
+    } else {
+      // Criar nova conversa
+      console.log('🆕 [CHAT] Criando nova conversa');
+
+      const agentInfo: ConvAgentInfo = {
+        agent_id: agentDbId || '',
+        instance_id: instanceId,
+        name: agentName || 'Unknown Agent',
+        emoji: agentEmoji
+      };
+
+      this.conversationService.createConversation({
+        title: `Conversa com ${agentName}`,
+        active_agent: agentInfo,
+        screenplay_id: this.activeScreenplayId || undefined
+      }).subscribe({
+        next: (response) => {
+          console.log('✅ [CHAT] Nova conversa criada:', response.conversation_id);
+          this.activeConversationId = response.conversation_id;
+          this.loadConversation(response.conversation_id);
+        },
+        error: (error) => {
+          console.error('❌ [CHAT] Erro ao criar conversa:', error);
+          this.chatState.isLoading = false;
+        }
+      });
+    }
+
+    // Carregar contexto do agente (persona, cwd, etc.) em background
+    this.loadAgentMetadata(instanceId, cwd);
+  }
+
+  /**
+   * 🔥 NOVO: Carregar conversa do backend
+   */
+  private loadConversation(conversationId: string): void {
+    this.conversationService.getConversation(conversationId).subscribe({
+      next: (conversation) => {
+        console.log('✅ [CHAT] Conversa carregada:', conversation);
+
+        // Converter mensagens do formato do backend para o formato da UI
+        const messages: Message[] = conversation.messages.map((msg: ConvMessage) => ({
+          id: msg.id,
+          content: msg.content,
+          type: msg.type as 'user' | 'bot' | 'system',
+          timestamp: new Date(msg.timestamp),
+          agent: msg.agent  // Informações do agente (para mensagens de bot)
+        }));
+
+        // Exibir mensagens
+        this.chatState.messages = messages.length > 0 ? messages : [{
+          id: `empty-${Date.now()}`,
+          content: 'Nenhuma interação ainda. Inicie a conversa abaixo.',
+          type: 'system',
+          timestamp: new Date()
+        }];
+
+        // Armazenar participantes
+        this.conversationParticipants = conversation.participants;
+
+        this.chatState.isLoading = false;
+        console.log('✅ [CHAT] Conversa exibida com', messages.length, 'mensagens');
+      },
+      error: (error) => {
+        console.error('❌ [CHAT] Erro ao carregar conversa:', error);
+        this.chatState.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * 🔄 LEGADO: Carregar contexto usando modelo antigo (código original)
+   */
+  private loadContextWithLegacyModel(instanceId: string, cwd?: string): void {
+    console.log('🔄 [CHAT] Usando modelo LEGADO de históricos isolados');
+
+    // Verificar cache
     const cachedHistory = this.chatHistories.get(instanceId);
     if (cachedHistory) {
       console.log('✅ [CHAT] Histórico encontrado em cache local (paralelismo)');
-      console.log('   - Mensagens em cache:', cachedHistory.length);
       this.chatState.messages = cachedHistory;
       this.chatState.isLoading = false;
-
-      // Ainda assim, carregar contexto do MongoDB em background para atualizar persona/cwd
       this.loadContextFromBackend(instanceId, cwd);
       return;
     }
 
+    // Código original de loadContextForAgent
     this.subscriptions.add(
       this.agentService.getAgentContext(instanceId).subscribe({
         next: (context: AgentContext) => {
           console.log('✅ Agent context loaded:', context);
-          console.log('   - History count:', context.history?.length || 0);
-          console.log('   - CWD from MongoDB:', context.cwd);
-          console.log('   - Raw history:', JSON.stringify(context.history, null, 2));
           this.activeAgentContext = context;
 
-          // Load cwd from context (MongoDB) if available, otherwise use parameter or localStorage
+          // Load cwd
           if (context.cwd) {
             this.activeAgentCwd = context.cwd;
-            console.log('✅ [CHAT] CWD loaded from MongoDB:', this.activeAgentCwd);
           } else if (cwd) {
             this.activeAgentCwd = cwd;
-            console.log('✅ [CHAT] CWD loaded from parameter:', this.activeAgentCwd);
           } else {
-            // Fallback to localStorage
             const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
-            if (storedCwd) {
-              this.activeAgentCwd = storedCwd;
-              console.log('✅ [CHAT] CWD loaded from localStorage:', this.activeAgentCwd);
-            } else {
-              this.activeAgentCwd = null;
-              console.log('⚠️ [CHAT] No CWD found for this instance');
-            }
+            this.activeAgentCwd = storedCwd || null;
           }
 
-          // Clear existing messages and load context
-          this.chatState.messages = [];
-
-          // Map history messages from backend format to UI format
-          // Backend format: { user_input: "...", ai_response: "..." }
-          // Frontend format: { role: "user", content: "..." }
+          // Map history messages
           const historyMessages: Message[] = [];
-
           context.history.forEach((record: any, index: number) => {
-            // Add user message if present
             if (record.user_input && record.user_input.trim().length > 0) {
               historyMessages.push({
                 id: `history-user-${index}`,
                 content: record.user_input,
                 type: 'user',
                 timestamp: new Date(record.timestamp * 1000 || record.createdAt),
-                _historyId: record._id, // MongoDB _id for deletion
-                isDeleted: record.isDeleted || false // Soft delete flag
+                _historyId: record._id,
+                isDeleted: record.isDeleted || false
               });
             }
 
-            // Add AI response if present
             if (record.ai_response) {
               let aiContent = record.ai_response;
-              // Ensure content is a string
               if (typeof aiContent === 'object') {
                 aiContent = JSON.stringify(aiContent, null, 2);
               }
@@ -2019,54 +2243,35 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
                   content: aiContent,
                   type: 'bot',
                   timestamp: new Date(record.timestamp * 1000 || record.createdAt),
-                  _historyId: record._id, // MongoDB _id for deletion
-                  isDeleted: record.isDeleted || false // Soft delete flag
+                  _historyId: record._id,
+                  isDeleted: record.isDeleted || false
                 });
               }
             }
           });
 
-          // If history is empty, show a placeholder message
           if (historyMessages.length === 0) {
-            console.log('ℹ️ [CHAT] Histórico vazio do MongoDB, mostrando placeholder');
             historyMessages.push({
               id: `empty-history-${Date.now()}`,
               content: 'Nenhuma interação ainda. Inicie a conversa abaixo.',
               type: 'system',
               timestamp: new Date()
             });
-          } else {
-            console.log('✅ [CHAT] Histórico carregado do MongoDB com sucesso');
-            console.log('   - Mensagens carregadas:', historyMessages.length);
-            historyMessages.forEach((msg, i) => {
-              console.log(`   - [${i}] ${msg.type}: ${msg.content.substring(0, 50)}...`);
-            });
           }
 
-          // ✅ SOLUÇÃO BUG PARALELISMO: Armazenar histórico no mapa isolado por agente
           this.chatHistories.set(instanceId, historyMessages);
-          console.log('✅ [CHAT] Histórico armazenado no mapa para instance_id:', instanceId);
-
-          // Exibir histórico do agente selecionado
           this.chatState.messages = historyMessages;
           this.chatState.isLoading = false;
-          console.log('✅ [CHAT] isLoading definido como FALSE após carregar contexto');
-          console.log('   - chatState.isLoading:', this.chatState.isLoading);
-          console.log('   - Total de mensagens no chat:', this.chatState.messages.length);
         },
         error: (error) => {
           console.error('❌ Error loading agent context:', error);
           this.chatState.isLoading = false;
-          console.log('✅ [CHAT] isLoading definido como FALSE após erro');
-          console.log('   - chatState.isLoading:', this.chatState.isLoading);
 
-          // Treat 404 as "no context yet" instead of an error
           const isNotFound = error.status === 404;
-
           const message: Message = {
             id: `info-${Date.now()}`,
             content: isNotFound
-              ? `ℹ️ Este agente ainda não foi executado. Nenhum contexto disponível.\n\nClique duas vezes no agente no roteiro para executá-lo.`
+              ? `ℹ️ Este agente ainda não foi executado. Nenhum contexto disponível.`
               : `❌ Erro ao carregar contexto: ${error.message}`,
             type: 'system',
             timestamp: new Date()
@@ -2075,6 +2280,29 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  /**
+   * 🔥 NOVO: Carregar metadados do agente (persona, cwd) em background
+   */
+  private loadAgentMetadata(instanceId: string, cwd?: string): void {
+    this.agentService.getAgentContext(instanceId).subscribe({
+      next: (context: AgentContext) => {
+        this.activeAgentContext = context;
+
+        if (context.cwd) {
+          this.activeAgentCwd = context.cwd;
+        } else if (cwd) {
+          this.activeAgentCwd = cwd;
+        } else {
+          const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
+          this.activeAgentCwd = storedCwd || null;
+        }
+      },
+      error: (error) => {
+        console.error('⚠️ [CHAT] Erro ao carregar metadados do agente:', error);
+      }
+    });
   }
 
   /**
@@ -2295,6 +2523,139 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   /**
    * Toggle header info modal (removed - use toggleDockInfoModal instead)
    */
+
+  // ==========================================
+  // 🔥 NOVO: Métodos de Gerenciamento de Conversas
+  // ==========================================
+
+  /**
+   * Cria uma nova conversa
+   */
+  onCreateNewConversation(): void {
+    console.log('🆕 [CHAT] Criando nova conversa...');
+
+    // Se não há agente selecionado, usar o primeiro disponível
+    let agentInfo = undefined;
+    if (this.activeAgentId && this.selectedAgentDbId) {
+      agentInfo = {
+        agent_id: this.selectedAgentDbId,
+        instance_id: this.activeAgentId,
+        name: this.selectedAgentName || 'Unknown',
+        emoji: this.selectedAgentEmoji || undefined
+      };
+    }
+
+    const title = `Conversa ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    this.conversationService.createConversation({
+      title,
+      active_agent: agentInfo,
+      screenplay_id: this.activeScreenplayId || undefined
+    }).subscribe({
+      next: (response) => {
+        console.log('✅ [CHAT] Nova conversa criada:', response.conversation_id);
+        this.activeConversationId = response.conversation_id;
+        this.activeConversationChanged.emit(this.activeConversationId); // 🔥 NOVO: Notificar mudança
+        this.chatState.messages = [{
+          id: `empty-${Date.now()}`,
+          content: 'Nova conversa iniciada. Selecione um agente e comece a conversar!',
+          type: 'system',
+          timestamp: new Date()
+        }];
+
+        // Refresh the conversation list
+        this.refreshConversationList();
+      },
+      error: (error) => {
+        console.error('❌ [CHAT] Erro ao criar conversa:', error);
+      }
+    });
+  }
+
+  /**
+   * Cria uma nova conversa automaticamente quando um novo roteiro é criado
+   * Similar ao onCreateNewConversation(), mas sem interação do usuário
+   */
+  createNewConversationForScreenplay(): void {
+    console.log('🆕 [CHAT] Criando nova conversa para novo roteiro...');
+
+    const title = `Roteiro ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    this.conversationService.createConversation({
+      title,
+      active_agent: undefined, // Agente será criado automaticamente pelo screenplay-interactive
+      screenplay_id: this.activeScreenplayId || undefined
+    }).subscribe({
+      next: (response) => {
+        console.log('✅ [CHAT] Nova conversa criada para roteiro:', response.conversation_id);
+        this.activeConversationId = response.conversation_id;
+        this.activeConversationChanged.emit(this.activeConversationId); // Notificar mudança
+        this.chatState.messages = [];
+
+        // Refresh the conversation list
+        this.refreshConversationList();
+      },
+      error: (error) => {
+        console.error('❌ [CHAT] Erro ao criar conversa para roteiro:', error);
+      }
+    });
+  }
+
+  /**
+   * Seleciona uma conversa existente
+   */
+  onSelectConversation(conversationId: string): void {
+    if (conversationId === this.activeConversationId) {
+      console.log('ℹ️ [CHAT] Conversa já está ativa:', conversationId);
+      return;
+    }
+
+    console.log('🔄 [CHAT] Alternando para conversa:', conversationId);
+    this.activeConversationId = conversationId;
+    this.activeConversationChanged.emit(this.activeConversationId); // 🔥 NOVO: Notificar mudança
+    this.loadConversation(conversationId);
+  }
+
+  /**
+   * Deleta uma conversa
+   */
+  onDeleteConversation(conversationId: string): void {
+    console.log('🗑️ [CHAT] Deletando conversa:', conversationId);
+
+    this.conversationService.deleteConversation(conversationId).subscribe({
+      next: () => {
+        console.log('✅ [CHAT] Conversa deletada com sucesso');
+
+        // Se deletou a conversa ativa, limpar o chat
+        if (this.activeConversationId === conversationId) {
+          this.activeConversationId = null;
+          this.activeConversationChanged.emit(null); // 🔥 NOVO: Notificar mudança
+          this.chatState.messages = [{
+            id: `empty-${Date.now()}`,
+            content: 'Selecione uma conversa ou crie uma nova.',
+            type: 'system',
+            timestamp: new Date()
+          }];
+        }
+
+        // Refresh the conversation list
+        this.refreshConversationList();
+      },
+      error: (error) => {
+        console.error('❌ [CHAT] Erro ao deletar conversa:', error);
+      }
+    });
+  }
+
+  /**
+   * Atualiza a lista de conversas (chamado pelo componente pai ou por eventos)
+   */
+  refreshConversationList(): void {
+    console.log('🔄 [CHAT] Atualizando lista de conversas');
+    if (this.conversationListComponent) {
+      this.conversationListComponent.refresh();
+    }
+  }
 
   /**
    * Edit agent CWD from menu
