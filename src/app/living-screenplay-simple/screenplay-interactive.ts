@@ -37,6 +37,7 @@ import { ScreenplayKpiService } from '../services/screenplay-kpi.service';
 import { CouncilorsDashboardComponent } from './councilors-dashboard/councilors-dashboard.component';
 import { PromoteCouncilorModalComponent } from './promote-councilor-modal/promote-councilor-modal.component';
 import { CouncilorSchedulerService } from '../services/councilor-scheduler.service';
+  import { ConversationManagementService } from '../services/conversation-management.service';
 
 interface AgentConfig {
   id: string;
@@ -255,7 +256,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Timeout para debounce
   private updateTimeout: any;
   private autoSaveTimeout: any;
-  
+
   // Auto-save configuration
   private readonly AUTO_SAVE_DELAY = 3000; // 3 segundos
   private autoSaveEnabled = true;
@@ -291,7 +292,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private notificationService: NotificationService,
     private gamificationEvents: GamificationEventsService,
     private screenplayKpis: ScreenplayKpiService,
-    private councilorScheduler: CouncilorSchedulerService
+    private councilorScheduler: CouncilorSchedulerService,
+    private conversationManagement: ConversationManagementService
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -525,7 +527,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
       // Get the instance from memory to include emoji and definition
       const instance = this.agentInstances.get(instanceId);
-      
+
       const baseUrl = this.agentService['baseUrl'] || '';
       const payload: any = {
         instance_id: instanceId,
@@ -546,7 +548,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       if (cwd) {
         payload.cwd = cwd;
       }
-      
+
       this.logging.info(`💾 ${logPrefix} Criando instância no MongoDB:`, 'ScreenplayInteractive', payload);
 
       const response = await fetch(`${baseUrl}/agents/instances`, {
@@ -607,13 +609,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   deleteAgent(instanceId: string): void {
     this.logging.info('🗑️ [DELETE AGENT] Deleting agent:', 'ScreenplayInteractive', instanceId);
-    
+
     const agent = this.agentInstances.get(instanceId);
     if (!agent) {
       this.logging.warn('⚠️ [DELETE AGENT] Agent not found:', 'ScreenplayInteractive', instanceId);
       return;
     }
-    
+
     // Remove from memory
     this.agentInstances.delete(instanceId);
 
@@ -760,17 +762,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   /**
    * SAGA-005 v2: Clear chat state when loading new screenplay
    */
+  /**
+   * ✅ REFATORADO: Agora usa ConversationManagementService
+   */
   private clearChatState(): void {
     this.logging.info('🧹 [CHAT] Clearing chat state for new screenplay', 'ScreenplayInteractive');
-    
+
     // Clear selected agent
     this.selectedAgent = null;
-    
-    // Clear chat context if conductorChat is available
-    if (this.conductorChat) {
-      this.conductorChat.clear();
-    }
-    
+
+    // Delegar limpeza do chat para o serviço
+    this.conversationManagement.clearChatState(this.conductorChat);
+
     this.logging.info('✅ [CHAT] Chat state cleared', 'ScreenplayInteractive');
   }
 
@@ -779,27 +782,27 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   newScreenplay(): void {
     this.logging.info('📝 [NEW] Creating new screenplay', 'ScreenplayInteractive');
-    
+
     // Clear editor content
     this.editorContent = '';
     this.interactiveEditor.setContent('', true);
-    
+
     // Reset state
     this.sourceOrigin = 'new';
     this.sourceIdentifier = null;
     this.isDirty = false;
     this.currentScreenplay = null;
     this.currentFileName = '';
-    
+
     // Clear agents
     this.agentInstances.clear();
     this.agents = [];
     this.updateLegacyAgentsFromInstances();
     this.updateAvailableEmojis();
-    
+
     // SAGA-005 v2: Clear chat when creating new screenplay
     this.clearChatState();
-    
+
     this.logging.info('✅ [NEW] New screenplay created', 'ScreenplayInteractive');
   }
 
@@ -860,7 +863,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     if (this.autoSaveTimeout) {
       clearTimeout(this.autoSaveTimeout);
     }
-    
+
     this.autoSaveTimeout = window.setTimeout(() => {
       if (this.isDirty && this.currentScreenplay) {
         this.save();
@@ -885,13 +888,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.showError('Apenas arquivos .md são aceitos');
       return false;
     }
-    
+
     // Validação adicional de conteúdo se necessário
     if (file.size > 10 * 1024 * 1024) { // 10MB limit
       this.showError('Arquivo muito grande. Tamanho máximo: 10MB');
       return false;
     }
-    
+
     return true;
   }
 
@@ -1099,9 +1102,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private async createNewScreenplayImmediately(): Promise<void> {
     const baseName = this.generateScreenplayName();
     const uniqueName = await this.ensureUniqueName(baseName);
-    
+
     this.logging.info(`💾 [IMMEDIATE] Creating new screenplay immediately: ${uniqueName}`, 'ScreenplayInteractive');
-    
+
     this.screenplayStorage.createScreenplay({
       name: uniqueName,
       content: '',
@@ -1109,28 +1112,28 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     }).subscribe({
       next: (newScreenplay) => {
         this.logging.info(`✅ [IMMEDIATE] Screenplay created: ${newScreenplay.id}`, 'ScreenplayInteractive');
-        
+
         // Update state to database-linked
         this.sourceOrigin = 'database';
         this.sourceIdentifier = newScreenplay.id;
         this.currentScreenplay = newScreenplay;
         this.isDirty = false;
         this.currentFileName = '';
-        
+
         // Update URL with new screenplay ID
         this.updateUrlWithScreenplayId(newScreenplay.id);
-        
+
         // SAGA-006: Wait for editor to be ready, then create default agent instance
         setTimeout(async () => {
           await this.createDefaultAgentInstance();
         }, 100);
-        
+
         this.logging.info(`✅ [IMMEDIATE] Screenplay linked to editor and URL updated: ${newScreenplay.name}`, 'ScreenplayInteractive');
       },
       error: (error) => {
         this.logging.error('❌ [IMMEDIATE] Failed to create screenplay:', error, 'ScreenplayInteractive');
         alert(`Falha ao criar roteiro: ${error.message || 'Erro desconhecido'}`);
-        
+
         // Fallback: set as new (not saved)
         this.sourceOrigin = 'new';
         this.sourceIdentifier = null;
@@ -1144,7 +1147,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   async openScreenplayManager(): Promise<void> {
     // Ensure current screenplay is saved before opening manager
     await this.ensureCurrentScreenplaySaved();
-    
+
     this.showScreenplayManager = true;
   }
 
@@ -1218,7 +1221,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   async importFromDisk(): Promise<void> {
     // Ensure current screenplay is saved before importing
     await this.ensureCurrentScreenplaySaved();
-    
+
     this.fileInput.nativeElement.click();
   }
 
@@ -1230,12 +1233,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      
+
       // Validate file before processing
       if (!this.validateMarkdownFile(file)) {
         return;
       }
-      
+
       const reader = new FileReader();
 
       reader.onload = (e) => {
@@ -1293,7 +1296,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // SAGA-005 v2: Clear chat when loading new screenplay
     this.clearChatState();
-    
+
     // Reload agents in the game component
     this.reloadAgentGame();
 
@@ -1558,7 +1561,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   async exportToDisk(): Promise<void> {
     // Ensure current screenplay is saved before exporting
     await this.ensureCurrentScreenplaySaved();
-    
+
     // Get current content
     const content = this.generateMarkdownForSave();
 
@@ -1607,7 +1610,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   async openExportModal(): Promise<void> {
     // Ensure current screenplay is saved before opening export modal
     await this.ensureCurrentScreenplaySaved();
-    
+
     // Set default filename
     let filename = this.currentScreenplay?.name || this.currentFileName || 'roteiro-vivo';
     if (filename.endsWith('.md')) {
@@ -1863,12 +1866,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const content = this.generateMarkdownForSave();
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const defaultName = `novo-roteiro-${timestamp}`;
-    
+
     this.logging.info(`💾 [PROMPT] Prompting for new screenplay name`, 'ScreenplayInteractive', {
       defaultName,
       contentLength: content.length
     });
-    
+
     // TODO: Replace with beautiful modal component
     // For now, using improved window.prompt
     const name = window.prompt(
@@ -1923,7 +1926,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Sanitize name similar to import - but be more careful
     let sanitizedName = name.trim();
-    
+
     // Only sanitize if there are problematic characters
     if (/[^a-zA-Z0-9\-_]/.test(sanitizedName)) {
       this.logging.debug(`   - Name contains special characters, sanitizing...`, 'ScreenplayInteractive');
@@ -1933,7 +1936,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       // Remove leading/trailing dashes
       sanitizedName = sanitizedName.replace(/^-+|-+$/g, '');
     }
-    
+
     this.logging.debug(`   - Sanitized name: "${sanitizedName}"`, 'ScreenplayInteractive');
 
     // Validate name
@@ -1967,14 +1970,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           nameInDb: newScreenplay.name,
           version: newScreenplay.version
         });
-        
+
         // Update state to database-linked
         this.sourceOrigin = 'database';
         this.sourceIdentifier = newScreenplay.id;
         this.currentScreenplay = newScreenplay;
         this.isDirty = false;
         this.currentFileName = '';
-        
+
         // Update URL with new screenplay ID
         this.updateUrlWithScreenplayId(newScreenplay.id);
 
@@ -2034,10 +2037,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private reloadAgentGame(): void {
     if (this.agentGame) {
       this.logging.info('🎮 [AGENT-GAME] Reloading agents in game component', 'ScreenplayInteractive');
-      
+
       // First, clear all agents immediately to provide instant feedback
       this.agentGame.clearAllAgents();
-      
+
       // Then reload with a small delay to ensure API has processed the changes
       setTimeout(() => {
         this.agentGame.reloadAgents();
@@ -2048,10 +2051,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private clearInvalidUrl(): void {
-    this.router.navigate([], { 
-      relativeTo: this.route, 
+    this.router.navigate([], {
+      relativeTo: this.route,
       queryParams: {},
-      replaceUrl: true 
+      replaceUrl: true
     });
   }
 
@@ -2152,7 +2155,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // BUG FIX: Get HTML first and convert spans to HTML comments before converting to markdown
     let html = this.interactiveEditor.getHTML();
-    
+
     // Replace invisible spans with HTML comments
     // <span class="agent-anchor" data-instance-id="uuid" data-agent-id="name"></span>emoji
     // becomes: <!-- agent-instance: uuid, agent-id: name -->
@@ -2161,10 +2164,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       /<span class="agent-anchor" data-instance-id="([^"]+)" data-agent-id="([^"]+)"><\/span>/g,
       '<!-- agent-instance: $1, agent-id: $2 -->\n'
     );
-    
+
     // Now convert the processed HTML to markdown
     let markdown = this.interactiveEditor.convertHtmlToMarkdown(html);
-    
+
     this.logging.debug('📝 [GENERATE] Generating markdown for save:', 'ScreenplayInteractive', {
       contentLength: markdown.length,
       preview: markdown.substring(0, 200),
@@ -2322,7 +2325,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       }
     });
     */
-    
+
     this.logging.info('ℹ️ [SYNC] Automatic agent creation from emojis is disabled. Agents must be added manually.', 'ScreenplayInteractive');
 
     // DISABLED: Orphan cleanup
@@ -3170,10 +3173,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * 🔥 NOVO: Handler para mudanças de conversa ativa
+   * ✅ REFATORADO: Sincroniza com ConversationManagementService
    */
   public onActiveConversationChanged(conversationId: string | null): void {
     this.logging.info(`🔄 [CONVERSATION-CHANGED] Conversa ativa mudou para: ${conversationId || 'nenhuma'}`, 'ScreenplayInteractive');
+
+    // Atualizar estado local
     this.activeConversationId = conversationId;
+
+    // Sincronizar com o serviço de gerenciamento
+    this.conversationManagement.setActiveConversation(conversationId);
 
     // Atualizar o dock para mostrar apenas agentes da conversa ativa
     this.updateAgentDockLists();
@@ -3192,45 +3201,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * 🔥 NOVO: Garante que o roteiro tem uma conversa e a carrega
+   * ✅ REFATORADO: Agora usa ConversationManagementService
    */
   private ensureScreenplayConversation(screenplayId: string): void {
-    if (!this.conductorChat) {
-      this.logging.warn('⚠️ [CONVERSATION] ConductorChat não disponível', 'ScreenplayInteractive');
-      return;
-    }
-
-    this.logging.info(`🔍 [CONVERSATION] Verificando conversas para screenplay: ${screenplayId}`, 'ScreenplayInteractive');
-
-    // Atualizar o activeScreenplayId no chat para filtrar conversas
-    this.conductorChat.activeScreenplayId = screenplayId;
-
-    // Buscar conversas deste roteiro
-    this.conductorChat['conversationService'].listConversations(20, 0, screenplayId).subscribe({
-      next: (response) => {
-        if (response.conversations.length > 0) {
-          // Já tem conversas, carregar a mais recente
-          const latestConversation = response.conversations[0];
-          this.logging.info(`✅ [CONVERSATION] Carregando conversa existente: ${latestConversation.conversation_id}`, 'ScreenplayInteractive');
-
-          this.conductorChat.activeConversationId = latestConversation.conversation_id;
-          this.conductorChat['loadConversation'](latestConversation.conversation_id);
-
-          // Refresh lista de conversas
-          if (this.conductorChat['conversationListComponent']) {
-            this.conductorChat['conversationListComponent'].refresh();
-          }
-        } else {
-          // Não tem conversas, criar uma automaticamente
-          this.logging.info(`🆕 [CONVERSATION] Criando conversa para roteiro sem conversas`, 'ScreenplayInteractive');
-          this.conductorChat.createNewConversationForScreenplay();
-        }
-      },
-      error: (error) => {
-        this.logging.error('❌ [CONVERSATION] Erro ao buscar conversas:', error, 'ScreenplayInteractive');
-        // Em caso de erro, criar conversa automaticamente
-        this.conductorChat.createNewConversationForScreenplay();
-      }
-    });
+    this.conversationManagement.ensureScreenplayConversation(screenplayId, this.conductorChat);
   }
 
   /**
@@ -3370,13 +3344,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const currentContent = this.interactiveEditor.getHTML();
     const anchorRegex = /<!--\s*agent-instance:\s*([^,]+),\s*agent-id:\s*([^\s]+)\s*-->\s*\n?(.)/gu;
     const matches = [...currentContent.matchAll(anchorRegex)];
-    
+
     let cleanedContent = currentContent;
     let orphanCount = 0;
 
     for (const match of matches) {
       const instanceId = match[1].trim();
-      
+
       // If this anchor's instance doesn't exist in our loaded agents, it's orphaned
       if (!this.agentInstances.has(instanceId)) {
         this.logging.warn(`🧹 [CLEAN] Removendo âncora órfã: ${instanceId}`, 'ScreenplayInteractive');
@@ -3388,21 +3362,21 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     if (orphanCount > 0) {
       this.logging.info(`🧹 [CLEAN] Removidas ${orphanCount} âncoras órfãs do markdown`, 'ScreenplayInteractive');
-      
+
       // Update editor with cleaned content
       const wasAutoSave = this.autoSaveTimeout;
       this.autoSaveTimeout = null; // Temporarily disable auto-save
-      
+
       this.interactiveEditor.setContent(cleanedContent, false);
-      
+
       // Mark as dirty so it gets saved
       this.isDirty = true;
-      
+
       // Re-enable auto-save
       setTimeout(() => {
         this.autoSaveTimeout = wasAutoSave;
       }, 100);
-      
+
       // Save the cleaned content to database
       setTimeout(() => {
         if (this.isDirty) {
@@ -3444,7 +3418,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
         instances.forEach((doc: any) => {
           this.logging.debug(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
-          
+
           // Only load agents that belong to the current screenplay
           if (doc.screenplay_id === this.currentScreenplay?.id) {
             const instance: AgentInstance = {
@@ -3475,7 +3449,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
             this.logging.debug(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
           }
         });
-        
+
         // Remove only agents that are NOT in MongoDB and NOT just created
         // Keep recently created agents that haven't synced to MongoDB yet
         const idsToRemove: string[] = [];
@@ -3484,7 +3458,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
             // Check if this agent was recently created (within last 5 seconds)
             const createdAt = instance.config?.createdAt;
             const isRecent = createdAt && (new Date().getTime() - new Date(createdAt).getTime()) < 5000;
-            
+
             if (!isRecent) {
               idsToRemove.push(id);
               this.logging.debug(`🗑️ [SCREENPLAY] Removendo agente não encontrado no MongoDB: ${id}`, 'ScreenplayInteractive');
@@ -3493,7 +3467,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
-        
+
         idsToRemove.forEach(id => this.agentInstances.delete(id));
 
         this.logging.info(`✅ [SCREENPLAY] ${this.agentInstances.size} instâncias carregadas na memória para roteiro ${this.currentScreenplay?.id}`, 'ScreenplayInteractive');
@@ -3802,7 +3776,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           if (!conversationId) return sameType; // Modo legado
           return sameType && agent.conversation_id === conversationId; // 🔥 NOVO: Verifica conversa
         });
-      
+
       if (existingDefaultAgent) {
         this.logging.warn('⚠️ [DEFAULT AGENT] Default agent already exists for this screenplay, skipping creation', 'ScreenplayInteractive', {
           existingAgentId: existingDefaultAgent.id,
@@ -3810,15 +3784,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         });
         return;
       }
-      
+
       // Generate instance ID
       const instanceId = this.generateUUID();
-      
+
       // Default agent configuration
       const agentId = 'ScreenplayAssistant_Agent';
       const emoji = '🎬';
       const position: CirclePosition = { x: 100, y: 100 };
-      
+
       // BUG FIX: Create agent instance in memory FIRST (before inserting emoji)
       // This prevents syncAgentsWithMarkdown from creating a duplicate instance
       const defaultInstance: AgentInstance = {
@@ -3840,18 +3814,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           updatedAt: new Date()
         }
       };
-      
+
       // Add to agent instances BEFORE inserting template
       this.agentInstances.set(instanceId, defaultInstance);
-      
+
       // Create in MongoDB with system default flags (before template insertion)
       this.createDefaultAgentInstanceInMongoDB(instanceId, agentId, position);
-      
+
       // Update structures BEFORE inserting template to ensure dock is ready
       this.updateLegacyAgentsFromInstances();
       this.updateAvailableEmojis();
       this.updateAgentDockLists();
-      
+
       // Add agent to the game map
       this.logging.info('🎮 [AGENT-GAME] Checking if agentGame is available...', 'ScreenplayInteractive', {
         agentGameExists: !!this.agentGame,
@@ -3859,7 +3833,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         defaultInstanceId: defaultInstance.id,
         defaultInstanceEmoji: defaultInstance.emoji
       });
-      
+
       if (this.agentGame) {
         this.logging.info('🎮 [AGENT-GAME] Adding default agent to game map...', 'ScreenplayInteractive');
         this.agentGame.addAgent({
@@ -3873,19 +3847,19 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       } else {
         this.logging.warn('⚠️ [AGENT-GAME] agentGame is not available, cannot add agent to game', 'ScreenplayInteractive');
       }
-      
+
       // SAGA-006: Insert template into editor AFTER everything is set up
       this.insertEmojiIntoEditor(emoji, instanceId);
-      
+
       // Auto-activate the default agent in chat
       this.activateDefaultAgent(defaultInstance);
-      
+
       this.logging.info('✅ [DEFAULT AGENT] Default agent instance created and activated', 'ScreenplayInteractive', {
         instanceId: defaultInstance.id,
         agentId: defaultInstance.agent_id,
         emoji: defaultInstance.emoji
       });
-      
+
     } catch (error) {
       this.logging.error('❌ [DEFAULT AGENT] Error creating default agent instance:', error, 'ScreenplayInteractive');
     }
@@ -3903,7 +3877,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       agentId: 'ScreenplayAssistant_Agent',
       currentContentLength: this.editorContent.length
     });
-    
+
     // BUG FIX: Only insert template if editor is empty
     // For imported screenplays, keep the existing content
     const currentContent = this.interactiveEditor.getMarkdown().trim();
@@ -3913,9 +3887,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       });
       return;
     }
-    
+
     this.logging.info('📝 [DEFAULT AGENT] Editor is empty, inserting initial template...', 'ScreenplayInteractive');
-    
+
     // Insert a clean template with title and example text
     // NO emojis in template to avoid confusion with syncAgentsWithMarkdown
     const templateContent = `<h1>📝 Novo Roteiro</h1>
@@ -3933,12 +3907,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
 <p><strong>Dica:</strong> Todos os agentes vinculados ao roteiro aparecem na barra lateral direita!</p>
 `;
-    
+
     this.interactiveEditor.setContent(templateContent, false);
-    
+
     // Update editor content to trigger sync
     this.editorContent = this.interactiveEditor.getMarkdown();
-    
+
     this.logging.info('✅ [DEFAULT AGENT] Template inserted into editor', 'ScreenplayInteractive');
   }
 
@@ -3947,10 +3921,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   private activateDefaultAgent(agent: AgentInstance): void {
     this.logging.info('🎯 [DEFAULT AGENT] Activating default agent in chat', 'ScreenplayInteractive');
-    
+
     // Set as active agent
     this.activeAgentId = agent.id;
-    
+
     // Load context in chat
     if (this.conductorChat) {
       this.conductorChat.loadContextForAgent(
@@ -3962,13 +3936,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
       );
     }
-    
+
     // Auto-select the agent in the dock to ensure chat is loaded
     // This simulates clicking on the dock-item with class="dock-item active"
     setTimeout(() => {
       this.autoSelectDefaultAgent(agent);
     }, 500); // Increased delay to ensure the agent is fully loaded and UI is ready
-    
+
     this.logging.info('✅ [DEFAULT AGENT] Default agent activated in chat', 'ScreenplayInteractive');
   }
 
@@ -3986,18 +3960,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       currentScreenplayId: this.currentScreenplay?.id,
       conductorChatAvailable: !!this.conductorChat
     });
-    
+
     // Ensure the agent is in the contextual agents list
     if (!this.contextualAgents.find(a => a.id === agent.id)) {
       this.logging.warn('⚠️ [AUTO-SELECT] Agent not found in contextual agents, updating dock lists...', 'ScreenplayInteractive');
       this.updateAgentDockLists();
       this.logging.debug('   - Contextual agents after update:', 'ScreenplayInteractive', this.contextualAgents.map(a => `${a.emoji} ${a.definition.title} (${a.id})`));
     }
-    
+
     // Simulate the dock click by calling the same function
     this.logging.debug('🎯 [AUTO-SELECT] Calling onDockAgentClick to simulate user click...', 'ScreenplayInteractive');
     this.onDockAgentClick(agent);
-    
+
     this.logging.info('✅ [AUTO-SELECT] Default agent auto-selected in dock', 'ScreenplayInteractive');
   }
 
@@ -4011,22 +3985,22 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       totalInstances: this.agentInstances.size,
       availableAgents: Array.from(this.agentInstances.values()).map(a => `${a.emoji} ${a.definition.title}`)
     });
-    
+
     if (this.agentInstances.size === 0) {
       this.logging.warn('⚠️ [AUTO-SELECT-FIRST] No agents available to select', 'ScreenplayInteractive');
       return;
     }
-    
+
     // Get the first agent from the instances
     const firstAgent = Array.from(this.agentInstances.values())[0];
-    
+
     this.logging.info('✅ [AUTO-SELECT-FIRST] Selecting first agent:', 'ScreenplayInteractive', {
       title: firstAgent.definition.title,
       agentId: firstAgent.id,
       emoji: firstAgent.emoji,
       conductorChatAvailable: !!this.conductorChat
     });
-    
+
     // Auto-select the first agent
     this.autoSelectDefaultAgent(firstAgent);
   }

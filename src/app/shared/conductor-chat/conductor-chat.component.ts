@@ -13,6 +13,8 @@ import { AgentExecutionService, AgentExecutionState } from '../../services/agent
 import { PersonaEditService } from '../../services/persona-edit.service';
 import { PersonaEditModalComponent } from '../persona-edit-modal/persona-edit-modal.component';
 import { SpeechRecognitionService } from './services/speech-recognition.service';
+import { MessageHandlingService, MessageParams, MessageHandlingCallbacks } from './services/message-handling.service';
+import { ModalStateService, ModalType } from './services/modal-state.service';
 import { environment } from '../../../environments/environment';
 import { ConversationService, Conversation, AgentInfo as ConvAgentInfo, Message as ConvMessage } from '../../services/conversation.service';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
@@ -78,7 +80,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </div>
 
       <!-- Persona Modal -->
-      <div class="modal-backdrop" *ngIf="showPersonaModal" (click)="togglePersonaModal()">
+      <div class="modal-backdrop" *ngIf="modalStateService.isOpen('personaModal')" (click)="togglePersonaModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h4>📋 Contexto do Agente</h4>
@@ -105,7 +107,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
       <!-- Persona Edit Modal -->
       <app-persona-edit-modal
-        [isVisible]="showPersonaEditModal"
+        [isVisible]="modalStateService.isOpen('personaEditModal')"
         [instanceId]="activeAgentId"
         [currentPersona]="activeAgentContext?.persona || ''"
         (closeModal)="closePersonaEditModal()"
@@ -113,7 +115,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </app-persona-edit-modal>
 
       <!-- CWD Definition Modal -->
-      <div class="modal-backdrop" *ngIf="showCwdModal" (click)="closeCwdModal()">
+      <div class="modal-backdrop" *ngIf="modalStateService.isOpen('cwdModal')" (click)="closeCwdModal()">
         <div class="modal-content cwd-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h4>📁 Definir Diretório de Trabalho</h4>
@@ -147,7 +149,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
                 class="context-action-btn"
                 (click)="toggleContextEditor()"
                 title="Editar contexto">
-                {{ showContextEditor ? '✕' : '✏️' }}
+                {{ modalStateService.isOpen('contextEditor') ? '✕' : '✏️' }}
               </button>
               <button
                 class="context-action-btn"
@@ -159,7 +161,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
           </div>
 
           <!-- Editor de Contexto -->
-          <div class="context-editor" *ngIf="showContextEditor">
+          <div class="context-editor" *ngIf="modalStateService.isOpen('contextEditor')">
             <textarea
               class="context-textarea"
               [(ngModel)]="conversationContext"
@@ -182,12 +184,12 @@ Erro: 'invalid_token' na response..."
           </div>
 
           <!-- Preview do Contexto (quando não está editando) -->
-          <div class="context-preview" *ngIf="!showContextEditor && conversationContext">
+          <div class="context-preview" *ngIf="!modalStateService.isOpen('contextEditor') && conversationContext">
             <div class="markdown-content" [innerHTML]="renderMarkdown(conversationContext)"></div>
           </div>
 
           <!-- Estado vazio -->
-          <div class="context-empty" *ngIf="!showContextEditor && !conversationContext">
+          <div class="context-empty" *ngIf="!modalStateService.isOpen('contextEditor') && !conversationContext">
             <p class="empty-hint">📝 Clique no ✏️ para adicionar contexto sobre o que está sendo trabalhado nesta conversa</p>
           </div>
         </div>
@@ -273,7 +275,7 @@ Erro: 'invalid_token' na response..."
 
             <!-- Agent Options Menu -->
             <div
-              *ngIf="showAgentOptionsMenu"
+              *ngIf="modalStateService.isOpen('agentOptionsMenu')"
               class="agent-options-menu">
               <button class="menu-item" (click)="viewAgentContext()">
                 📋 Ver Contexto
@@ -367,7 +369,7 @@ Erro: 'invalid_token' na response..."
       </div>
 
       <!-- Dock Info Modal (merged with header info) -->
-      <div class="modal-backdrop" *ngIf="showDockInfoModal" (click)="toggleDockInfoModal()">
+      <div class="modal-backdrop" *ngIf="modalStateService.isOpen('dockInfoModal')" (click)="toggleDockInfoModal()">
         <div class="modal-content dock-info-modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h4>💬 Conductor Chat - Ajuda</h4>
@@ -1643,21 +1645,10 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   selectedAgentName: string | null = null;
   selectedAgentEmoji: string | null = null;
   activeScreenplayId: string | null = null; // SAGA-006: Add screenplay ID for document association
-  showPersonaModal = false;
 
   // CWD management
-  showCwdModal = false;
   tempCwd: string = '';
   activeAgentCwd: string | null = null;
-
-  // Agent options menu
-  showAgentOptionsMenu = false;
-
-  // Persona edit modal
-  showPersonaEditModal = false;
-
-  // Dock info modal
-  showDockInfoModal = false;
 
   // Resize functionality - controls chat INPUT AREA height (ONLY editor, not controls)
   // Initial height calculation:
@@ -1691,7 +1682,6 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   // 🔥 NOVO: Contexto da conversa
   public conversationContext: string = '';  // Contexto markdown da conversa
-  public showContextEditor: boolean = false;  // Estado do editor de contexto
   private originalContext: string = '';  // Backup para cancelamento
   @ViewChild('contextFileInput') contextFileInput: any;
 
@@ -1716,7 +1706,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private agentExecutionService: AgentExecutionService,
     private personaEditService: PersonaEditService,
     private speechService: SpeechRecognitionService,
-    private conversationService: ConversationService  // 🔥 NOVO
+    private conversationService: ConversationService,  // 🔥 NOVO
+    private messageHandlingService: MessageHandlingService,  // 🔥 FASE 1.1
+    public modalStateService: ModalStateService  // 🔥 FASE 1.2 (public para template)
   ) { }
 
   ngOnInit(): void {
@@ -1849,6 +1841,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
     this.forceSaveScreenplayIfNeeded();
 
+    // Validar que temos as informações necessárias
+    if (!this.activeAgentId || !this.selectedAgentDbId) {
+      console.error('❌ [CHAT] Agente não selecionado ou sem ID');
+      return;
+    }
+
+    // Criar mensagem do usuário
     const userMessage: Message = {
       id: Date.now().toString(),
       content: data.message.trim(),
@@ -1856,252 +1855,81 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       timestamp: new Date()
     };
 
+    // Preparar parâmetros para o serviço
+    const params: MessageParams = {
+      message: data.message,
+      provider: data.provider,
+      conversationId: this.activeConversationId || undefined,
+      agentId: this.activeAgentId,
+      agentDbId: this.selectedAgentDbId,
+      agentName: this.selectedAgentName || 'Unknown',
+      agentEmoji: this.selectedAgentEmoji || '🤖',
+      cwd: this.activeAgentCwd || undefined,
+      screenplayId: this.activeScreenplayId || undefined,
+      instanceId: this.activeAgentId
+    };
+
+    // Preparar callbacks
+    const callbacks: MessageHandlingCallbacks = {
+      onProgressUpdate: (message: string, instanceId: string) => {
+        if (message) {
+          this.addProgressMessage(message, instanceId);
+        } else {
+          this.progressMessages.set(instanceId, null);
+        }
+      },
+      onStreamingUpdate: (chunk: string, instanceId: string) => {
+        this.appendToStreamingMessage(chunk, instanceId);
+      },
+      onLoadingChange: (isLoading: boolean) => {
+        this.chatState.isLoading = isLoading;
+      },
+      onMessagesUpdate: (messages: Message[]) => {
+        this.chatState.messages = messages;
+      },
+      onConversationReload: (conversationId: string) => {
+        this.loadConversation(conversationId);
+      }
+    };
+
     // 🔥 NOVO MODELO: Usar conversas globais
     if (environment.features?.useConversationModel && this.activeConversationId && this.activeAgentId) {
-      this.handleSendMessageWithConversationModel(data, userMessage);
+      // Adicionar mensagem à UI imediatamente
+      this.chatState.messages = [...this.chatState.messages.filter(msg =>
+        !msg.id.startsWith('empty-')
+      ), userMessage];
+
+      this.messageHandlingService.sendMessageWithConversationModel(params, callbacks).subscribe({
+        next: (result) => {
+          console.log('✅ [CHAT] Mensagem processada com sucesso');
+        },
+        error: (error) => {
+          console.error('❌ [CHAT] Erro ao processar mensagem:', error);
+          this.handleError(error, this.activeAgentId);
+        }
+      });
       return;
     }
 
     // 🔄 MODELO LEGADO: Código original
-    this.handleSendMessageWithLegacyModel(data, userMessage);
-  }
-
-  /**
-   * 🔥 NOVO: Enviar mensagem usando modelo de conversas globais
-   */
-  private handleSendMessageWithConversationModel(data: {message: string, provider?: string}, userMessage: Message): void {
-    console.log('🔥 [CHAT] Enviando mensagem usando modelo de conversas');
-
-    // Adicionar mensagem do usuário à conversa no backend
-    const agentInfo: ConvAgentInfo = {
-      agent_id: this.selectedAgentDbId || '',
-      instance_id: this.activeAgentId || '',
-      name: this.selectedAgentName || 'Unknown',
-      emoji: this.selectedAgentEmoji || undefined
-    };
-
-    // Adicionar mensagem à UI imediatamente
-    this.chatState.messages = [...this.chatState.messages.filter(msg =>
-      !msg.id.startsWith('empty-')
-    ), userMessage];
-
-    this.chatState.isLoading = true;
-
-    // Adicionar mensagem ao backend
-    this.conversationService.addMessage(this.activeConversationId!, {
-      user_input: data.message.trim()
-    }).subscribe({
-      next: () => {
-        console.log('✅ [CHAT] Mensagem do usuário salva no backend');
-
-        // Executar agente
-        const currentInstanceId = this.activeAgentId!;
-        const currentAgentDbId = this.selectedAgentDbId!;
-
-        this.progressMessages.set(currentInstanceId, null);
-        this.streamingMessages.set(currentInstanceId, null);
-
-        const cwdMatch = data.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
-        const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
-
-        console.log('🎯 [CHAT] Executando agente (modelo conversas):');
-        console.log('   - conversation_id:', this.activeConversationId);
-        console.log('   - agent_id:', currentAgentDbId);
-        console.log('   - instance_id:', currentInstanceId);
-
-        this.addProgressMessage('🚀 Executando agente...', currentInstanceId);
-
-        const executionState: AgentExecutionState = {
-          id: this.activeAgentId!,
-          emoji: this.selectedAgentEmoji || '🤖',
-          title: this.selectedAgentName || 'Unknown Agent',
-          prompt: data.message.trim(),
-          status: 'running',
-          logs: ['🚀 Agent execution started']
-        };
-        this.agentExecutionService.executeAgent(executionState);
-
-        this.subscriptions.add(
-          this.agentService.executeAgent(currentAgentDbId, data.message.trim(), currentInstanceId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
-            next: (result) => {
-              this.progressMessages.set(currentInstanceId, null);
-              this.agentExecutionService.completeAgent(currentInstanceId, result);
-
-              let responseContent = result.result || result.data?.result || 'Execução concluída';
-              if (typeof responseContent === 'object') {
-                responseContent = JSON.stringify(responseContent, null, 2);
-              }
-
-              // Adicionar resposta ao backend
-              this.conversationService.addMessage(this.activeConversationId!, {
-                agent_response: responseContent,
-                agent_info: agentInfo
-              }).subscribe({
-                next: () => {
-                  console.log('✅ [CHAT] Resposta do agente salva no backend');
-
-                  // Recarregar conversa para exibir resposta
-                  this.loadConversation(this.activeConversationId!);
-                  this.chatState.isLoading = false;
-                },
-                error: (error) => {
-                  console.error('❌ [CHAT] Erro ao salvar resposta:', error);
-
-                  // Ainda assim mostrar resposta na UI
-                  const responseMessage: Message = {
-                    id: `response-${Date.now()}`,
-                    content: responseContent,
-                    type: 'bot',
-                    timestamp: new Date(),
-                    agent: agentInfo
-                  };
-                  this.chatState.messages = [...this.chatState.messages, responseMessage];
-                  this.chatState.isLoading = false;
-                }
-              });
-            },
-            error: (error) => {
-              console.error('❌ Agent execution error:', error);
-              this.progressMessages.set(currentInstanceId, null);
-              this.agentExecutionService.cancelAgent(currentInstanceId);
-              this.handleError(error.error || error.message || 'Erro ao executar agente', currentInstanceId);
-            }
-          })
-        );
+    this.messageHandlingService.sendMessageWithLegacyModel(
+      params,
+      this.chatState.messages,
+      this.chatHistories,
+      callbacks
+    ).subscribe({
+      next: (result) => {
+        console.log('✅ [CHAT] Mensagem processada com sucesso (legado)');
       },
       error: (error) => {
-        console.error('❌ [CHAT] Erro ao salvar mensagem do usuário:', error);
-        this.chatState.isLoading = false;
+        console.error('❌ [CHAT] Erro ao processar mensagem:', error);
+        this.handleError(error, this.activeAgentId);
       }
     });
   }
 
-  /**
-   * 🔄 LEGADO: Enviar mensagem usando modelo antigo (código original)
-   */
-  private handleSendMessageWithLegacyModel(data: {message: string, provider?: string}, userMessage: Message): void {
-    console.log('🔄 [CHAT] Enviando mensagem usando modelo legado');
-
-    // Código original de handleSendMessage
-    const filteredMessages = this.chatState.messages.filter(msg =>
-      !msg.id.startsWith('empty-history-') &&
-      msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
-    );
-
-    if (this.activeAgentId) {
-      const agentHistory = this.chatHistories.get(this.activeAgentId) || [];
-      const filteredAgentHistory = agentHistory.filter(msg =>
-        !msg.id.startsWith('empty-history-') &&
-        msg.content !== 'Nenhuma interação ainda. Inicie a conversa abaixo.'
-      );
-      this.chatHistories.set(this.activeAgentId, [...filteredAgentHistory, userMessage]);
-      this.chatState.messages = this.chatHistories.get(this.activeAgentId) || [];
-    } else {
-      this.chatState.messages = [...filteredMessages, userMessage];
-    }
-
-    // Verificar comando @agent
-    if (this.currentMode === 'agent' && data.message.startsWith('@agent')) {
-      if (data.message.includes('adicione um título')) {
-        this.screenplayService.dispatch({ intent: 'add_title' });
-
-        const confirmationMessage: Message = {
-          id: `confirmation-${Date.now()}`,
-          content: '✅ Título adicionado ao documento!',
-          type: 'bot',
-          timestamp: new Date()
-        };
-        this.chatState.messages = [...this.chatState.messages, confirmationMessage];
-        return;
-      }
-    }
-
-    this.chatState.isLoading = true;
-
-    if (this.activeAgentId) {
-      if (!this.selectedAgentDbId) {
-        console.error('❌ [CHAT] Não é possível executar: agent_id está undefined!');
-        this.handleError('Agente não tem agent_id definido.', this.activeAgentId);
-        return;
-      }
-
-      const currentInstanceId = this.activeAgentId;
-      const currentAgentDbId = this.selectedAgentDbId;
-
-      this.progressMessages.set(currentInstanceId, null);
-      this.streamingMessages.set(currentInstanceId, null);
-
-      const cwdMatch = data.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
-      const cwd = cwdMatch ? cwdMatch[0] : this.activeAgentCwd || undefined;
-
-      this.addProgressMessage('🚀 Executando agente...', currentInstanceId);
-
-      const executionState: AgentExecutionState = {
-        id: this.activeAgentId,
-        emoji: this.selectedAgentEmoji || '🤖',
-        title: this.selectedAgentName || 'Unknown Agent',
-        prompt: data.message.trim(),
-        status: 'running',
-        logs: ['🚀 Agent execution started']
-      };
-      this.agentExecutionService.executeAgent(executionState);
-
-      this.subscriptions.add(
-        this.agentService.executeAgent(currentAgentDbId, data.message.trim(), currentInstanceId, cwd, this.activeScreenplayId || undefined, data.provider).subscribe({
-          next: (result) => {
-            this.progressMessages.set(currentInstanceId, null);
-            this.agentExecutionService.completeAgent(currentInstanceId, result);
-
-            let responseContent = result.result || result.data?.result || 'Execução concluída';
-            if (typeof responseContent === 'object') {
-              responseContent = JSON.stringify(responseContent, null, 2);
-            }
-
-            const responseMessage: Message = {
-              id: `response-${Date.now()}`,
-              content: responseContent,
-              type: 'bot',
-              timestamp: new Date()
-            };
-
-            const agentHistory = this.chatHistories.get(currentInstanceId) || [];
-            this.chatHistories.set(currentInstanceId, [...agentHistory, responseMessage]);
-
-            if (this.activeAgentId === currentInstanceId) {
-              this.chatState.messages = this.chatHistories.get(currentInstanceId) || [];
-            }
-
-            this.chatState.isLoading = false;
-          },
-          error: (error) => {
-            this.progressMessages.set(currentInstanceId, null);
-            this.agentExecutionService.cancelAgent(currentInstanceId);
-            this.handleError(error.error || error.message || 'Erro ao executar agente', currentInstanceId);
-          }
-        })
-      );
-      return;
-    }
-
-    // No active agent: use MCP tools system
-    const messageWithContext = this.currentMode === 'agent'
-      ? `[AGENT MODE - Can modify screenplay] ${data.message.trim()}`
-      : data.message.trim();
-
-    this.subscriptions.add(
-      this.apiService.sendMessage(messageWithContext, this.config.api).subscribe({
-        next: (event: any) => {
-          this.handleStreamEvent(event);
-        },
-        error: (error) => {
-          this.handleError(error);
-        },
-        complete: () => {
-          console.log('Stream completed');
-        }
-      })
-    );
-  }
+  // 🔥 Métodos handleSendMessageWithConversationModel e handleSendMessageWithLegacyModel
+  // foram movidos para MessageHandlingService (FASE 1.1)
 
   private handleStreamEvent(event: any): void {
     console.log('Stream event:', event);
@@ -2605,7 +2433,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Toggle persona modal visibility
    */
   togglePersonaModal(): void {
-    this.showPersonaModal = !this.showPersonaModal;
+    this.modalStateService.toggle('personaModal');
   }
 
   /**
@@ -2629,14 +2457,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   openCwdDefinitionModal(): void {
     this.tempCwd = this.activeAgentCwd || '';
-    this.showCwdModal = true;
+    this.modalStateService.open('cwdModal');
   }
 
   /**
    * Close CWD definition modal
    */
   closeCwdModal(): void {
-    this.showCwdModal = false;
+    this.modalStateService.close('cwdModal');
     this.tempCwd = '';
   }
 
@@ -2691,7 +2519,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Toggle agent options menu
    */
   toggleAgentOptionsMenu(): void {
-    this.showAgentOptionsMenu = !this.showAgentOptionsMenu;
+    this.modalStateService.toggle('agentOptionsMenu');
   }
 
   /**
@@ -2759,7 +2587,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Toggle dock info modal
    */
   toggleDockInfoModal(): void {
-    this.showDockInfoModal = !this.showDockInfoModal;
+    this.modalStateService.toggle('dockInfoModal');
   }
 
   /**
@@ -2903,7 +2731,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Edit agent CWD from menu
    */
   editAgentCwd(): void {
-    this.showAgentOptionsMenu = false;
+    this.modalStateService.close('agentOptionsMenu');
     this.openCwdDefinitionModal();
   }
 
@@ -2911,15 +2739,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Edit persona from menu
    */
   editPersona(): void {
-    this.showAgentOptionsMenu = false;
-    
+    this.modalStateService.close('agentOptionsMenu');
+
     // Verifica se há um agente ativo
     if (!this.activeAgentId) {
       console.warn('⚠️ [CHAT] Não é possível editar persona: nenhum agente ativo');
       return;
     }
-    
-    this.showPersonaEditModal = true;
+
+    this.modalStateService.open('personaEditModal');
     console.log('✏️ [CHAT] Abrindo modal de edição de persona para agente:', this.activeAgentId);
   }
 
@@ -2927,7 +2755,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Close persona edit modal
    */
   closePersonaEditModal(): void {
-    this.showPersonaEditModal = false;
+    this.modalStateService.close('personaEditModal');
     console.log('✏️ [CHAT] Modal de edição de persona fechado');
   }
 
@@ -2997,8 +2825,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * View agent context from menu
    */
   viewAgentContext(): void {
-    this.showAgentOptionsMenu = false;
-    this.showPersonaModal = true;
+    this.modalStateService.close('agentOptionsMenu');
+    this.modalStateService.open('personaModal');
     console.log('📋 [CHAT] Abrindo modal de contexto do agente');
   }
 
@@ -3006,7 +2834,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * View agent details from menu
    */
   viewAgentDetails(): void {
-    this.showAgentOptionsMenu = false;
+    this.modalStateService.close('agentOptionsMenu');
 
     const details = `
 📋 Detalhes do Agente
@@ -3029,53 +2857,20 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     const target = event.target as HTMLElement;
     // Close options menu if clicking outside
     if (!target.closest('.agent-options-menu') && !target.closest('.settings-btn')) {
-      this.showAgentOptionsMenu = false;
+      this.modalStateService.close('agentOptionsMenu');
     }
   }
 
   /**
-   * Handle ESC key to close modals
+   * Handle ESC key to close modals using ModalStateService
    */
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
-    // Close dock info modal if open
-    if (this.showDockInfoModal) {
-      this.toggleDockInfoModal();
+    // Usar o serviço para fechar o último modal aberto
+    if (this.modalStateService.isAnyModalOpen()) {
+      this.modalStateService.handleEscapeKey();
       event.preventDefault();
       event.stopPropagation();
-      return;
-    }
-
-    // Close persona edit modal if open
-    if (this.showPersonaEditModal) {
-      this.closePersonaEditModal();
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // Close persona modal if open
-    if (this.showPersonaModal) {
-      this.togglePersonaModal();
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // Close CWD modal if open
-    if (this.showCwdModal) {
-      this.closeCwdModal();
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // Close agent options menu if open
-    if (this.showAgentOptionsMenu) {
-      this.showAgentOptionsMenu = false;
-      event.preventDefault();
-      event.stopPropagation();
-      return;
     }
   }
 
@@ -3158,8 +2953,8 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
   // ==========================================
 
   toggleContextEditor(): void {
-    this.showContextEditor = !this.showContextEditor;
-    if (this.showContextEditor) {
+    this.modalStateService.toggle('contextEditor');
+    if (this.modalStateService.isOpen('contextEditor')) {
       this.originalContext = this.conversationContext;
     }
   }
@@ -3173,7 +2968,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     this.conversationService.updateConversationContext(this.activeConversationId, this.conversationContext).subscribe({
       next: (response) => {
         console.log('✅ Contexto atualizado:', response);
-        this.showContextEditor = false;
+        this.modalStateService.close('contextEditor');
         alert('Contexto salvo com sucesso! 🎉');
       },
       error: (error) => {
@@ -3185,7 +2980,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
 
   cancelContextEdit(): void {
     this.conversationContext = this.originalContext;
-    this.showContextEditor = false;
+    this.modalStateService.close('contextEditor');
   }
 
   openContextUpload(): void {
