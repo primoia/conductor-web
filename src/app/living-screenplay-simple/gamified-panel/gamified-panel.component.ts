@@ -99,6 +99,9 @@ interface PanelKpis {
             <span class="kpi-value">{{ investigationsActive }}</span>
           </div>
         </div>
+        <button class="action-btn" (click)="loadProjectScreenplay()" title="Carregar screenplay do projeto">
+          📜 Screenplay
+        </button>
       </div>
     </div>
   `,
@@ -186,6 +189,10 @@ interface PanelKpis {
       padding: 4px 10px;
       background: #f9fafb;
       border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .kpis {
@@ -193,6 +200,7 @@ interface PanelKpis {
       gap: 12px;
       align-items: center;
       justify-content: center;
+      flex: 1;
     }
 
     .kpi {
@@ -217,6 +225,29 @@ interface PanelKpis {
       min-width: 14px;
       text-align: right;
     }
+
+    .action-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #2563eb;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .action-btn:hover {
+      background: #eff6ff;
+      border-color: #2563eb;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   `]
 })
 export class GamifiedPanelComponent implements OnInit, OnDestroy {
@@ -224,6 +255,7 @@ export class GamifiedPanelComponent implements OnInit, OnDestroy {
   @Output() investigate = new EventEmitter<unknown>(); // reserved for fase 4
   @Output() settings = new EventEmitter<void>(); // fase 2
   @Output() stateChange = new EventEmitter<PanelState>(); // emit when panel expands/collapses
+  @Output() loadScreenplay = new EventEmitter<void>(); // emit when user wants to load screenplay
 
   // Compact save status coming from parent (screenplay)
   @Input() isSaving = false;
@@ -260,6 +292,10 @@ export class GamifiedPanelComponent implements OnInit, OnDestroy {
   toggleState(): void {
     this.state = this.state === 'collapsed' ? 'expanded' : 'collapsed';
     this.stateChange.emit(this.state);
+  }
+
+  loadProjectScreenplay(): void {
+    this.loadScreenplay.emit();
   }
 
   private refreshKpis(): void {

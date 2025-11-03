@@ -344,6 +344,91 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.isPanelExpanded = state === 'expanded';
   }
 
+  /**
+   * Load project screenplay shortcut from Gamified Panel
+   * Implements Phase 2 & 3: Load last accessed screenplay from localStorage
+   */
+  onLoadProjectScreenplay(): void {
+    this.logging.info('📜 [SCREENPLAY SHORTCUT] Loading project screenplay', 'ScreenplayInteractive');
+
+    // Phase 3: Check for last accessed screenplay in localStorage
+    const lastScreenplayId = localStorage.getItem('last_screenplay_id');
+
+    if (lastScreenplayId) {
+      // Load the last accessed screenplay
+      this.logging.info(`📜 [SCREENPLAY SHORTCUT] Loading last accessed screenplay: ${lastScreenplayId}`, 'ScreenplayInteractive');
+      this.isLoading = true;
+
+      this.screenplayStorage.getScreenplay(lastScreenplayId).subscribe({
+        next: (screenplay) => {
+          if (screenplay.isDeleted) {
+            this.logging.warn('⚠️ [SCREENPLAY SHORTCUT] Last screenplay was deleted, loading most recent', 'ScreenplayInteractive');
+            this.notificationService.showWarning('Última screenplay foi deletada. Carregando mais recente.');
+            localStorage.removeItem('last_screenplay_id');
+            this.loadMostRecentScreenplay();
+          } else {
+            this.loadScreenplayIntoEditor(screenplay);
+            this.updateUrlWithScreenplayId(screenplay.id);
+            this.notificationService.showSuccess(`Screenplay "${screenplay.name}" carregada com sucesso`);
+            this.isLoading = false;
+          }
+        },
+        error: (error) => {
+          this.logging.error('❌ [SCREENPLAY SHORTCUT] Failed to load last screenplay:', error, 'ScreenplayInteractive');
+          this.notificationService.showWarning('Não foi possível carregar última screenplay. Carregando mais recente.');
+          localStorage.removeItem('last_screenplay_id');
+          this.loadMostRecentScreenplay();
+        }
+      });
+    } else {
+      // No last screenplay, load the most recent one
+      this.logging.info('📜 [SCREENPLAY SHORTCUT] No last screenplay, loading most recent', 'ScreenplayInteractive');
+      this.loadMostRecentScreenplay();
+    }
+  }
+
+  /**
+   * Helper method to load the most recent screenplay
+   */
+  private loadMostRecentScreenplay(): void {
+    this.isLoading = true;
+
+    this.screenplayStorage.getScreenplays('', 1, 1).subscribe({
+      next: (response) => {
+        if (response.items.length > 0) {
+          const latestScreenplay = response.items[0];
+          this.logging.info(`📜 [SCREENPLAY SHORTCUT] Loading most recent screenplay: ${latestScreenplay.name}`, 'ScreenplayInteractive');
+
+          // Load full screenplay content
+          this.screenplayStorage.getScreenplay(latestScreenplay.id).subscribe({
+            next: (screenplay) => {
+              this.loadScreenplayIntoEditor(screenplay);
+              this.updateUrlWithScreenplayId(screenplay.id);
+              // Save to localStorage for next time
+              localStorage.setItem('last_screenplay_id', screenplay.id);
+              this.notificationService.showSuccess(`Screenplay "${screenplay.name}" carregada com sucesso`);
+              this.isLoading = false;
+            },
+            error: (error) => {
+              this.logging.error('❌ [SCREENPLAY SHORTCUT] Failed to load screenplay content:', error, 'ScreenplayInteractive');
+              this.notificationService.showError('Erro ao carregar conteúdo da screenplay');
+              this.isLoading = false;
+            }
+          });
+        } else {
+          this.logging.warn('⚠️ [SCREENPLAY SHORTCUT] No screenplays found', 'ScreenplayInteractive');
+          this.notificationService.showWarning('Nenhuma screenplay encontrada. Crie uma nova.');
+          this.isLoading = false;
+        }
+      },
+      error: (error) => {
+        this.logging.error('❌ [SCREENPLAY SHORTCUT] Failed to fetch screenplays:', error, 'ScreenplayInteractive');
+        this.notificationService.showError('Erro ao buscar screenplays');
+        this.isLoading = false;
+      }
+    });
+  }
+
   launchInvestigation(req: InvestigationRequest): void {
     if (!this.investigationEvent) return;
     // Store pending investigation, then open selector for choosing investigator agent
@@ -2104,6 +2189,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Reload agents in the game component
     this.reloadAgentGame();
+
+    // Phase 3: Save screenplay ID to localStorage for shortcut access
+    localStorage.setItem('last_screenplay_id', screenplay.id);
 
     this.logging.info(`✅ [LOAD] Screenplay loaded: ${screenplay.name} (ID: ${screenplay.id})`, 'ScreenplayInteractive');
   }

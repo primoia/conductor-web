@@ -141,7 +141,8 @@
               [hasCurrentScreenplay]="!!currentScreenplay"
               [showStatusInHeaderWhenCollapsed]="true"
               (settings)="openAgentPersonalization()"
-              (stateChange)="onPanelStateChange($event)">
+              (stateChange)="onPanelStateChange($event)"
+              (loadScreenplay)="onLoadProjectScreenplay()">
               <app-event-ticker [isExpanded]="isPanelExpanded" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
             </app-gamified-panel>
           </div>
