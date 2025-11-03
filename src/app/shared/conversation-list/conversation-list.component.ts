@@ -13,12 +13,13 @@
 
 import { Component, OnInit, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ConversationService, ConversationSummary } from '../../services/conversation.service';
 
 @Component({
   selector: 'app-conversation-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="conversation-list">
       <div class="conversation-list-header">
@@ -39,7 +40,24 @@ import { ConversationService, ConversationSummary } from '../../services/convers
           (click)="onSelectConversation(conv.conversation_id)">
 
           <div class="conversation-header">
-            <span class="conversation-title">{{ conv.title }}</span>
+            <span
+              *ngIf="editingConversationId !== conv.conversation_id"
+              class="conversation-title"
+              (dblclick)="startEditTitle(conv.conversation_id, conv.title)"
+              title="Duplo clique para editar">
+              {{ conv.title }}
+            </span>
+            <input
+              *ngIf="editingConversationId === conv.conversation_id"
+              type="text"
+              class="title-edit-input"
+              [(ngModel)]="editingTitle"
+              (blur)="saveTitle(conv.conversation_id)"
+              (keydown.enter)="saveTitle(conv.conversation_id)"
+              (keydown.escape)="cancelEditTitle()"
+              (click)="$event.stopPropagation()"
+              #titleInput
+            />
             <button
               class="delete-btn"
               (click)="onDeleteConversation($event, conv.conversation_id)"
@@ -158,6 +176,24 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       color: #212529;
       flex: 1;
       word-break: break-word;
+      cursor: text;
+    }
+
+    .title-edit-input {
+      font-size: 14px;
+      font-weight: 500;
+      color: #212529;
+      flex: 1;
+      border: 1px solid #007bff;
+      border-radius: 4px;
+      padding: 4px 8px;
+      outline: none;
+      background: white;
+    }
+
+    .title-edit-input:focus {
+      border-color: #0056b3;
+      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
     }
 
     .delete-btn {
@@ -218,6 +254,9 @@ export class ConversationListComponent implements OnInit {
   @Output() conversationDeleted = new EventEmitter<string>();
 
   conversations: ConversationSummary[] = [];
+  editingConversationId: string | null = null;
+  editingTitle: string = '';
+  originalTitle: string = '';
 
   constructor(private conversationService: ConversationService) {}
 
@@ -275,5 +314,68 @@ export class ConversationListComponent implements OnInit {
   // Método público para recarregar a lista (chamado pelo componente pai)
   refresh(): void {
     this.loadConversations();
+  }
+
+  startEditTitle(conversationId: string, currentTitle: string): void {
+    this.editingConversationId = conversationId;
+    this.editingTitle = currentTitle;
+    this.originalTitle = currentTitle;
+
+    // Focar no input após o Angular renderizar
+    setTimeout(() => {
+      const input = document.querySelector('.title-edit-input') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 0);
+  }
+
+  saveTitle(conversationId: string): void {
+    if (!this.editingTitle || this.editingTitle.trim().length < 3) {
+      alert('O título deve ter no mínimo 3 caracteres');
+      this.editingTitle = this.originalTitle;
+      this.editingConversationId = null;
+      return;
+    }
+
+    if (this.editingTitle.trim().length > 100) {
+      alert('O título deve ter no máximo 100 caracteres');
+      this.editingTitle = this.originalTitle;
+      this.editingConversationId = null;
+      return;
+    }
+
+    const trimmedTitle = this.editingTitle.trim();
+
+    if (trimmedTitle === this.originalTitle) {
+      // Sem mudança
+      this.editingConversationId = null;
+      return;
+    }
+
+    this.conversationService.updateConversationTitle(conversationId, trimmedTitle).subscribe({
+      next: (response) => {
+        console.log('✅ Título atualizado:', response);
+        // Atualizar localmente
+        const conv = this.conversations.find(c => c.conversation_id === conversationId);
+        if (conv) {
+          conv.title = response.new_title;
+        }
+        this.editingConversationId = null;
+      },
+      error: (error) => {
+        console.error('❌ Erro ao atualizar título:', error);
+        alert('Erro ao atualizar título: ' + (error.error?.detail || error.message));
+        this.editingTitle = this.originalTitle;
+        this.editingConversationId = null;
+      }
+    });
+  }
+
+  cancelEditTitle(): void {
+    this.editingConversationId = null;
+    this.editingTitle = '';
+    this.originalTitle = '';
   }
 }

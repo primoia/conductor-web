@@ -137,6 +137,70 @@ const DEFAULT_CONFIG: ConductorConfig = {
       </div>
 
       <div class="chat-body">
+        <!-- 🔥 NOVO: Context Banner -->
+        <div class="context-banner" *ngIf="environment.features?.useConversationModel && activeConversationId">
+          <div class="context-header">
+            <span class="context-icon">📋</span>
+            <span class="context-title">Contexto da Conversa</span>
+            <div class="context-actions">
+              <button
+                class="context-action-btn"
+                (click)="toggleContextEditor()"
+                title="Editar contexto">
+                {{ showContextEditor ? '✕' : '✏️' }}
+              </button>
+              <button
+                class="context-action-btn"
+                (click)="openContextUpload()"
+                title="Upload arquivo .md">
+                📁
+              </button>
+            </div>
+          </div>
+
+          <!-- Editor de Contexto -->
+          <div class="context-editor" *ngIf="showContextEditor">
+            <textarea
+              class="context-textarea"
+              [(ngModel)]="conversationContext"
+              placeholder="Descreva o problema, bug ou feature desta conversa em Markdown...
+
+Exemplo:
+## Bug: Login OAuth
+O sistema não consegue autenticar usuários via Google OAuth.
+Erro: 'invalid_token' na response..."
+              rows="8">
+            </textarea>
+            <div class="context-editor-actions">
+              <button class="save-context-btn" (click)="saveConversationContext()">
+                💾 Salvar Contexto
+              </button>
+              <button class="cancel-context-btn" (click)="cancelContextEdit()">
+                Cancelar
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview do Contexto (quando não está editando) -->
+          <div class="context-preview" *ngIf="!showContextEditor && conversationContext">
+            <div class="markdown-content" [innerHTML]="renderMarkdown(conversationContext)"></div>
+          </div>
+
+          <!-- Estado vazio -->
+          <div class="context-empty" *ngIf="!showContextEditor && !conversationContext">
+            <p class="empty-hint">📝 Clique no ✏️ para adicionar contexto sobre o que está sendo trabalhado nesta conversa</p>
+          </div>
+        </div>
+
+        <!-- Input de Upload (Hidden) -->
+        <input
+          #contextFileInput
+          type="file"
+          accept=".md"
+          style="display: none;"
+          (change)="onContextFileSelected($event)"
+        />
+
         <!-- CWD Warning Banner -->
         <div class="cwd-warning-banner" *ngIf="showCwdWarning()">
           <div class="warning-content">
@@ -914,6 +978,178 @@ const DEFAULT_CONFIG: ConductorConfig = {
       }
     }
 
+    /* Context Banner Styles */
+    .context-banner {
+      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      border-bottom: 2px solid #9ca3af;
+      padding: 16px 20px;
+      animation: slideDown 0.3s ease;
+    }
+
+    .context-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .context-icon {
+      font-size: 18px;
+    }
+
+    .context-title {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .context-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .context-action-btn {
+      background: #6b7280;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .context-action-btn:hover {
+      background: #4b5563;
+      transform: translateY(-1px);
+    }
+
+    .context-editor {
+      margin-top: 12px;
+    }
+
+    .context-textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      resize: vertical;
+      min-height: 150px;
+    }
+
+    .context-textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .context-editor-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      justify-content: flex-end;
+    }
+
+    .save-context-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .save-context-btn:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    .cancel-context-btn {
+      background: #6b7280;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cancel-context-btn:hover {
+      background: #4b5563;
+    }
+
+    .context-preview {
+      margin-top: 12px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+    }
+
+    .markdown-content {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #374151;
+    }
+
+    .markdown-content h1 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 8px 0;
+      color: #111827;
+    }
+
+    .markdown-content h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 6px 0;
+      color: #1f2937;
+    }
+
+    .markdown-content h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 4px 0;
+      color: #374151;
+    }
+
+    .markdown-content code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #dc2626;
+    }
+
+    .markdown-content a {
+      color: #3b82f6;
+      text-decoration: underline;
+    }
+
+    .context-empty {
+      padding: 24px;
+      text-align: center;
+      background: white;
+      border-radius: 8px;
+      border: 2px dashed #d1d5db;
+      margin-top: 12px;
+    }
+
+    .empty-hint {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 0;
+    }
+
     /* CWD Warning Banner */
     .cwd-warning-banner {
       background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
@@ -1452,6 +1688,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   // 🔥 NOVO MODELO: Conversas globais
   public activeConversationId: string | null = null;  // ID da conversa ativa (novo modelo)
   private conversationParticipants: ConvAgentInfo[] = [];  // Participantes da conversa
+
+  // 🔥 NOVO: Contexto da conversa
+  public conversationContext: string = '';  // Contexto markdown da conversa
+  public showContextEditor: boolean = false;  // Estado do editor de contexto
+  private originalContext: string = '';  // Backup para cancelamento
+  @ViewChild('contextFileInput') contextFileInput: any;
 
   // Expor environment para o template
   public environment = environment;
@@ -2910,4 +3152,120 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     const handles = document.querySelectorAll('.resize-handle');
     handles.forEach(handle => handle.classList.remove('resizing'));
   };
+
+  // ==========================================
+  // 🔥 NOVO: Métodos de Contexto da Conversa
+  // ==========================================
+
+  toggleContextEditor(): void {
+    this.showContextEditor = !this.showContextEditor;
+    if (this.showContextEditor) {
+      this.originalContext = this.conversationContext;
+    }
+  }
+
+  saveConversationContext(): void {
+    if (!this.activeConversationId) {
+      console.error('❌ Nenhuma conversa ativa');
+      return;
+    }
+
+    this.conversationService.updateConversationContext(this.activeConversationId, this.conversationContext).subscribe({
+      next: (response) => {
+        console.log('✅ Contexto atualizado:', response);
+        this.showContextEditor = false;
+        alert('Contexto salvo com sucesso! 🎉');
+      },
+      error: (error) => {
+        console.error('❌ Erro ao atualizar contexto:', error);
+        alert('Erro ao salvar contexto: ' + (error.error?.detail || error.message));
+      }
+    });
+  }
+
+  cancelContextEdit(): void {
+    this.conversationContext = this.originalContext;
+    this.showContextEditor = false;
+  }
+
+  openContextUpload(): void {
+    this.contextFileInput?.nativeElement.click();
+  }
+
+  onContextFileSelected(event: any): void {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.md')) {
+      alert('Por favor, selecione um arquivo .md');
+      return;
+    }
+
+    if (!this.activeConversationId) {
+      console.error('❌ Nenhuma conversa ativa');
+      return;
+    }
+
+    this.conversationService.uploadContextFile(this.activeConversationId, file).subscribe({
+      next: (response) => {
+        console.log('✅ Arquivo carregado:', response);
+        this.conversationContext = response.preview;
+
+        // Carregar contexto completo da conversa
+        this.loadConversationContext();
+
+        alert(`Contexto carregado de ${response.filename} (${Math.round(response.size / 1024)}KB) 🎉`);
+      },
+      error: (error) => {
+        console.error('❌ Erro ao fazer upload:', error);
+        alert('Erro ao fazer upload: ' + (error.error?.detail || error.message));
+      }
+    });
+
+    // Limpar o input
+    event.target.value = '';
+  }
+
+  renderMarkdown(markdown: string): string {
+    if (!markdown) return '';
+
+    // Implementação básica de renderização de markdown
+    // Para produção, considerar usar uma lib como marked.js
+    let html = markdown;
+
+    // Headers
+    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+    // Bold
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+
+    // Italic
+    html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+    // Code inline
+    html = html.replace(/`(.*?)`/gim, '<code>$1</code>');
+
+    // Links
+    html = html.replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2" target="_blank">$1</a>');
+
+    // Quebras de linha
+    html = html.replace(/\n/gim, '<br>');
+
+    return html;
+  }
+
+  private loadConversationContext(): void {
+    if (!this.activeConversationId) return;
+
+    this.conversationService.getConversation(this.activeConversationId).subscribe({
+      next: (conversation) => {
+        this.conversationContext = conversation.context || '';
+      },
+      error: (error) => {
+        console.error('❌ Erro ao carregar contexto da conversa:', error);
+      }
+    });
+  }
 }

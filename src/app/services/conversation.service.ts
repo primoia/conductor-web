@@ -43,6 +43,7 @@ export interface Conversation {
   participants: AgentInfo[];
   messages: Message[];
   screenplay_id?: string;
+  context?: string;  // Campo de contexto markdown
 }
 
 export interface ConversationSummary {
@@ -53,12 +54,14 @@ export interface ConversationSummary {
   message_count: number;
   participant_count: number;
   screenplay_id?: string;
+  context?: string;  // Campo de contexto markdown
 }
 
 export interface CreateConversationRequest {
   title?: string;
   active_agent?: AgentInfo;
   screenplay_id?: string;
+  context?: string;  // Campo de contexto markdown
 }
 
 export interface AddMessageRequest {
@@ -158,6 +161,40 @@ export class ConversationService {
     return this.http.get<{ conversation_id: string; total: number; messages: Message[] }>(
       `${this.apiUrl}/${conversationId}/messages`,
       { params }
+    );
+  }
+
+  /**
+   * Atualiza o título de uma conversa.
+   */
+  updateConversationTitle(conversationId: string, newTitle: string): Observable<{ success: boolean; message: string; new_title: string }> {
+    return this.http.patch<{ success: boolean; message: string; new_title: string }>(
+      `${this.apiUrl}/${conversationId}/title`,
+      null,
+      { params: { new_title: newTitle } }
+    );
+  }
+
+  /**
+   * Atualiza o contexto de uma conversa.
+   */
+  updateConversationContext(conversationId: string, context: string | null): Observable<{ success: boolean; message: string }> {
+    return this.http.patch<{ success: boolean; message: string }>(
+      `${this.apiUrl}/${conversationId}/context`,
+      { context }
+    );
+  }
+
+  /**
+   * Upload de arquivo markdown para definir o contexto da conversa.
+   */
+  uploadContextFile(conversationId: string, file: File): Observable<{ success: boolean; message: string; filename: string; size: number; preview: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.post<{ success: boolean; message: string; filename: string; size: number; preview: string }>(
+      `${this.apiUrl}/${conversationId}/context/upload`,
+      formData
     );
   }
 }
