@@ -1727,6 +1727,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         this.isRecording = recording;
       })
     );
+
+    // Subscribe to transcript and insert into editor
+    this.subscriptions.add(
+      this.speechService.transcript$.subscribe(transcript => {
+        if (transcript && this.chatInputComponent) {
+          this.chatInputComponent.insertText(transcript);
+        }
+      })
+    );
   }
 
   ngOnDestroy(): void {

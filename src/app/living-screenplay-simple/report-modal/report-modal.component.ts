@@ -53,11 +53,11 @@ export interface ReportModalData {
   `,
   styles: [`
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: #fff; border-radius: 12px; width: 520px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }
+    .modal-content { background: #fff; border-radius: 12px; width: 800px; max-width: 92vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
     .header-actions { display: inline-flex; gap: 8px; align-items: center; }
-    .modal-body { padding: 16px; }
-    .modal-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb; }
+    .modal-body { padding: 16px; overflow-y: auto; flex: 1; min-height: 0; }
+    .modal-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
     .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; }
     .toggle-json-btn { background: #f3f4f6; border: 1px solid #e5e7eb; padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
     .toggle-json-btn:hover { background: #e5e7eb; }

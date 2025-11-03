@@ -354,4 +354,14 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
       this.editor.commands.focus('end'); // Focus at end of content
     }
   }
+
+  /**
+   * Insert text at current cursor position
+   */
+  insertText(text: string): void {
+    if (this.editor && text) {
+      this.editor.commands.insertContent(text);
+      this.editor.commands.focus('end');
+    }
+  }
 }
