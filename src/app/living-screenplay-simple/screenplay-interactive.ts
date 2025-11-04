@@ -153,6 +153,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   chatWidth = 30;
   private isDraggingSplitter = false;
 
+  // First column toggle state
+  firstColumnVisible = true;
+
   // Estado da aplicação
   agents: AgentConfig[] = [];
   availableEmojis: EmojiInfo[] = [];
@@ -1732,6 +1735,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   toggleScreenplaySettings(): void {
     this.showScreenplaySettings = !this.showScreenplaySettings;
+  }
+
+  /**
+   * Toggle first column visibility
+   */
+  toggleFirstColumn(): void {
+    this.firstColumnVisible = !this.firstColumnVisible;
   }
 
   /**

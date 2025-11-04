@@ -25,6 +25,14 @@
   background: #f8f9fa;
   border-right: 1px solid #e1e4e8;
   overflow: hidden;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* First column hidden state */
+.screenplay-container.first-column-hidden .first-column {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* First Column Tabs */
@@ -679,6 +687,22 @@
   background: #bbdefb;
   border-color: #42a5f5;
   box-shadow: 0 4px 12px rgba(66, 165, 245, 0.3);
+}
+
+/* Toggle First Column Button */
+.toolbar-btn.toggle-first-column-btn {
+  background: #f3e8ff;
+  border-color: #d8b4fe;
+  font-size: 14px;
+  font-weight: 700;
+  color: #7c3aed;
+}
+
+.toolbar-btn.toggle-first-column-btn:hover {
+  background: #e9d5ff;
+  border-color: #a78bfa;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  transform: scale(1.1);
 }
 
 /* Screenplay Info Modal */

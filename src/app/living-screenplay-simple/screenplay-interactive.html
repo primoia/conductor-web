@@ -1,5 +1,5 @@
     <div class="screenplay-layout">
-      <div class="screenplay-container" [style.width.%]="screenplayWidth">
+      <div class="screenplay-container" [style.width.%]="screenplayWidth" [class.first-column-hidden]="!firstColumnVisible">
         <!-- Coluna 1: Sistema de Abas -->
         <div class="first-column">
           <!-- Tab Navigation -->
@@ -64,6 +64,13 @@
 
             <!-- Toolbar Buttons -->
             <div class="toolbar-buttons">
+              <!-- Toggle First Column -->
+              <button
+                class="toolbar-btn toggle-first-column-btn"
+                [title]="firstColumnVisible ? 'Esconder menu lateral' : 'Mostrar menu lateral'"
+                (click)="toggleFirstColumn()">
+                {{ firstColumnVisible ? '◀' : '▶' }}
+              </button>
               <button
                 class="toolbar-btn new-btn"
                 title="Novo Roteiro"

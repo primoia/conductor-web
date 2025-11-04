@@ -53,7 +53,7 @@ export interface ReportModalData {
   `,
   styles: [`
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: #fff; border-radius: 12px; width: 800px; max-width: 92vw; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .modal-content { background: #fff; border-radius: 12px; width: 1200px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
     .header-actions { display: inline-flex; gap: 8px; align-items: center; }
     .modal-body { padding: 16px; overflow-y: auto; flex: 1; min-height: 0; }

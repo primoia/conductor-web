@@ -1664,6 +1664,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   selectedProvider: string = ''; // '' = usar provider padrão do config.yaml
   isRecording: boolean = false;
   speechSupported: boolean = false;
+  showPersonaModal: boolean = false;
   private messageContent: string = ''; // Content from editor
 
   // ✅ SOLUÇÃO BUG PARALELISMO: Mapa de históricos isolados por agente
@@ -2072,7 +2073,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  private handleError(error: string, instanceId?: string): void {
+  private handleError(error: string, instanceId?: string | null): void {
     const targetInstanceId = instanceId || this.activeAgentId;
 
     // ✅ SOLUÇÃO BUG PARALELISMO: Limpar mensagens temporárias do agente correto
