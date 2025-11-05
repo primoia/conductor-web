@@ -25,7 +25,7 @@ export interface ConductorChatComponent {
   activeConversationId: string | null;
   createNewConversationForScreenplay(): void;
   clear(): void;
-  loadConversation?(conversationId: string): void;
+  setActiveConversation(conversationId: string | null): void;  // 🔒 BUG FIX: Adicionar método
   conversationListComponent?: any;
 }
 
@@ -130,16 +130,12 @@ export class ConversationManagementService {
             'ConversationManagementService'
           );
 
-          // Atualizar conversa ativa no chat
-          conductorChat.activeConversationId = latestConversation.conversation_id;
+          // 🔒 BUG FIX: Usar setActiveConversation() para emitir evento activeConversationChanged
+          // Isso garante que o screenplay-interactive atualize os agentes
+          conductorChat.setActiveConversation(latestConversation.conversation_id);
 
           // Atualizar estado local
           this.setActiveConversation(latestConversation.conversation_id);
-
-          // Carregar conversa se método disponível
-          if (conductorChat.loadConversation) {
-            conductorChat.loadConversation(latestConversation.conversation_id);
-          }
 
           // Refresh lista de conversas
           if (conductorChat.conversationListComponent) {

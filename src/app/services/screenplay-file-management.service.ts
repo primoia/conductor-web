@@ -163,12 +163,12 @@ export class ScreenplayFileManagementService {
    * @returns Observable com resultado da exportação
    */
   exportToFile(screenplay: Screenplay, filename?: string): Observable<ExportResult> {
-    const exportFilename = filename || this.sanitizeFilename(screenplay.title) + '.md';
+    const exportFilename = filename || this.sanitizeFilename(screenplay.name) + '.md';
 
     this.logging.info(
       `💾 [FILE-MGMT] Exportando roteiro: ${exportFilename}`,
       'ScreenplayFileManagementService',
-      { screenplayId: screenplay.screenplay_id }
+      { screenplayId: screenplay.id }
     );
 
     return from(this.exportFileAsync(screenplay.content, exportFilename)).pipe(
@@ -262,7 +262,7 @@ export class ScreenplayFileManagementService {
 
     if (hasConflict) {
       this.logging.warn(
-        `⚠️ [FILE-MGMT] Conflito detectado: ${dbScreenplay.title}`,
+        `⚠️ [FILE-MGMT] Conflito detectado: ${dbScreenplay.name}`,
         'ScreenplayFileManagementService',
         {
           diskLines: diskContent.split('\n').length,
@@ -350,7 +350,7 @@ export class ScreenplayFileManagementService {
           screenplay: {
             ...dbScreenplay,
             content: diskContent,
-            updated_at: new Date()
+            updatedAt: new Date().toISOString()
           },
           action: 'overwrite'
         };
@@ -362,16 +362,16 @@ export class ScreenplayFileManagementService {
         );
 
         // Criar novo screenplay com nome modificado
-        const newTitle = `${dbScreenplay.title} (Importado ${new Date().toLocaleString()})`;
+        const newName = `${dbScreenplay.name} (Importado ${new Date().toLocaleString()})`;
 
         return {
           screenplay: {
             ...dbScreenplay,
-            screenplay_id: '', // Será gerado novo ID
-            title: newTitle,
+            id: '', // Será gerado novo ID
+            name: newName,
             content: diskContent,
-            created_at: new Date(),
-            updated_at: new Date()
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
           },
           action: 'keep-both'
         };

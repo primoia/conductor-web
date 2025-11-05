@@ -2,7 +2,7 @@ import { Component, ViewChild, ElementRef, AfterViewInit, OnDestroy, HostListene
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CircleData, CirclePosition, CircleEvent } from '../examples/draggable-circles/draggable-circle.component';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
 import { AgentExecutionService, AgentExecutionState } from '../services/agent-execution';
@@ -15,10 +15,8 @@ import { ScreenplayService } from '../services/screenplay/screenplay.service';
 import { ScreenplayStorage, Screenplay, ScreenplayListItem } from '../services/screenplay-storage';
 import { ScreenplayManager, ScreenplayManagerEvent } from './screenplay-manager/screenplay-manager';
 import { AgentGameComponent } from './agent-game/agent-game.component';
-import { SaveStatusComponent } from './save-status/save-status.component';
 import { ScreenplayTreeComponent } from './screenplay-tree/screenplay-tree.component';
 import { AgentCatalogComponent } from './agent-catalog/agent-catalog.component';
-import { FilePathInfoComponent } from './file-path-info/file-path-info.component';
 import { ConflictResolutionModalComponent, ConflictResolution } from './conflict-resolution-modal/conflict-resolution-modal.component';
 import { NotificationToastComponent } from './notification-toast/notification-toast.component';
 // v2: replace CommandBar with GamifiedPanel
@@ -118,8 +116,6 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     AgentGameComponent,
     ScreenplayTreeComponent,
     AgentCatalogComponent,
-    SaveStatusComponent,
-    FilePathInfoComponent,
     ConflictResolutionModalComponent,
     NotificationToastComponent,
     GamifiedPanelComponent,
@@ -128,8 +124,7 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     ReportModalComponent,
     InvestigationLauncherComponent,
     CouncilorsDashboardComponent,
-    PromoteCouncilorModalComponent,
-    RouterLink
+    PromoteCouncilorModalComponent
   ],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [
@@ -149,8 +144,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(ScreenplayTreeComponent) screenplayTree?: ScreenplayTreeComponent;
 
   // Splitter state
-  screenplayWidth = 70;
-  chatWidth = 30;
+  screenplayWidth = 50;  // Reduzido de 70 para 50
+  chatWidth = 50;        // Aumentado de 30 para 50
   private isDraggingSplitter = false;
 
   // First column toggle state
@@ -625,6 +620,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         is_system_default: isSystemDefault,
         is_hidden: false,
         screenplay_id: screenplayId,
+        conversation_id: instance?.conversation_id || null, // 🔒 BUG FIX: Include conversation_id
         emoji: instance?.emoji || '🎬', // BUG FIX: Include emoji
         definition: instance?.definition || { // BUG FIX: Include definition
           title: 'Assistente de Roteiro',
@@ -633,13 +629,18 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         }
       };
 
+      // 🔥 NOVO: Include display_order if it exists
+      if (instance && (instance as any).display_order !== undefined) {
+        payload.display_order = (instance as any).display_order;
+      }
+
       if (cwd) {
         payload.cwd = cwd;
       }
 
       this.logging.info(`💾 ${logPrefix} Criando instância no MongoDB:`, 'ScreenplayInteractive', payload);
 
-      const response = await fetch(`${baseUrl}/agents/instances`, {
+      const response = await fetch(`${baseUrl}/api/agents/instances`, {  // 🔒 BUG FIX: Adicionar /api/ no path
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -673,7 +674,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private updateAgentInMongoDB(instanceId: string, updates: any): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
 
-    fetch(`${baseUrl}/agents/instances/${instanceId}`, {
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {  // 🔒 BUG FIX: Adicionar /api/ no path
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -730,7 +731,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private deleteAgentFromMongoDB(instanceId: string): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
 
-    fetch(`${baseUrl}/agents/instances/${instanceId}`, {
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {  // 🔒 BUG FIX: Adicionar /api/ no path
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -1212,9 +1213,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         this.updateUrlWithScreenplayId(newScreenplay.id);
 
         // SAGA-006: Wait for editor to be ready, then create default agent instance
-        setTimeout(async () => {
-          await this.createDefaultAgentInstance();
-        }, 100);
+        // 🔒 DESABILITADO: Criação automática de agente comentada para testar apenas criação manual
+        // setTimeout(async () => {
+        //   await this.createDefaultAgentInstance();
+        // }, 100);
 
         this.logging.info(`✅ [IMMEDIATE] Screenplay linked to editor and URL updated: ${newScreenplay.name}`, 'ScreenplayInteractive');
       },
@@ -1262,9 +1264,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
           // SAGA-006: Wait for editor to be ready, then create default agent for new screenplay
-          setTimeout(async () => {
-            await this.createDefaultAgentInstance();
-          }, 100);
+          // 🔒 DESABILITADO: Criação automática de agente comentada para testar apenas criação manual
+          // setTimeout(async () => {
+          //   await this.createDefaultAgentInstance();
+          // }, 100);
         }
         break;
       case 'delete':
@@ -2919,6 +2922,24 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openAgentSelector(): void {
+    // Validate that we have both screenplay_id and conversation_id before allowing agent instantiation
+    if (!this.currentScreenplay?.id) {
+      this.logging.error('❌ [AGENT-SELECTOR] Cannot add agent: screenplay_id is not set', 'ScreenplayInteractive');
+      alert('Erro: Não é possível adicionar agente sem um roteiro ativo.');
+      return;
+    }
+
+    if (!this.activeConversationId) {
+      this.logging.error('❌ [AGENT-SELECTOR] Cannot add agent: conversation_id is not set', 'ScreenplayInteractive');
+      alert('Erro: Não é possível adicionar agente sem uma conversa ativa. Por favor, inicie uma conversa primeiro.');
+      return;
+    }
+
+    this.logging.info('✅ [AGENT-SELECTOR] Opening agent selector', 'ScreenplayInteractive', {
+      screenplay_id: this.currentScreenplay.id,
+      conversation_id: this.activeConversationId
+    });
+
     this.showAgentSelector = true;
   }
 
@@ -2938,6 +2959,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    this.logging.info('🎯 [AGENT-SELECTED] Creating agent instance', 'ScreenplayInteractive', {
+      agent_id: agent.id,
+      screenplay_id: this.currentScreenplay?.id,
+      activeConversationId: this.activeConversationId,
+      instanceId: instanceId
+    });
+
     // Add the agent emoji to definitions if it doesn't exist
     if (!AGENT_DEFINITIONS[agent.emoji]) {
       AGENT_DEFINITIONS[agent.emoji] = {
@@ -2946,6 +2974,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         unicode: agent.emoji.codePointAt(0)?.toString(16) || ''
       };
     }
+
+    // 🔥 NOVO: Calculate display_order for new agent (should be last in list)
+    const agentsInConversation = Array.from(this.agentInstances.values())
+      .filter(a => a.conversation_id === this.activeConversationId);
+
+    // Find the highest display_order, or default to -1 if none exist
+    const maxDisplayOrder = agentsInConversation.reduce((max, agent) => {
+      const order = (agent as any).display_order;
+      return order !== undefined && order > max ? order : max;
+    }, -1);
+
+    const newDisplayOrder = maxDisplayOrder + 1;
+
+    this.logging.info(`🔢 [NEW-AGENT] Calculated display_order: ${newDisplayOrder} (max was ${maxDisplayOrder})`, 'ScreenplayInteractive');
 
     // Create a new agent instance
     const newInstance: AgentInstance = {
@@ -2969,6 +3011,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         updatedAt: new Date()
       }
     };
+
+    // 🔥 NOVO: Add display_order to instance
+    (newInstance as any).display_order = newDisplayOrder;
 
     // Add to instances map
     this.agentInstances.set(instanceId, newInstance);
@@ -3223,21 +3268,35 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         // Filtros básicos
         if (agent.is_hidden || agent.isDeleted) return false;
 
-        // 🔥 NOVO: Se há conversa ativa, mostrar apenas agentes dessa conversa
-        if (this.activeConversationId) {
-          return agent.conversation_id === this.activeConversationId;
+        // 🔒 BUG FIX: Só mostrar agentes quando há conversa ativa
+        // Isso evita que todos os agentes apareçam no reload quando activeConversationId ainda é null
+        if (!this.activeConversationId) {
+          return false;  // Não mostrar nenhum agente sem conversa selecionada
         }
 
-        // Se não há conversa ativa, mostrar todos (modo legado/compatibilidade)
-        return true;
+        // Mostrar apenas agentes dessa conversa
+        return agent.conversation_id === this.activeConversationId;
       })
       .sort((a, b) => {
-        // Sort by creation date (oldest first)
+        // 🔥 NOVO: Ordenar por display_order se disponível, senão por data de criação
+        const aOrder = (a as any).display_order;
+        const bOrder = (b as any).display_order;
+
+        // Se ambos têm display_order, usar isso
+        if (aOrder !== undefined && bOrder !== undefined) {
+          return aOrder - bOrder;
+        }
+
+        // Se apenas um tem display_order, ele vem primeiro
+        if (aOrder !== undefined) return -1;
+        if (bOrder !== undefined) return 1;
+
+        // Caso contrário, ordenar por data de criação (mais antigo primeiro)
         const dateA = a.config?.createdAt ? new Date(a.config.createdAt).getTime() : 0;
         const dateB = b.config?.createdAt ? new Date(b.config.createdAt).getTime() : 0;
         return dateA - dateB;
       });
-    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes ${this.activeConversationId ? `na conversa ${this.activeConversationId}` : 'no documento'} (ordem por criação)`, 'ScreenplayInteractive');
+    this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes ${this.activeConversationId ? `na conversa ${this.activeConversationId}` : 'no documento'} (ordem por display_order ou criação)`, 'ScreenplayInteractive');
   }
 
   public onDockAgentClick(agent: AgentInstance): void {
@@ -3292,9 +3351,71 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
       if (agentsInConversation.length === 0) {
         this.logging.info('🤖 [CONVERSATION-CHANGED] Nova conversa vazia, criando agente default...', 'ScreenplayInteractive');
-        this.createDefaultAgentInstance(conversationId);
+        // 🔒 DESABILITADO: Criação automática de agente comentada para testar apenas criação manual
+        // this.createDefaultAgentInstance(conversationId);
       }
     }
+  }
+
+  /**
+   * 🔥 NOVO: Handler para reordenação de agentes no dock
+   * Recebe a nova ordem e salva no backend
+   */
+  public onAgentOrderChanged(reorderedAgents: any[]): void {
+    this.logging.info('🔄 [AGENT-ORDER-CHANGED] Nova ordem de agentes recebida', 'ScreenplayInteractive', {
+      count: reorderedAgents.length
+    });
+
+    // Atualizar array local
+    this.contextualAgents = reorderedAgents;
+
+    // 🔥 IMPORTANTE: Atualizar display_order no Map de instâncias IMEDIATAMENTE
+    // para que updateAgentDockLists() não desfaça a reordenação
+    reorderedAgents.forEach((agent, index) => {
+      const instance = this.agentInstances.get(agent.id);
+      if (instance) {
+        (instance as any).display_order = index;
+        this.logging.debug(`📍 [AGENT-ORDER] Updated display_order=${index} for agent ${agent.id}`, 'ScreenplayInteractive');
+      }
+    });
+
+    // Preparar updates para o backend
+    const orderUpdates = reorderedAgents.map((agent, index) => ({
+      instance_id: agent.id,
+      display_order: index
+    }));
+
+    this.logging.info('💾 [AGENT-ORDER] Salvando ordem no MongoDB', 'ScreenplayInteractive', orderUpdates);
+
+    // Chamar endpoint para atualizar ordem
+    this.saveAgentOrder(orderUpdates);
+  }
+
+  /**
+   * 🔥 NOVO: Salva ordem dos agentes no MongoDB
+   */
+  private saveAgentOrder(orderUpdates: Array<{ instance_id: string; display_order: number }>): void {
+    const baseUrl = this.agentService['baseUrl'] || '';
+
+    fetch(`${baseUrl}/api/agents/instances/reorder`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_updates: orderUpdates })
+    })
+      .then(response => {
+        if (response.ok) {
+          this.logging.info('✅ [AGENT-ORDER] Ordem salva com sucesso', 'ScreenplayInteractive');
+        } else {
+          this.logging.warn('⚠️ [AGENT-ORDER] Falha ao salvar ordem:', 'ScreenplayInteractive', response.status);
+          // Atualizar dock para restaurar ordem original
+          this.updateAgentDockLists();
+        }
+      })
+      .catch(error => {
+        this.logging.error('❌ [AGENT-ORDER] Erro ao salvar ordem:', error, 'ScreenplayInteractive');
+        // Atualizar dock para restaurar ordem original
+        this.updateAgentDockLists();
+      });
   }
 
   /**
@@ -3507,6 +3628,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           id: i.instance_id,
           emoji: i.emoji,
           screenplay_id: i.screenplay_id,
+          conversation_id: i.conversation_id || 'não definida', // 🔒 BUG FIX: Log conversation_id
           cwd: i.cwd || i.config?.cwd || 'não definido'
         })));
 
@@ -3515,13 +3637,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         const loadedInstanceIds = new Set<string>();
 
         instances.forEach((doc: any) => {
-          this.logging.debug(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
+          this.logging.debug(`🔍 [DEBUG] Verificando agente: ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id}, conversa: ${doc.conversation_id || 'não definida'})`, 'ScreenplayInteractive');
 
           // Only load agents that belong to the current screenplay
           if (doc.screenplay_id === this.currentScreenplay?.id) {
             const instance: AgentInstance = {
               id: doc.instance_id,
               agent_id: doc.agent_id,
+              conversation_id: doc.conversation_id || undefined, // 🔒 BUG FIX: Load conversation_id from MongoDB
               emoji: doc.emoji,
               definition: doc.definition || {
                 title: doc.agent_id,
@@ -3540,9 +3663,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
               is_hidden: doc.is_hidden || false // SAGA-006: Load hidden flag
             };
 
+            // 🔥 NOVO: Preserve display_order from MongoDB if it exists
+            if (doc.display_order !== undefined) {
+              (instance as any).display_order = doc.display_order;
+            }
+
             this.agentInstances.set(instance.id, instance);
             loadedInstanceIds.add(instance.id);
-            this.logging.info(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - CWD: ${instance.config?.cwd || 'não definido'}`, 'ScreenplayInteractive');
+            this.logging.info(`✅ [SCREENPLAY] Agente carregado: ${instance.emoji} ${instance.definition.title} (${instance.id}) - Conversa: ${instance.conversation_id || 'não definida'} - CWD: ${instance.config?.cwd || 'não definido'}`, 'ScreenplayInteractive');
           } else {
             this.logging.debug(`⏭️ [SCREENPLAY] Agente ignorado (roteiro diferente): ${doc.emoji} ${doc.agent_id} (roteiro: ${doc.screenplay_id})`, 'ScreenplayInteractive');
           }
@@ -3588,11 +3716,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           }, 300);
         } else {
           // BUG FIX: If no agents found for this screenplay, create default agent
-          this.logging.info('🤖 [LOAD-AGENTS] No agents found for screenplay, creating default agent...', 'ScreenplayInteractive');
-          setTimeout(async () => {
-            await this.createDefaultAgentInstance();
-            this.logging.info('✅ [LOAD-AGENTS] Default agent created for screenplay without agents', 'ScreenplayInteractive');
-          }, 300);
+          // 🔒 DESABILITADO: Criação automática de agente comentada para testar apenas criação manual
+          this.logging.info('🤖 [LOAD-AGENTS] No agents found for screenplay. Use the "+" button to create agents manually.', 'ScreenplayInteractive');
+          // setTimeout(async () => {
+          //   await this.createDefaultAgentInstance();
+          //   this.logging.info('✅ [LOAD-AGENTS] Default agent created for screenplay without agents', 'ScreenplayInteractive');
+          // }, 300);
         }
 
       },
@@ -3681,7 +3810,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private async checkProcessingTasks(): Promise<void> {
     try {
       const baseUrl = this.agentService['baseUrl'] || '';
-      const url = `${baseUrl}/tasks/processing`;
+      const url = `${baseUrl}/api/tasks/processing`;  // 🔒 BUG FIX: Adicionar /api/ no path
 
       const response = await this.http.get<{
         success: boolean;

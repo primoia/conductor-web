@@ -55,6 +55,7 @@ export interface ConversationSummary {
   participant_count: number;
   screenplay_id?: string;
   context?: string;  // Campo de contexto markdown
+  display_order?: number;  // 🔥 NOVO: Ordem de exibição customizada
 }
 
 export interface CreateConversationRequest {
@@ -195,6 +196,16 @@ export class ConversationService {
     return this.http.post<{ success: boolean; message: string; filename: string; size: number; preview: string }>(
       `${this.apiUrl}/${conversationId}/context/upload`,
       formData
+    );
+  }
+
+  /**
+   * 🔥 NOVO: Atualiza a ordem de exibição das conversas.
+   */
+  updateConversationOrder(orderUpdates: Array<{ conversation_id: string; display_order: number }>): Observable<{ success: boolean; message: string; updated_count: number }> {
+    return this.http.patch<{ success: boolean; message: string; updated_count: number }>(
+      `${this.apiUrl}/reorder`,
+      { order_updates: orderUpdates }
     );
   }
 }

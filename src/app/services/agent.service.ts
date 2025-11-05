@@ -64,6 +64,12 @@ interface ExecutionRequest {
   providedIn: 'root'
 })
 export class AgentService {
+  /**
+   * 🔒 IMPORTANTE: baseUrl deve ser VAZIO (empty string)
+   * Todas as rotas DEVEM incluir /api/ explicitamente no path
+   * Exemplo: `${this.baseUrl}/api/agents/instances`
+   * Isso evita duplicação de /api/ no path
+   */
   private baseUrl: string = '';
 
   constructor() {

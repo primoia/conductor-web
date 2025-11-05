@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, HostListener, Output, EventEmitter, Input, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Subscription } from 'rxjs';
 import { ChatMessagesComponent } from './components/chat-messages/chat-messages.component';
 import { ChatInputComponent } from './components/chat-input/chat-input.component';
@@ -40,6 +41,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
   imports: [
     CommonModule,
     FormsModule,
+    DragDropModule,
     ChatMessagesComponent,
     ChatInputComponent,
     StatusIndicatorComponent,
@@ -215,16 +217,7 @@ Erro: 'invalid_token' na response..."
         </div>
 
         <div class="chat-body-content">
-          <app-chat-messages
-            [messages]="chatState.messages"
-            [isLoading]="chatState.isLoading"
-            [progressMessage]="progressMessage"
-            [streamingMessage]="streamingMessage"
-            [autoScroll]="config.autoScroll"
-            (messageDeleted)="onMessageDeleted($event)"
-          />
-
-          <!-- Agent Launcher Dock -->
+          <!-- Agent Launcher Dock (movido para a ESQUERDA) -->
           <div class="agent-launcher-dock">
             <!-- Fixed Action Buttons at Top -->
             <button
@@ -262,15 +255,33 @@ Erro: 'invalid_token' na response..."
             <div class="dock-separator"></div>
 
             <!-- Agent List (scrollable) -->
-            <div class="dock-agents-list">
-              <button
+            <div
+              class="dock-agents-list"
+              cdkDropList
+              (cdkDropListDropped)="onAgentDrop($event)">
+              <div
                 *ngFor="let agent of contextualAgents"
-                class="dock-item"
-                [class.active]="activeAgentId === agent.id"
-                [title]="agent.definition?.description || ''"
-                (click)="onDockAgentClick(agent)">
-                {{ agent.emoji }}
-              </button>
+                class="dock-item-wrapper"
+                cdkDrag>
+                <!-- Drag preview -->
+                <div class="dock-item-preview" *cdkDragPreview>
+                  {{ agent.emoji }}
+                </div>
+                <!-- Placeholder durante drag -->
+                <div class="dock-item-placeholder" *cdkDragPlaceholder></div>
+
+                <!-- Drag handle (invisível mas ocupa espaço) -->
+                <div class="dock-drag-handle" cdkDragHandle title="Arrastar para reordenar"></div>
+
+                <!-- Botão clicável -->
+                <button
+                  class="dock-item"
+                  [class.active]="activeAgentId === agent.id"
+                  [title]="agent.definition?.description || ''"
+                  (click)="onDockAgentClick(agent)">
+                  {{ agent.emoji }}
+                </button>
+              </div>
             </div>
 
             <!-- Agent Options Menu -->
@@ -288,6 +299,16 @@ Erro: 'invalid_token' na response..."
               </button>
             </div>
           </div>
+
+          <!-- Chat Messages (após o dock) -->
+          <app-chat-messages
+            [messages]="chatState.messages"
+            [isLoading]="chatState.isLoading"
+            [progressMessage]="progressMessage"
+            [streamingMessage]="streamingMessage"
+            [autoScroll]="config.autoScroll"
+            (messageDeleted)="onMessageDeleted($event)"
+          />
         </div>
       </div>
 
@@ -468,9 +489,9 @@ Erro: 'invalid_token' na response..."
 
     /* 🔥 NOVO: Sidebar com lista de conversas */
     .conversation-sidebar {
-      width: 300px;
-      min-width: 250px;
-      max-width: 400px;
+      width: 200px;       /* Reduzido de 300px para 200px */
+      min-width: 180px;   /* Reduzido de 250px para 180px */
+      max-width: 250px;   /* Reduzido de 400px para 250px */
       flex-shrink: 0;
       background: #f8f9fa;
       border-right: 1px solid #dee2e6;
@@ -519,6 +540,7 @@ Erro: 'invalid_token' na response..."
       height: 100%;
       position: relative;
       padding: 12px 0;
+      order: -1; /* Força ficar à esquerda no flexbox */
     }
 
     .dock-agents-list {
@@ -1259,7 +1281,7 @@ Erro: 'invalid_token' na response..."
     .agent-options-menu {
       position: fixed;
       top: 50%;
-      right: 80px;
+      left: 80px;  /* Mudado de right para left pois o dock está à esquerda agora */
       transform: translateY(-50%);
       background: white;
       border: 1px solid #e1e4e8;
@@ -1268,7 +1290,7 @@ Erro: 'invalid_token' na response..."
       z-index: 1001;
       min-width: 220px;
       overflow: hidden;
-      animation: fadeInLeft 0.2s ease;
+      animation: fadeInRight 0.2s ease;  /* Mudado de fadeInLeft para fadeInRight */
     }
 
     @keyframes fadeIn {
@@ -1286,6 +1308,17 @@ Erro: 'invalid_token' na response..."
       from {
         opacity: 0;
         transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes fadeInRight {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
       }
       to {
         opacity: 1;
@@ -1597,11 +1630,95 @@ Erro: 'invalid_token' na response..."
       border-radius: 2px;
     }
 
+    /* 🔥 NOVO: Estilos de Drag & Drop para Dock de Agentes */
+    .cdk-drag-preview.dock-item {
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      opacity: 0.9;
+      cursor: grabbing !important;
+    }
+
+    .dock-item-preview {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 2px solid #667eea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .dock-item-placeholder {
+      width: 40px;
+      height: 50px; /* handle (8px) + gap (2px) + button (40px) */
+      background: #f0f4ff;
+      border: 2px dashed #a8b9ff;
+      border-radius: 8px;
+    }
+
+    .cdk-drag-animating {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .dock-agents-list.cdk-drop-list-dragging .dock-item:not(.cdk-drag-placeholder) {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    /* 🔥 NOVO: Wrapper e Handle para Drag & Drop de Agentes */
+    .dock-item-wrapper {
+      position: relative;
+      width: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .dock-drag-handle {
+      width: 30px;
+      height: 8px;
+      background: transparent;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      border-radius: 4px 4px 0 0;
+      position: relative;
+    }
+
+    .dock-drag-handle::before {
+      content: '⋮';
+      color: #cbd5e0;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
+      transform: rotate(90deg);
+    }
+
+    .dock-drag-handle:hover::before {
+      color: #667eea;
+    }
+
+    .dock-drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .dock-item-wrapper.cdk-drag-animating {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .dock-agents-list.cdk-drop-list-dragging .dock-item-wrapper:not(.cdk-drag-placeholder) {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
     /* 🔥 NOVO: Responsividade para mobile */
     @media (max-width: 768px) {
       .conversation-sidebar {
         position: absolute;
-        left: -300px;
+        left: -200px;  /* Ajustado de -300px para -200px */
         top: 0;
         bottom: 0;
         z-index: 1000;
@@ -1625,6 +1742,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() deleteAgentRequested = new EventEmitter<void>();
   @Output() agentDockClicked = new EventEmitter<any>();
   @Output() activeConversationChanged = new EventEmitter<string | null>(); // 🔥 NOVO: Notifica mudança de conversa
+  @Output() agentOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de agentes
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
   @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
@@ -2682,18 +2800,30 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Seleciona uma conversa existente
+   * 🔥 NOVO: Método público para setar conversationId e emitir evento
+   * Usado pelo ConversationManagementService para garantir que o evento seja disparado
    */
-  onSelectConversation(conversationId: string): void {
+  setActiveConversation(conversationId: string | null): void {
     if (conversationId === this.activeConversationId) {
       console.log('ℹ️ [CHAT] Conversa já está ativa:', conversationId);
       return;
     }
 
-    console.log('🔄 [CHAT] Alternando para conversa:', conversationId);
+    console.log('🔄 [CHAT] Setando conversa ativa:', conversationId);
     this.activeConversationId = conversationId;
-    this.activeConversationChanged.emit(this.activeConversationId); // 🔥 NOVO: Notificar mudança
-    this.loadConversation(conversationId);
+    this.activeConversationChanged.emit(this.activeConversationId); // 🔥 Emite evento
+
+    if (conversationId) {
+      this.loadConversation(conversationId);
+    }
+  }
+
+  /**
+   * Seleciona uma conversa existente
+   */
+  onSelectConversation(conversationId: string): void {
+    // Usa o método público para garantir consistência
+    this.setActiveConversation(conversationId);
   }
 
   /**
@@ -3059,6 +3189,27 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     html = html.replace(/\n/gim, '<br>');
 
     return html;
+  }
+
+  /**
+   * 🔥 NOVO: Handler para drag & drop de agentes no dock
+   * Notifica o componente pai que a ordem mudou
+   */
+  onAgentDrop(event: CdkDragDrop<any[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return; // Nenhuma mudança
+    }
+
+    console.log(`🔄 [AGENT-DRAG-DROP] Movendo agente de ${event.previousIndex} para ${event.currentIndex}`);
+
+    // Criar cópia do array para não modificar o @Input diretamente
+    const reorderedAgents = [...this.contextualAgents];
+
+    // Reordenar localmente
+    moveItemInArray(reorderedAgents, event.previousIndex, event.currentIndex);
+
+    // Emitir evento para o componente pai com a nova ordem
+    this.agentOrderChanged.emit(reorderedAgents);
   }
 
   private loadConversationContext(): void {

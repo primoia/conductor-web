@@ -22,17 +22,20 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 320px; /* Largura fixa quando visível */
+  flex-shrink: 0; /* Não encolher */
   background: #f8f9fa;
   border-right: 1px solid #e1e4e8;
   overflow: hidden;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  transition: width 0.3s ease, opacity 0.3s ease;
 }
 
 /* First column hidden state */
 .screenplay-container.first-column-hidden .first-column {
-  transform: translateX(-100%);
+  width: 0; /* Remove espaço quando escondida */
   opacity: 0;
   pointer-events: none;
+  border-right: none; /* Remove borda quando escondida */
 }
 
 /* First Column Tabs */

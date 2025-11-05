@@ -14,32 +14,50 @@
 import { Component, OnInit, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ConversationService, ConversationSummary } from '../../services/conversation.service';
 
 @Component({
   selector: 'app-conversation-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DragDropModule],
   template: `
     <div class="conversation-list">
       <div class="conversation-list-header">
         <h3>Conversas</h3>
         <button
           class="new-conversation-btn"
+          [disabled]="!screenplayId"
           (click)="onCreateNewConversation()"
-          title="Criar nova conversa">
+          [title]="screenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
           +
         </button>
       </div>
 
-      <div class="conversation-items" *ngIf="conversations.length > 0; else emptyState">
+      <div
+        class="conversation-items"
+        *ngIf="conversations.length > 0; else emptyState"
+        cdkDropList
+        (cdkDropListDropped)="onDrop($event)">
         <div
           *ngFor="let conv of conversations"
           class="conversation-item"
           [class.active]="conv.conversation_id === activeConversationId"
-          (click)="onSelectConversation(conv.conversation_id)">
+          (click)="onSelectConversation(conv.conversation_id)"
+          cdkDrag
+          [cdkDragDisabled]="editingConversationId === conv.conversation_id">
 
-          <div class="conversation-header">
+          <!-- Drag handle -->
+          <div class="drag-handle" cdkDragHandle title="Arrastar para reordenar">
+            ⋮⋮
+          </div>
+
+          <!-- Placeholder durante drag -->
+          <div class="conversation-placeholder" *cdkDragPlaceholder></div>
+
+          <!-- Content wrapper -->
+          <div class="conversation-content">
+            <div class="conversation-header">
             <span
               *ngIf="editingConversationId !== conv.conversation_id"
               class="conversation-title"
@@ -76,13 +94,17 @@ import { ConversationService, ConversationSummary } from '../../services/convers
           <div class="conversation-date">
             {{ formatDate(conv.updated_at) }}
           </div>
+          </div> <!-- /conversation-content -->
         </div>
       </div>
 
       <ng-template #emptyState>
         <div class="empty-state">
-          <p>📝 Nenhuma conversa ainda</p>
-          <p class="hint">Clique no + para começar</p>
+          <p *ngIf="!screenplayId">📋 Selecione um roteiro</p>
+          <p class="hint" *ngIf="!screenplayId">Escolha um roteiro para ver suas conversas</p>
+
+          <p *ngIf="screenplayId">📝 Nenhuma conversa ainda</p>
+          <p class="hint" *ngIf="screenplayId">Clique no + para começar</p>
         </div>
       </ng-template>
     </div>
@@ -130,10 +152,17 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       line-height: 1;
     }
 
-    .new-conversation-btn:hover {
+    .new-conversation-btn:hover:not(:disabled) {
       background: #0056b3;
       border-color: #0056b3;
       transform: scale(1.1);
+    }
+
+    .new-conversation-btn:disabled {
+      background: #6c757d;
+      border-color: #6c757d;
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .conversation-items {
@@ -150,6 +179,17 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       margin-bottom: 8px;
       cursor: pointer;
       transition: all 0.2s;
+      position: relative;
+      display: flex;
+      gap: 8px;
+    }
+
+    .conversation-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0; /* Permite text overflow */
     }
 
     .conversation-item:hover {
@@ -244,6 +284,48 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       font-size: 13px;
       color: #adb5bd;
     }
+
+    /* Drag & Drop Styles */
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      color: #adb5bd;
+      cursor: grab;
+      font-size: 16px;
+      line-height: 1;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .drag-handle:hover {
+      color: #6c757d;
+    }
+
+    .cdk-drag-preview {
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      opacity: 0.8;
+    }
+
+    .cdk-drag-animating {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .conversation-items.cdk-drop-list-dragging .conversation-item:not(.cdk-drag-placeholder) {
+      transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+    }
+
+    .conversation-placeholder {
+      background: #e9ecef;
+      border: 2px dashed #adb5bd;
+      border-radius: 8px;
+      min-height: 80px;
+    }
   `]
 })
 export class ConversationListComponent implements OnInit {
@@ -265,9 +347,31 @@ export class ConversationListComponent implements OnInit {
   }
 
   loadConversations(): void {
-    this.conversationService.listConversations(20, 0, this.screenplayId || undefined).subscribe({
+    // 🔒 BUG FIX: Não carregar conversas se não há roteiro selecionado
+    // Isso evita que todas as conversas sejam mostradas e previne criação de agentes sem roteiro
+    if (!this.screenplayId) {
+      console.log('⚠️ Nenhum roteiro selecionado, não carregando conversas');
+      this.conversations = [];
+      return;
+    }
+
+    this.conversationService.listConversations(20, 0, this.screenplayId).subscribe({
       next: (response) => {
+        // 🔥 NOVO: Ordenar por display_order se disponível, senão por updated_at
         this.conversations = response.conversations.sort((a, b) => {
+          const aOrder = (a as any).display_order;
+          const bOrder = (b as any).display_order;
+
+          // Se ambos têm display_order, usar isso
+          if (aOrder !== undefined && bOrder !== undefined) {
+            return aOrder - bOrder;
+          }
+
+          // Se apenas um tem display_order, ele vem primeiro
+          if (aOrder !== undefined) return -1;
+          if (bOrder !== undefined) return 1;
+
+          // Caso contrário, ordenar por data de atualização (mais recente primeiro)
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         });
       },
@@ -377,5 +481,50 @@ export class ConversationListComponent implements OnInit {
     this.editingConversationId = null;
     this.editingTitle = '';
     this.originalTitle = '';
+  }
+
+  /**
+   * 🔥 NOVO: Handler para drag & drop
+   * Reordena conversas localmente e persiste no backend
+   */
+  onDrop(event: CdkDragDrop<ConversationSummary[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return; // Nenhuma mudança
+    }
+
+    console.log(`🔄 [DRAG-DROP] Movendo conversa de ${event.previousIndex} para ${event.currentIndex}`);
+
+    // Reordenar array localmente
+    moveItemInArray(this.conversations, event.previousIndex, event.currentIndex);
+
+    // Persistir nova ordem no backend
+    this.saveConversationOrder();
+  }
+
+  /**
+   * 🔥 NOVO: Salva ordem das conversas no MongoDB
+   * Envia um array com conversation_id e display_order para cada conversa
+   */
+  private saveConversationOrder(): void {
+    // Construir array de updates com base na posição atual
+    const orderUpdates = this.conversations.map((conv, index) => ({
+      conversation_id: conv.conversation_id,
+      display_order: index
+    }));
+
+    console.log('💾 [SAVE-ORDER] Salvando ordem das conversas:', orderUpdates);
+
+    // Chamar serviço para atualizar ordem no backend
+    this.conversationService.updateConversationOrder(orderUpdates).subscribe({
+      next: (response) => {
+        console.log('✅ [SAVE-ORDER] Ordem salva com sucesso:', response);
+      },
+      error: (error) => {
+        console.error('❌ [SAVE-ORDER] Erro ao salvar ordem:', error);
+        // Recarregar conversas para restaurar ordem original
+        this.loadConversations();
+        alert('Erro ao salvar ordem das conversas. Ordem restaurada.');
+      }
+    });
   }
 }
