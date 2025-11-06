@@ -201,7 +201,8 @@ export class MessageHandlingService {
       params.instanceId,
       cwd,
       params.screenplayId,
-      params.provider
+      params.provider,
+      params.conversationId  // 🔥 Passar conversation_id
     ).subscribe({
       next: (result) => {
         callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso
@@ -294,7 +295,8 @@ export class MessageHandlingService {
       params.instanceId,
       cwd,
       params.screenplayId,
-      params.provider
+      params.provider,
+      params.conversationId  // 🔥 Passar conversation_id
     ).subscribe({
       next: (result) => {
         callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso

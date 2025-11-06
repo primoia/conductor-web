@@ -2156,7 +2156,7 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   public setAgentActive(instanceId: string, isActive: boolean): void {
     const agent = this.agents.find(a => a.id === instanceId);
     if (agent) {
-      console.log(`🎮 [AGENT-GAME] Setting agent ${agent.name} (${instanceId}) to ${isActive ? 'ACTIVE (Processando)' : 'INACTIVE (Parado)'}`);
+      // console.log(`🎮 [AGENT-GAME] Setting agent ${agent.name} (${instanceId}) to ${isActive ? 'ACTIVE (Processando)' : 'INACTIVE (Parado)'}`);
       agent.isActive = isActive;
       
       if (isActive) {

@@ -2373,6 +2373,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         // Armazenar participantes
         this.conversationParticipants = conversation.participants;
 
+        // 🔥 Carregar contexto da conversa
+        this.conversationContext = conversation.context || '';
+
         this.chatState.isLoading = false;
         console.log('✅ [CHAT] Conversa exibida com', messages.length, 'mensagens');
       },

@@ -274,6 +274,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   public activeAgentId: string | null = null;
   public activeConversationId: string | null = null; // 🔥 NOVO: Conversa ativa
 
+  // 🔥 NOVO: Pending query params from URL
+  private pendingConversationId: string | null = null;
+  private pendingInstanceId: string | null = null;
+
   // BUG FIX: Conteúdo do editor padrão agora é vazio para evitar agentes fantasma
   // Quando um novo screenplay é criado, o agente padrão é adicionado automaticamente
   editorContent = '';
@@ -767,9 +771,17 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Subscribe to URL query parameter changes
     this.route.queryParamMap.subscribe(params => {
       const screenplayId = params.get('screenplayId');
+      const conversationId = params.get('conversationId');
+      const instanceId = params.get('instanceId');
 
-      // Prevent reload if ID hasn't changed
+      // 🔥 NOVO: Store conversation and instance params for later application
+      this.pendingConversationId = conversationId;
+      this.pendingInstanceId = instanceId;
+
+      // Apply conversation/instance if screenplay is already loaded and hasn't changed
       if (screenplayId === this.currentScreenplay?.id) {
+        this.logging.info(`🔗 [URL-PARAMS] Screenplay já carregado, aplicando conversationId=${conversationId}, instanceId=${instanceId}`, 'ScreenplayInteractive');
+        this.applyPendingSelections();
         return;
       }
 
@@ -782,7 +794,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           // Revert URL to current screenplay
           this.router.navigate([], {
             relativeTo: this.route,
-            queryParams: { screenplayId: this.currentScreenplay?.id || null },
+            queryParams: {
+              screenplayId: this.currentScreenplay?.id || null,
+              conversationId: this.activeConversationId,
+              instanceId: this.activeAgentId
+            },
             replaceUrl: true
           });
           return;
@@ -1299,6 +1315,34 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       relativeTo: this.route,
       queryParams: { screenplayId: id },
       queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+  }
+
+  /**
+   * 🔥 NOVO: Atualiza URL com todos os parâmetros (screenplay, conversation, instance)
+   */
+  private updateUrlWithAllParams(): void {
+    const queryParams: any = {};
+
+    // Sempre incluir screenplayId se disponível
+    if (this.currentScreenplay?.id) {
+      queryParams.screenplayId = this.currentScreenplay.id;
+    }
+
+    // Incluir conversationId se ativo
+    if (this.activeConversationId) {
+      queryParams.conversationId = this.activeConversationId;
+    }
+
+    // Incluir instanceId se ativo
+    if (this.activeAgentId) {
+      queryParams.instanceId = this.activeAgentId;
+    }
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams,
       replaceUrl: true
     });
   }
@@ -3312,6 +3356,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     this.activeAgentId = agent.id;
 
+    // 🔥 NOVO: Atualizar URL quando agente muda
+    this.updateUrlWithAllParams();
+
     if (this.conductorChat) {
       this.logging.debug('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...', 'ScreenplayInteractive');
       this.conductorChat.loadContextForAgent(
@@ -3344,6 +3391,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Atualizar o dock para mostrar apenas agentes da conversa ativa
     this.updateAgentDockLists();
 
+    // 🔥 NOVO: Atualizar URL quando conversa muda
+    this.updateUrlWithAllParams();
+
     // 🔥 NOVO: Se é uma nova conversa e está vazia, criar agente default
     if (conversationId) {
       const agentsInConversation = Array.from(this.agentInstances.values())
@@ -3355,6 +3405,56 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         // this.createDefaultAgentInstance(conversationId);
       }
     }
+  }
+
+  /**
+   * 🔥 NOVO: Aplica as seleções pendentes de conversationId e instanceId da URL
+   */
+  private applyPendingSelections(): void {
+    this.logging.info('🔗 [APPLY-SELECTIONS] Aplicando seleções pendentes da URL...', 'ScreenplayInteractive', {
+      conversationId: this.pendingConversationId,
+      instanceId: this.pendingInstanceId
+    });
+
+    // Aplicar conversationId se presente
+    if (this.pendingConversationId && this.pendingConversationId !== this.activeConversationId) {
+      this.logging.info(`📌 [APPLY-SELECTIONS] Setando conversa ativa: ${this.pendingConversationId}`, 'ScreenplayInteractive');
+
+      // Atualizar estado local sem atualizar URL (evita loop)
+      this.activeConversationId = this.pendingConversationId;
+      this.conversationManagement.setActiveConversation(this.pendingConversationId);
+      this.updateAgentDockLists();
+    }
+
+    // Aplicar instanceId se presente
+    if (this.pendingInstanceId && this.pendingInstanceId !== this.activeAgentId) {
+      this.logging.info(`📌 [APPLY-SELECTIONS] Setando agente ativo: ${this.pendingInstanceId}`, 'ScreenplayInteractive');
+
+      const instance = this.agentInstances.get(this.pendingInstanceId);
+      if (instance) {
+        this.activeAgentId = this.pendingInstanceId;
+
+        // Carregar contexto do agente no chat se ConductorChat estiver disponível
+        const conductorChatElement = document.querySelector('app-conductor-chat') as any;
+        if (conductorChatElement?.componentInstance?.loadContextForAgent) {
+          this.logging.info('📥 [APPLY-SELECTIONS] Carregando contexto do agente no chat...', 'ScreenplayInteractive');
+          conductorChatElement.componentInstance.loadContextForAgent(
+            this.pendingInstanceId,
+            instance.definition.title,
+            instance.emoji,
+            instance.agent_id,
+            instance.config?.cwd,
+            this.currentScreenplay?.id
+          );
+        }
+      } else {
+        this.logging.warn(`⚠️ [APPLY-SELECTIONS] Agente não encontrado: ${this.pendingInstanceId}`, 'ScreenplayInteractive');
+      }
+    }
+
+    // Limpar valores pendentes
+    this.pendingConversationId = null;
+    this.pendingInstanceId = null;
   }
 
   /**
@@ -3708,8 +3808,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         // Reload agents in the game component
         this.reloadAgentGame();
 
+        // 🔥 NOVO: Aplicar seleções pendentes da URL (conversationId e instanceId)
+        setTimeout(() => {
+          this.applyPendingSelections();
+        }, 100);
+
         // Auto-select first agent after loading (universal solution)
-        if (this.agentInstances.size > 0) {
+        // Only auto-select if no pending selection from URL
+        if (this.agentInstances.size > 0 && !this.pendingInstanceId) {
           this.logging.info('🎯 [LOAD-AGENTS] Auto-selecting first agent after loading from MongoDB...', 'ScreenplayInteractive');
           setTimeout(() => {
             this.autoSelectFirstAgent();
@@ -4151,6 +4257,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     // Set as active agent
     this.activeAgentId = agent.id;
+
+    // 🔥 NOVO: Atualizar URL quando agente default é ativado
+    this.updateUrlWithAllParams();
 
     // Load context in chat
     if (this.conductorChat) {
