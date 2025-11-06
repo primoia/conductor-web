@@ -77,6 +77,12 @@ import { ConversationService, ConversationSummary } from '../../services/convers
               #titleInput
             />
             <button
+              class="edit-context-btn"
+              (click)="onEditContext($event, conv.conversation_id)"
+              title="Editar contexto">
+              📝
+            </button>
+            <button
               class="delete-btn"
               (click)="onDeleteConversation($event, conv.conversation_id)"
               title="Deletar conversa">
@@ -236,6 +242,7 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
     }
 
+    .edit-context-btn,
     .delete-btn {
       background: none;
       border: none;
@@ -248,8 +255,13 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       flex-shrink: 0;
     }
 
+    .edit-context-btn:hover,
     .delete-btn:hover {
       opacity: 1;
+    }
+
+    .edit-context-btn {
+      font-size: 14px;
     }
 
     .conversation-meta {
@@ -334,6 +346,7 @@ export class ConversationListComponent implements OnInit {
   @Output() conversationSelected = new EventEmitter<string>();
   @Output() conversationCreated = new EventEmitter<void>();
   @Output() conversationDeleted = new EventEmitter<string>();
+  @Output() contextEditRequested = new EventEmitter<string>(); // Emite conversation_id para editar contexto
 
   conversations: ConversationSummary[] = [];
   editingConversationId: string | null = null;
@@ -389,6 +402,11 @@ export class ConversationListComponent implements OnInit {
     if (conversationId !== this.activeConversationId) {
       this.conversationSelected.emit(conversationId);
     }
+  }
+
+  onEditContext(event: Event, conversationId: string): void {
+    event.stopPropagation(); // Prevent selecting the conversation
+    this.contextEditRequested.emit(conversationId);
   }
 
   onDeleteConversation(event: Event, conversationId: string): void {

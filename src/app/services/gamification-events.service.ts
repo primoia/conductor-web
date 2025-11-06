@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { AgentMetricsService, AgentExecutionMetrics } from './agent-metrics.service';
 import { AgentPersonalizationService } from './agent-personalization.service';
@@ -27,11 +28,14 @@ export class GamificationEventsService {
 
   private lastTotalsByAgentId = new Map<string, number>();
   private readonly maxEvents = 50;
+  private readonly seenExecutionIds = new Set<string>(); // Track execution_id to prevent duplicates
+  private historicalEventsLoaded = false; // Flag to load historical events only once
 
   constructor(
     private readonly metricsService: AgentMetricsService,
     private readonly personalization: AgentPersonalizationService,
-    private readonly websocketService: GamificationWebSocketService
+    private readonly websocketService: GamificationWebSocketService,
+    private readonly http: HttpClient
   ) {
     // 🔔 Subscribe to WebSocket events (PRIMARY mechanism - real-time)
     this.websocketService.events$.subscribe(event => {
@@ -56,7 +60,10 @@ export class GamificationEventsService {
       }
     });
 
-    console.log('🎮 GamificationEventsService initialized with WebSocket (primary) + metrics polling (fallback)');
+    // 📜 Load historical events from MongoDB on initialization
+    this.loadHistoricalEvents();
+
+    console.log('🎮 GamificationEventsService initialized with WebSocket (primary) + metrics polling (fallback) + historical events loading');
   }
 
   getRecent(limit: number): GamificationEvent[] {
@@ -64,10 +71,96 @@ export class GamificationEventsService {
     return list.slice(-limit).reverse();
   }
 
-  pushEvent(event: GamificationEvent): void {
+  pushEvent(event: GamificationEvent, skipDuplicateCheck = false): void {
+    // Check for duplicates based on execution_id in meta
+    if (!skipDuplicateCheck && event.meta?.['execution_id']) {
+      const executionId = event.meta['execution_id'] as string;
+      if (this.seenExecutionIds.has(executionId)) {
+        console.log(`⏭️ Skipping duplicate event for execution_id: ${executionId}`);
+        return;
+      }
+      this.seenExecutionIds.add(executionId);
+    }
+
     const list = [...this.eventsSubject.value, event];
     const bounded = list.length > this.maxEvents ? list.slice(list.length - this.maxEvents) : list;
     this.eventsSubject.next(bounded);
+  }
+
+  /**
+   * Load historical events from MongoDB (via /api/tasks/events endpoint)
+   * This is called once on service initialization to populate events after page reload
+   */
+  private async loadHistoricalEvents(): Promise<void> {
+    if (this.historicalEventsLoaded) {
+      console.log('⏭️ Historical events already loaded, skipping');
+      return;
+    }
+
+    try {
+      console.log('📜 Loading historical events from MongoDB...');
+
+      // Call backend endpoint to get last 50 events
+      const response: any = await this.http.get('/api/tasks/events?limit=50').toPromise();
+
+      if (!response?.success || !Array.isArray(response.events)) {
+        console.warn('⚠️ Invalid response from /api/tasks/events:', response);
+        return;
+      }
+
+      const historicalEvents = response.events;
+      console.log(`📥 Received ${historicalEvents.length} historical events from backend`);
+
+      // Transform backend events to GamificationEvent format
+      // Events are already in reverse chronological order (most recent first)
+      // We need to push them in chronological order (oldest first) to maintain order
+      const eventsToAdd = historicalEvents.reverse();
+
+      for (const backendEvent of eventsToAdd) {
+        const data = backendEvent.data || {};
+
+        // Determine severity
+        const severity = this.mapSeverityToGamification(data.severity || 'success');
+
+        // Determine emoji and label
+        const isSuccess = data.severity === 'success' && data.status !== 'error';
+        const emoji = isSuccess ? '✅' : this.getSeverityEmoji(severity);
+        const label = isSuccess ? 'Sucesso' : this.getSeverityLabel(severity);
+
+        // Build title
+        const agentName = data.agent_name || data.agent_id || 'Agente';
+        const title = data.is_councilor
+          ? `${emoji} ${agentName} - ${label}`
+          : `${emoji} ${agentName} - ${label}`;
+
+        // Create GamificationEvent
+        const gamificationEvent: GamificationEvent = {
+          id: data.execution_id || this.generateId(),
+          title,
+          severity,
+          timestamp: backendEvent.timestamp || Date.now(),
+          meta: {
+            ...data,
+            execution_id: data.execution_id // Ensure execution_id is in meta for deduplication
+          },
+          category: severity === 'error' ? 'critical' : 'success',
+          level: data.level || 'result',
+          summary: data.summary || '',
+          agentEmoji: data.agent_emoji || '🤖',
+          agentName
+        };
+
+        // Push event (deduplication will prevent duplicates)
+        this.pushEvent(gamificationEvent);
+      }
+
+      this.historicalEventsLoaded = true;
+      console.log(`✅ Successfully loaded ${eventsToAdd.length} historical events`);
+
+    } catch (error) {
+      console.error('❌ Error loading historical events:', error);
+      // Don't throw - gracefully degrade to empty history
+    }
   }
 
   private deriveExecutionEvents(metricsMap: Map<string, AgentExecutionMetrics>): void {

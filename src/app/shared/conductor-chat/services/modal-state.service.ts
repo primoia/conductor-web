@@ -10,6 +10,7 @@ export interface ModalState {
   personaEditModal: boolean;
   cwdModal: boolean;
   contextEditor: boolean;
+  contextEditorModal: boolean;
   agentOptionsMenu: boolean;
   dockInfoModal: boolean;
 }
@@ -46,6 +47,7 @@ export class ModalStateService {
     personaEditModal: false,
     cwdModal: false,
     contextEditor: false,
+    contextEditorModal: false,
     agentOptionsMenu: false,
     dockInfoModal: false
   };

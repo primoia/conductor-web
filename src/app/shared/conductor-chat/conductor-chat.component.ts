@@ -57,7 +57,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
           [screenplayId]="activeScreenplayId"
           (conversationSelected)="onSelectConversation($event)"
           (conversationCreated)="onCreateNewConversation()"
-          (conversationDeleted)="onDeleteConversation($event)">
+          (conversationDeleted)="onDeleteConversation($event)"
+          (contextEditRequested)="onContextEditRequested($event)">
         </app-conversation-list>
       </div>
 
@@ -140,32 +141,28 @@ const DEFAULT_CONFIG: ConductorConfig = {
         </div>
       </div>
 
-      <div class="chat-body">
-        <!-- 🔥 NOVO: Context Banner -->
-        <div class="context-banner" *ngIf="environment.features?.useConversationModel && activeConversationId">
-          <div class="context-header">
-            <span class="context-icon">📋</span>
-            <span class="context-title">Contexto da Conversa</span>
-            <div class="context-actions">
-              <button
-                class="context-action-btn"
-                (click)="toggleContextEditor()"
-                title="Editar contexto">
-                {{ modalStateService.isOpen('contextEditor') ? '✕' : '✏️' }}
-              </button>
-              <button
-                class="context-action-btn"
-                (click)="openContextUpload()"
-                title="Upload arquivo .md">
-                📁
+      <!-- Context Editor Modal -->
+      <div class="modal-backdrop" *ngIf="modalStateService.isOpen('contextEditorModal')" (click)="closeContextEditorModal()">
+        <div class="modal-content context-editor-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h4>📋 Editar Contexto da Conversa</h4>
+            <button class="close-btn" (click)="closeContextEditorModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-description">
+              Descreva o problema, bug ou feature desta conversa para dar contexto aos agentes.
+            </p>
+
+            <!-- Upload arquivo -->
+            <div class="context-upload-section">
+              <button class="upload-btn" (click)="openContextUpload()">
+                📁 Upload arquivo .md
               </button>
             </div>
-          </div>
 
-          <!-- Editor de Contexto -->
-          <div class="context-editor" *ngIf="modalStateService.isOpen('contextEditor')">
+            <!-- Editor de Contexto -->
             <textarea
-              class="context-textarea"
+              class="context-textarea-modal"
               [(ngModel)]="conversationContext"
               placeholder="Descreva o problema, bug ou feature desta conversa em Markdown...
 
@@ -173,38 +170,38 @@ Exemplo:
 ## Bug: Login OAuth
 O sistema não consegue autenticar usuários via Google OAuth.
 Erro: 'invalid_token' na response..."
-              rows="8">
+              rows="12">
             </textarea>
-            <div class="context-editor-actions">
-              <button class="save-context-btn" (click)="saveConversationContext()">
+
+            <!-- Preview do Contexto -->
+            <div class="context-preview-section" *ngIf="conversationContext">
+              <h5>Preview:</h5>
+              <div class="markdown-content" [innerHTML]="renderMarkdown(conversationContext)"></div>
+            </div>
+
+            <!-- Ações -->
+            <div class="modal-actions">
+              <button class="btn-primary" (click)="saveConversationContext()">
                 💾 Salvar Contexto
               </button>
-              <button class="cancel-context-btn" (click)="cancelContextEdit()">
+              <button class="btn-secondary" (click)="closeContextEditorModal()">
                 Cancelar
               </button>
             </div>
           </div>
-
-          <!-- Preview do Contexto (quando não está editando) -->
-          <div class="context-preview" *ngIf="!modalStateService.isOpen('contextEditor') && conversationContext">
-            <div class="markdown-content" [innerHTML]="renderMarkdown(conversationContext)"></div>
-          </div>
-
-          <!-- Estado vazio -->
-          <div class="context-empty" *ngIf="!modalStateService.isOpen('contextEditor') && !conversationContext">
-            <p class="empty-hint">📝 Clique no ✏️ para adicionar contexto sobre o que está sendo trabalhado nesta conversa</p>
-          </div>
         </div>
+      </div>
 
-        <!-- Input de Upload (Hidden) -->
-        <input
-          #contextFileInput
-          type="file"
-          accept=".md"
-          style="display: none;"
-          (change)="onContextFileSelected($event)"
-        />
+      <!-- Input de Upload (Hidden) -->
+      <input
+        #contextFileInput
+        type="file"
+        accept=".md"
+        style="display: none;"
+        (change)="onContextFileSelected($event)"
+      />
 
+      <div class="chat-body">
         <!-- CWD Warning Banner -->
         <div class="cwd-warning-banner" *ngIf="showCwdWarning()">
           <div class="warning-content">
@@ -1002,7 +999,100 @@ Erro: 'invalid_token' na response..."
       }
     }
 
-    /* Context Banner Styles */
+    /* Context Editor Modal Styles */
+    .context-editor-modal {
+      max-width: 700px;
+      max-height: 90vh;
+    }
+
+    .context-upload-section {
+      margin-bottom: 16px;
+    }
+
+    .upload-btn {
+      padding: 8px 16px;
+      background: #f3f4f6;
+      border: 2px dashed #9ca3af;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .upload-btn:hover {
+      background: #e5e7eb;
+      border-color: #6b7280;
+    }
+
+    .context-textarea-modal {
+      width: 100%;
+      min-height: 200px;
+      padding: 12px;
+      border: 2px solid #e1e4e8;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      resize: vertical;
+      margin-bottom: 16px;
+    }
+
+    .context-textarea-modal:focus {
+      outline: none;
+      border-color: #0366d6;
+    }
+
+    .context-preview-section {
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f6f8fa;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .context-preview-section h5 {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #0366d6;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0256c7;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #24292e;
+    }
+
+    .btn-secondary:hover {
+      background: #e1e4e8;
+    }
+
+    /* Context Banner Styles (DEPRECATED - Removido do template) */
     .context-banner {
       background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
       border-bottom: 2px solid #9ca3af;
@@ -2861,6 +2951,24 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Abre o modal de edição de contexto para uma conversa específica
+   */
+  onContextEditRequested(conversationId: string): void {
+    console.log('📝 [CHAT] Editando contexto da conversa:', conversationId);
+
+    // Se não for a conversa ativa, selecionar ela primeiro
+    if (this.activeConversationId !== conversationId) {
+      this.onSelectConversation(conversationId);
+    }
+
+    // Salvar contexto original para possível cancelamento
+    this.originalContext = this.conversationContext;
+
+    // Abrir o modal de contexto
+    this.modalStateService.open('contextEditorModal');
+  }
+
+  /**
    * Atualiza a lista de conversas (chamado pelo componente pai ou por eventos)
    */
   refreshConversationList(): void {
@@ -3112,6 +3220,7 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
       next: (response) => {
         console.log('✅ Contexto atualizado:', response);
         this.modalStateService.close('contextEditor');
+        this.modalStateService.close('contextEditorModal'); // Close modal version
         alert('Contexto salvo com sucesso! 🎉');
       },
       error: (error) => {
@@ -3124,6 +3233,11 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
   cancelContextEdit(): void {
     this.conversationContext = this.originalContext;
     this.modalStateService.close('contextEditor');
+  }
+
+  closeContextEditorModal(): void {
+    this.conversationContext = this.originalContext;
+    this.modalStateService.close('contextEditorModal');
   }
 
   openContextUpload(): void {
