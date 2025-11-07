@@ -589,18 +589,27 @@ export class ConversationListComponent implements OnInit {
   onEditContext(event: Event, conversation: ConversationSummary): void {
     event.stopPropagation(); // Prevent selecting the conversation
 
-    this.editingConversation = conversation;
-    this.editModalTitle = conversation.title;
-    this.editModalContext = conversation.context || '';
-    this.showEditModal = true;
+    // Buscar dados completos da conversa do backend para garantir que o contexto seja carregado
+    this.conversationService.getConversation(conversation.conversation_id).subscribe({
+      next: (fullConversation) => {
+        this.editingConversation = conversation;
+        this.editModalTitle = fullConversation.title;
+        this.editModalContext = fullConversation.context || '';
+        this.showEditModal = true;
 
-    // Focar no contexto após o modal abrir
-    setTimeout(() => {
-      const contextInput = document.querySelector('.modal-context-input') as HTMLTextAreaElement;
-      if (contextInput) {
-        contextInput.focus();
+        // Focar no contexto após o modal abrir
+        setTimeout(() => {
+          const contextInput = document.querySelector('.modal-context-input') as HTMLTextAreaElement;
+          if (contextInput) {
+            contextInput.focus();
+          }
+        }, 100);
+      },
+      error: (error) => {
+        console.error('❌ Erro ao carregar dados da conversa:', error);
+        alert('Erro ao carregar dados da conversa');
       }
-    }, 100);
+    });
   }
 
   /**
