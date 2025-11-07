@@ -2451,7 +2451,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           content: msg.content,
           type: msg.type as 'user' | 'bot' | 'system',
           timestamp: new Date(msg.timestamp),
-          agent: msg.agent  // Informações do agente (para mensagens de bot)
+          agent: msg.agent,  // Informações do agente (para mensagens de bot)
+          isDeleted: (msg as any).isDeleted || false  // 🔥 Adicionar isDeleted
         }));
 
         // Exibir mensagens
@@ -2514,6 +2515,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           // Map history messages
           const historyMessages: Message[] = [];
           context.history.forEach((record: any, index: number) => {
+            // 🔍 DEBUG: Ver se _id está vindo do backend
+            if (index === 0) {
+              console.log('🔍 [DEBUG] Estrutura do record do backend:', record);
+              console.log('🔍 [DEBUG] record._id:', record._id);
+            }
+
             if (record.user_input && record.user_input.trim().length > 0) {
               historyMessages.push({
                 id: `history-user-${index}`,
@@ -2768,41 +2775,80 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   /**
    * Handle message deletion with optimistic update + rollback
+   * Deletes the entire iteration (user question + bot response)
    */
   async onMessageDeleted(message: Message): Promise<void> {
-    if (!message._historyId) {
-      console.warn('Cannot delete message without _historyId');
+    if (!message.id || !this.activeConversationId) {
+      console.warn('Cannot delete message without id or conversation_id');
       return;
     }
 
-    // Optimistic update: mark as deleted in UI immediately
-    const originalDeletedState = message.isDeleted;
+    // Find the user message that precedes this bot message
+    const messageIndex = this.chatState.messages.findIndex(m => m.id === message.id);
+    let userMessage: Message | null = null;
+
+    // Look backwards to find the most recent user message
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (this.chatState.messages[i].type === 'user') {
+        userMessage = this.chatState.messages[i];
+        break;
+      }
+    }
+
+    // Prepare for rollback
+    const originalBotDeletedState = message.isDeleted;
+    const originalUserDeletedState = userMessage?.isDeleted;
+
+    // Optimistic update: mark both messages as deleted in UI immediately
     message.isDeleted = true;
+    if (userMessage) {
+      userMessage.isDeleted = true;
+    }
 
     try {
-      // Call backend API to soft delete the message
-      const conductorUrl = this.config.api.baseUrl || 'http://localhost:8000';
-      const response = await fetch(`${conductorUrl}/agents/history/${message._historyId}/delete`, {
+      const gatewayUrl = this.config.api.baseUrl || 'http://localhost:8080';
+
+      // Delete bot message
+      const botResponse = await fetch(`${gatewayUrl}/api/conversations/${this.activeConversationId}/messages/${message.id}/delete`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to delete message: ${response.statusText}`);
+      if (!botResponse.ok) {
+        throw new Error(`Failed to delete bot message: ${botResponse.statusText}`);
       }
 
-      const result = await response.json();
-      console.log('✅ Message marked as deleted:', result);
+      console.log('✅ Bot message marked as deleted');
+
+      // Delete user message if found
+      if (userMessage && userMessage.id) {
+        const userResponse = await fetch(`${gatewayUrl}/api/conversations/${this.activeConversationId}/messages/${userMessage.id}/delete`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!userResponse.ok) {
+          console.warn('⚠️ Failed to delete user message:', userResponse.statusText);
+          // Don't throw - bot message is already deleted
+        } else {
+          console.log('✅ User message marked as deleted');
+        }
+      }
 
     } catch (error) {
       // Rollback on error
-      console.error('❌ Error deleting message, rolling back:', error);
-      message.isDeleted = originalDeletedState;
+      console.error('❌ Error deleting iteration, rolling back:', error);
+      message.isDeleted = originalBotDeletedState;
+      if (userMessage) {
+        userMessage.isDeleted = originalUserDeletedState || false;
+      }
 
       // Show error notification to user
-      alert('Erro ao inativar mensagem. Por favor, tente novamente.');
+      alert('Erro ao inativar iteração. Por favor, tente novamente.');
     }
   }
 

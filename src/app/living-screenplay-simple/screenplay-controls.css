@@ -36,11 +36,11 @@
 
 .bottom-section .editor-footer {
   flex-shrink: 0;
-  min-height: 50px;
+  min-height: 100px;
   background: #f8f9fa;
   border-top: 1px solid #e1e4e8;
   display: block; /* Single column, full width */
-  padding: 4px 12px;
+  padding: 8px 24px;
   color: #4a5568;
   font-size: 10px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;

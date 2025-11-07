@@ -34,8 +34,8 @@ import { marked } from 'marked';
             <button
               class="delete-btn"
               (click)="deleteMessage(message)"
-              title="Inativar mensagem (não será incluída no prompt)"
-              *ngIf="message._historyId && !message.isDeleted">
+              title="Inativar iteração completa (pergunta + resposta)"
+              *ngIf="message.id && !message.isDeleted">
               🗑️
             </button>
           </div>
@@ -143,6 +143,20 @@ import { marked } from 'marked';
       margin-left: 8px;
     }
 
+    .user-message.deleted {
+      opacity: 0.5;
+      background: linear-gradient(135deg, #adb5bd 0%, #6c757d 100%);
+      border: 1px dashed #cbd5e0;
+    }
+
+    .user-message.deleted::after {
+      content: ' [Inativada]';
+      color: #f8f9fa;
+      font-size: 11px;
+      font-style: italic;
+      margin-left: 8px;
+    }
+
     .system-message {
       background: #f0f3f7;
       color: #6b7280;
@@ -179,8 +193,9 @@ import { marked } from 'marked';
       right: 8px;
       display: flex;
       gap: 4px;
-      opacity: 0;
+      opacity: 1;
       transition: opacity 0.2s ease;
+      z-index: 10;
     }
 
     .copy-btn,
@@ -360,8 +375,8 @@ export class ChatMessagesComponent implements AfterViewChecked {
   }
 
   deleteMessage(message: Message): void {
-    if (!message || !message._historyId) {
-      console.warn('Cannot delete message without _historyId');
+    if (!message || !message.id) {
+      console.warn('Cannot delete message without id');
       return;
     }
     this.messageDeleted.emit(message);

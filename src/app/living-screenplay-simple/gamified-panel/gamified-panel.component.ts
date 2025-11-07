@@ -116,8 +116,8 @@ interface PanelKpis {
       display: flex;
       flex-direction: column;
     }
-    .gamified-panel.collapsed { height: 120px; }
-    .gamified-panel.expanded { height: 350px; }
+    .gamified-panel.collapsed { height: 240px; }
+    .gamified-panel.expanded { height: 700px; }
 
     /* Remove extra margins/padding around expanded content */
     .gamified-panel.expanded .panel-header { padding: 4px 10px; }
