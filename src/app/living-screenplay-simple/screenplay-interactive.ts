@@ -2918,15 +2918,68 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  onTreeReload(screenplay: ScreenplayListItem): void {
+  async onTreeReload(screenplay: ScreenplayListItem): Promise<void> {
     if (!screenplay.importPath) {
       this.notificationService.showWarning('Caminho de importação não definido');
       return;
     }
 
     console.log('🔄 [TREE] Reloading from disk:', screenplay.importPath);
-    this.notificationService.showInfo('Funcionalidade de recarga em desenvolvimento');
-    // TODO: Implement disk reload functionality
+
+    try {
+      // Check if File System Access API is supported
+      if (!('showOpenFilePicker' in window)) {
+        this.notificationService.showError('Seu navegador não suporta o acesso direto ao sistema de arquivos. Use um navegador moderno (Chrome, Edge).');
+        return;
+      }
+
+      // Show file picker
+      const [fileHandle] = await (window as any).showOpenFilePicker({
+        types: [{
+          description: 'Markdown Files',
+          accept: { 'text/markdown': ['.md'] }
+        }],
+        multiple: false
+      });
+
+      // Read file content
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+
+      // Update the screenplay with new content (mantém o importPath original)
+      this.screenplayStorage.updateScreenplay(screenplay.id, {
+        content: content,
+        importPath: screenplay.importPath, // Mantém o caminho completo original
+        fileKey: this.screenplayStorage.generateFileKey(screenplay.importPath!, screenplay.importPath!)
+      }).subscribe({
+        next: (updatedScreenplay) => {
+          console.log('✅ [TREE RELOAD] Screenplay reloaded successfully from disk');
+          this.notificationService.showSuccess('Roteiro recarregado do disco com sucesso');
+
+          // If this is the currently open screenplay, reload it in the editor
+          if (this.currentScreenplay?.id === screenplay.id) {
+            this.editorContent = updatedScreenplay.content;
+            this.currentScreenplay = updatedScreenplay;
+            this.isDirty = false;
+          }
+
+          // Reload the screenplays list to reflect updates
+          this.loadScreenplaysList();
+        },
+        error: (error) => {
+          console.error('❌ [TREE RELOAD] Error updating screenplay:', error);
+          this.notificationService.showError('Falha ao atualizar o roteiro com o conteúdo do disco');
+        }
+      });
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🔄 [TREE RELOAD] Reload cancelled by user');
+        return;
+      }
+      console.error('❌ [TREE RELOAD] Error reloading from disk:', error);
+      this.notificationService.showError('Erro ao recarregar do disco');
+    }
   }
 
   // Agent Catalog Handlers

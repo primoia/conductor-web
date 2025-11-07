@@ -21,6 +21,7 @@ interface ScreenplayTreeNode {
 })
 export class ScreenplayTreeComponent implements OnInit, OnChanges {
   @Input() screenplays: ScreenplayListItem[] = [];
+  @Input() activeScreenplayId: string | null = null; // ID do roteiro atualmente ativo
   @Output() openScreenplay = new EventEmitter<ScreenplayListItem>();
   @Output() updateScreenplay = new EventEmitter<{screenplay: ScreenplayListItem, updates: Partial<ScreenplayListItem>}>();
   @Output() reloadFromDisk = new EventEmitter<ScreenplayListItem>();

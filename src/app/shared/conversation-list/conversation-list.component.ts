@@ -670,6 +670,18 @@ export class ConversationListComponent implements OnInit {
     this.editModalContext = '';
   }
 
+  /**
+   * Close edit modal with ESC key
+   */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: Event): void {
+    if (this.showEditModal) {
+      this.closeEditModal();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
   onDeleteConversation(event: Event, conversationId: string): void {
     event.stopPropagation(); // Prevent selecting the conversation
 

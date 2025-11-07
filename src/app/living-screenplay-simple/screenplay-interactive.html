@@ -33,6 +33,7 @@
             <app-screenplay-tree
               *ngIf="activeTab === 'tree'"
               [screenplays]="screenplaysList"
+              [activeScreenplayId]="currentScreenplay?.id || null"
               (openScreenplay)="onTreeScreenplayOpen($event)"
               (updateScreenplay)="onTreeUpdateScreenplay($event)"
               (reloadFromDisk)="onTreeReload($event)">

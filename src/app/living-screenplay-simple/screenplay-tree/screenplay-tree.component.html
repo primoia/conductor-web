@@ -29,6 +29,7 @@
         <div
           *ngFor="let file of project.children"
           class="file-node"
+          [class.selected]="file.screenplay!.id === activeScreenplayId"
           (click)="onFileClick(file.screenplay!)">
           <!-- Linha 1: Nome + Ações -->
           <div class="file-row-1">
