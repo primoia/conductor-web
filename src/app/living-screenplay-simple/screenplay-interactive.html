@@ -253,6 +253,7 @@
           <app-conductor-chat
             #conductorChat
             [contextualAgents]="contextualAgents"
+            [screenplayWorkingDirectory]="currentWorkingDirectory"
             (addAgentRequested)="openAgentSelector()"
             (deleteAgentRequested)="onDeleteAgentClick()"
             (agentDockClicked)="onDockAgentClick($event)"

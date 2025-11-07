@@ -88,6 +88,17 @@ export class ScreenplayStorage {
           throw new Error(`Failed to fetch screenplays: ${response.status} ${response.statusText}`);
         }
         return response.json();
+      }).then((data: any) => {
+        // 🔒 FIX: Transform snake_case from backend to camelCase for frontend
+        if (data.items && Array.isArray(data.items)) {
+          data.items = data.items.map((item: any) => {
+            if (item.working_directory !== undefined) {
+              item.workingDirectory = item.working_directory;
+            }
+            return item;
+          });
+        }
+        return data as ScreenplayListResponse;
       })
     ).pipe(
       catchError(error => {
@@ -113,6 +124,27 @@ export class ScreenplayStorage {
           throw new Error(`Failed to fetch screenplay: ${response.status} ${response.statusText}`);
         }
         return response.json();
+      }).then((data: any) => {
+        // 🔍 DEBUG: Log raw data from backend
+        console.log('🔍 [ScreenplayStorage] Raw data from backend:', {
+          id: data.id,
+          name: data.name,
+          working_directory: data.working_directory,
+          workingDirectory: data.workingDirectory
+        });
+
+        // 🔒 FIX: Transform snake_case from backend to camelCase for frontend
+        if (data.working_directory !== undefined) {
+          data.workingDirectory = data.working_directory;
+          console.log('✅ [ScreenplayStorage] Transformed working_directory to workingDirectory:', data.workingDirectory);
+        } else {
+          console.warn('⚠️ [ScreenplayStorage] Backend não retornou working_directory! O campo pode não estar salvo no MongoDB ou o backend não está retornando esse campo.');
+          // Garantir que workingDirectory seja null se não vier do backend
+          if (data.workingDirectory === undefined) {
+            data.workingDirectory = null;
+          }
+        }
+        return data as Screenplay;
       })
     ).pipe(
       catchError(error => {

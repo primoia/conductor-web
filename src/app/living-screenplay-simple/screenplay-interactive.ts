@@ -1802,10 +1802,21 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   openWorkingDirModal(): void {
     this.showScreenplaySettings = false;
 
+    // 🔍 DEBUG: Log para verificar o que está no screenplay
+    console.log('🔍 [MODAL] Opening working dir modal:', {
+      hasCurrentScreenplay: !!this.currentScreenplay,
+      workingDirectory: this.currentScreenplay?.workingDirectory,
+      currentWorkingDirectory: this.currentWorkingDirectory
+    });
+
     // Load current working directory
+    // 🔒 FIX: Usar currentWorkingDirectory que já foi carregado corretamente
     if (this.currentScreenplay) {
-      this.currentWorkingDirectory = this.currentScreenplay.workingDirectory || null;
-      this.tempWorkingDirectory = this.currentWorkingDirectory || '';
+      // Se currentWorkingDirectory já está setado, usar ele (mais confiável)
+      // Caso contrário, tentar ler do screenplay
+      this.tempWorkingDirectory = this.currentWorkingDirectory ||
+                                   this.currentScreenplay.workingDirectory ||
+                                   '';
     }
 
     this.showWorkingDirModal = true;
@@ -2210,10 +2221,22 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.agentInstances.clear();
     this.agents = [];
 
+    // 🔍 DEBUG: Log complete screenplay object to verify workingDirectory is coming from backend
+    console.log('🔍 [DEBUG] Screenplay loaded from backend:', {
+      id: screenplay.id,
+      name: screenplay.name,
+      workingDirectory: screenplay.workingDirectory,
+      hasWorkingDirectory: !!screenplay.workingDirectory
+    });
+
     // Set current screenplay
     this.currentScreenplay = screenplay;
     this.isDirty = false;
     this.currentFileName = ''; // Clear disk filename
+
+    // 🔒 FIX: Load working directory from screenplay
+    this.currentWorkingDirectory = screenplay.workingDirectory || null;
+    this.logging.info(`📁 [LOAD] Working directory loaded: ${this.currentWorkingDirectory || 'not set'}`, 'ScreenplayInteractive');
 
     // SAGA-005: Update state for database-linked screenplay
     this.sourceOrigin = 'database';
@@ -3095,6 +3118,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       id: instanceId,
       note: 'Agent does not appear in editor, only in dock'
     });
+
+    // 🔥 NOVO: Auto-selecionar o agente recém-criado
+    setTimeout(() => {
+      this.onDockAgentClick(newInstance);
+      this.logging.info('🎯 [AUTO-SELECT] Agente recém-criado selecionado automaticamente', 'ScreenplayInteractive', {
+        instanceId,
+        agentName: agent.name
+      });
+    }, 300); // Pequeno delay para garantir que o DOM foi atualizado
 
     // If there is a pending investigation, auto-execute with contextual prompt
     if (this.pendingInvestigation) {

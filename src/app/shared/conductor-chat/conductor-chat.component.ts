@@ -321,12 +321,15 @@ Erro: 'invalid_token' na response..."
 
       <!-- CHAT INPUT AREA: Apenas editor, altura redimensionável -->
       <div class="chat-input-area" [style.height]="chatInputHeight" (click)="focusEditorInput()">
-        <!-- Block input if agent is selected but no cwd is defined -->
+        <!-- Block input if no agent is selected or if agent has no cwd defined -->
         <div class="input-blocked-overlay" *ngIf="isInputBlocked()">
           <div class="blocked-message">
-            <span class="blocked-icon">🔒</span>
-            <span>Chat bloqueado. Defina o diretório de trabalho primeiro.</span>
-            <button class="blocked-btn" (click)="openCwdDefinitionModal(); $event.stopPropagation()">
+            <span class="blocked-icon">{{ getBlockMessage().icon }}</span>
+            <span>{{ getBlockMessage().text }}</span>
+            <button
+              *ngIf="getBlockMessage().showButton"
+              class="blocked-btn"
+              (click)="openCwdDefinitionModal(); $event.stopPropagation()">
               Definir agora
             </button>
           </div>
@@ -1830,6 +1833,7 @@ Erro: 'invalid_token' na response..."
 })
 export class ConductorChatComponent implements OnInit, OnDestroy {
   @Input() contextualAgents: any[] = [];
+  @Input() screenplayWorkingDirectory: string | null = null; // Working directory do screenplay para herança
   @Output() addAgentRequested = new EventEmitter<void>();
   @Output() deleteAgentRequested = new EventEmitter<void>();
   @Output() agentDockClicked = new EventEmitter<any>();
@@ -2084,7 +2088,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       agentDbId: this.selectedAgentDbId,
       agentName: this.selectedAgentName || 'Unknown',
       agentEmoji: this.selectedAgentEmoji || '🤖',
-      cwd: this.activeAgentCwd || undefined,
+      cwd: this.activeAgentCwd || this.screenplayWorkingDirectory || undefined,
       screenplayId: this.activeScreenplayId || undefined,
       instanceId: this.activeAgentId
     };
@@ -2469,6 +2473,45 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         // 🔥 Carregar contexto da conversa
         this.conversationContext = conversation.context || '';
 
+        // 🔒 FIX: Atualizar estado do agente ativo baseado no active_agent da conversa
+        if (conversation.active_agent) {
+          // Verificar se o agente ativo ainda existe e não foi deletado
+          const agentStillExists = this.contextualAgents.some((agent: any) =>
+            agent.id === conversation.active_agent!.instance_id &&
+            !agent.isDeleted &&
+            !agent.is_deleted
+          );
+
+          if (agentStillExists) {
+            // Conversa tem um agente ativo e ele ainda existe
+            this.activeAgentId = conversation.active_agent.instance_id;
+            this.selectedAgentDbId = conversation.active_agent.agent_id;
+            this.selectedAgentName = conversation.active_agent.name;
+            this.selectedAgentEmoji = conversation.active_agent.emoji || null;
+            console.log('✅ [CHAT] Agente ativo carregado:', conversation.active_agent.name);
+
+            // Carregar CWD do agente (pode estar nos contextualAgents)
+            // TODO: Melhorar isso buscando CWD do backend se necessário
+            this.activeAgentCwd = null; // Por enquanto, será detectado se necessário
+          } else {
+            // Agente foi deletado - limpar estado
+            this.activeAgentId = null;
+            this.selectedAgentDbId = null;
+            this.selectedAgentName = null;
+            this.selectedAgentEmoji = null;
+            this.activeAgentCwd = null;
+            console.log('⚠️ [CHAT] Agente ativo foi deletado, limpando estado');
+          }
+        } else {
+          // Conversa sem agente ativo - limpar estado
+          this.activeAgentId = null;
+          this.selectedAgentDbId = null;
+          this.selectedAgentName = null;
+          this.selectedAgentEmoji = null;
+          this.activeAgentCwd = null;
+          console.log('⚠️ [CHAT] Conversa sem agente ativo');
+        }
+
         this.chatState.isLoading = false;
         console.log('✅ [CHAT] Conversa exibida com', messages.length, 'mensagens');
       },
@@ -2670,16 +2713,45 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Check if CWD warning banner should be shown
    */
   showCwdWarning(): boolean {
-    // Show warning if agent is selected but no cwd is defined
-    return this.activeAgentId !== null && !this.activeAgentCwd;
+    // Show warning if agent is selected but no cwd is defined (neither agent-specific nor screenplay)
+    return this.activeAgentId !== null && !this.activeAgentCwd && !this.screenplayWorkingDirectory;
   }
 
   /**
    * Check if chat input should be blocked
    */
   isInputBlocked(): boolean {
-    // Block input if agent is selected but no cwd is defined
-    return this.activeAgentId !== null && !this.activeAgentCwd;
+    // Block input if no agent is selected
+    if (!this.activeAgentId) {
+      return true;
+    }
+    // Block input if agent is selected but no cwd is defined (neither agent-specific nor screenplay)
+    return !this.activeAgentCwd && !this.screenplayWorkingDirectory;
+  }
+
+  /**
+   * Get the appropriate block message based on the block reason
+   */
+  getBlockMessage(): { icon: string; text: string; showButton: boolean } {
+    if (!this.activeAgentId) {
+      return {
+        icon: '🤖',
+        text: 'Nenhum agente selecionado. Adicione um agente para começar.',
+        showButton: false
+      };
+    }
+    if (!this.activeAgentCwd) {
+      return {
+        icon: '🔒',
+        text: 'Chat bloqueado. Defina o diretório de trabalho primeiro.',
+        showButton: true
+      };
+    }
+    return {
+      icon: '',
+      text: '',
+      showButton: false
+    };
   }
 
   /**
@@ -2873,28 +2945,27 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   onCreateNewConversation(): void {
     console.log('🆕 [CHAT] Criando nova conversa...');
 
-    // Se não há agente selecionado, usar o primeiro disponível
-    let agentInfo = undefined;
-    if (this.activeAgentId && this.selectedAgentDbId) {
-      agentInfo = {
-        agent_id: this.selectedAgentDbId,
-        instance_id: this.activeAgentId,
-        name: this.selectedAgentName || 'Unknown',
-        emoji: this.selectedAgentEmoji || undefined
-      };
-    }
-
+    // 🔒 FIX: Nova conversa deve começar vazia, sem agentes
+    // O usuário deve adicionar agentes explicitamente via botão "➕ Adicionar Agente"
     const title = `Conversa ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
     this.conversationService.createConversation({
       title,
-      active_agent: agentInfo,
+      active_agent: undefined,
       screenplay_id: this.activeScreenplayId || undefined
     }).subscribe({
       next: (response) => {
         console.log('✅ [CHAT] Nova conversa criada:', response.conversation_id);
         this.activeConversationId = response.conversation_id;
         this.activeConversationChanged.emit(this.activeConversationId); // 🔥 NOVO: Notificar mudança
+
+        // 🔒 FIX: Limpar estado do agente ao criar nova conversa vazia
+        this.activeAgentId = null;
+        this.selectedAgentDbId = null;
+        this.selectedAgentName = null;
+        this.selectedAgentEmoji = null;
+        this.activeAgentCwd = null;
+
         this.chatState.messages = [{
           id: `empty-${Date.now()}`,
           content: 'Nova conversa iniciada. Selecione um agente e comece a conversar!',
