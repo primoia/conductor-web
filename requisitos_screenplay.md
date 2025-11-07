@@ -35,6 +35,8 @@ A premissa é transformar arquivos `.md` estáticos em **painéis de controle in
 - **Sidebar**: Interface `ConversationListComponent` para gerenciar conversas
 - **Contexto**: Cada conversa tem seu próprio contexto (persona, procedimento, histórico)
 - **Seleção**: O usuário alterna entre conversas; o chat atualiza automaticamente
+- **Auto-seleção de Agente**: Ao selecionar uma conversa, o último agente usado nela é automaticamente selecionado
+- **Persistência via URL**: Estado da conversa ativa é mantido na URL via parâmetro `conversationId`
 
 ### **4. Contexto (Agent Context)**
 - **Definição**: Cada agente possui:
@@ -65,6 +67,22 @@ A premissa é transformar arquivos `.md` estáticos em **painéis de controle in
   - Comandos slash (`/`) para ações rápidas
   - Envio via Enter ou botão
   - Placeholder dinâmico conforme contexto
+
+### **7. Gerenciamento de Estado via URL**
+- **Parâmetros de Query**:
+  - `screenplayId`: ID do roteiro ativo
+  - `conversationId`: ID da conversa selecionada
+  - `instanceId`: ID do agente/instância selecionado
+- **Funcionalidades**:
+  - **Shareable URLs**: URLs completas podem ser compartilhadas e abertas em novas abas
+  - **Estado Persistente**: Reload da página mantém screenplay, conversa e agente selecionados
+  - **Deep Linking**: Possibilidade de linkar diretamente para um contexto específico
+  - **Sincronização Automática**: URL é atualizada automaticamente ao trocar conversa ou agente
+- **Comportamento**:
+  - Ao carregar página com URL completa: restaura exatamente o estado especificado
+  - Ao clicar numa conversa: URL é atualizada e último agente da conversa é auto-selecionado
+  - Ao clicar num agente: URL é atualizada com o `instanceId`
+  - Previne conflitos: seleções da URL têm prioridade sobre auto-seleção padrão
 
 ## 🔄 Fluxo de Trabalho Típico
 
@@ -100,6 +118,9 @@ Screenplay (Roteiro)
 4. **Soft Delete**: Agentes e roteiros não são removidos fisicamente, apenas marcados como `isDeleted`
 5. **Dirty State Management**: Sistema detecta mudanças não salvas e alerta o usuário
 6. **Auto-Save Context**: Contexto de agentes é salvo automaticamente ao editar
+7. **URL State Priority**: Parâmetros da URL têm prioridade sobre auto-seleções padrão para garantir deep linking
+8. **Auto-seleção de Agente**: Ao trocar de conversa, o último agente usado (por data de atualização) é automaticamente selecionado
+9. **Sincronização de URL**: Qualquer mudança de estado (conversa/agente) atualiza a URL em tempo real
 
 ## 🎓 Conceitos-Chave
 

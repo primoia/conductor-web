@@ -97,10 +97,12 @@ export class ConversationManagementService {
    *
    * @param screenplayId ID do roteiro
    * @param conductorChat Referência ao componente de chat
+   * @param preferredConversationId ID da conversa preferencial (da URL, por exemplo)
    */
   ensureScreenplayConversation(
     screenplayId: string,
-    conductorChat: ConductorChatComponent
+    conductorChat: ConductorChatComponent,
+    preferredConversationId?: string | null
   ): void {
     if (!conductorChat) {
       this.logging.warn(
@@ -112,15 +114,32 @@ export class ConversationManagementService {
 
     this.logging.info(
       `🔍 [CONVERSATION-MGT] Verificando conversas para screenplay: ${screenplayId}`,
-      'ConversationManagementService'
+      'ConversationManagementService',
+      { preferredConversationId }
     );
 
     // Atualizar o activeScreenplayId no chat para filtrar conversas
     conductorChat.activeScreenplayId = screenplayId;
 
+    // 🔥 FIX: Sempre buscar e mostrar lista de conversas, mas só auto-selecionar se não há preferência da URL
     // Buscar conversas deste roteiro
     this.conversationService.listConversations(20, 0, screenplayId).subscribe({
       next: (response) => {
+        // Refresh lista de conversas para mostrar todas as conversas disponíveis
+        if (conductorChat.conversationListComponent) {
+          conductorChat.conversationListComponent.refresh();
+        }
+
+        // Se há conversa preferencial da URL, não auto-selecionar
+        if (preferredConversationId) {
+          this.logging.info(
+            `⏭️ [CONVERSATION-MGT] Pulando auto-select - conversationId da URL será aplicado: ${preferredConversationId}`,
+            'ConversationManagementService'
+          );
+          return;
+        }
+
+        // Se não há preferência da URL, comportamento normal
         if (response.conversations.length > 0) {
           // Já tem conversas, carregar a mais recente
           const latestConversation = response.conversations[0];
@@ -136,11 +155,6 @@ export class ConversationManagementService {
 
           // Atualizar estado local
           this.setActiveConversation(latestConversation.conversation_id);
-
-          // Refresh lista de conversas
-          if (conductorChat.conversationListComponent) {
-            conductorChat.conversationListComponent.refresh();
-          }
         } else {
           // Não tem conversas, criar uma automaticamente
           this.logging.info(
@@ -157,8 +171,10 @@ export class ConversationManagementService {
           'ConversationManagementService'
         );
 
-        // Em caso de erro, criar conversa automaticamente
-        conductorChat.createNewConversationForScreenplay();
+        // Em caso de erro, criar conversa automaticamente (só se não há URL param)
+        if (!preferredConversationId) {
+          conductorChat.createNewConversationForScreenplay();
+        }
       }
     });
   }
