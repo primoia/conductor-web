@@ -325,10 +325,14 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Fase 3: abrir modal a partir do ticker
   onTickerSelect(ev: GamificationEvent): void {
+    // Extract task_id from event meta (execution_id)
+    const taskId = (ev.meta as any)?.execution_id || ev.id;
+
     this.reportData = {
       title: ev.title,
       timestamp: ev.timestamp,
       severity: ev.severity,
+      taskId: taskId,  // ← NOVO: Passa taskId para o modal buscar detalhes completos
       details: ev.meta || null,
       summary: ev.summary || (typeof (ev.meta as any)?.['result'] === 'string' ? (ev.meta as any)['result'] : null),
     } as any;
