@@ -480,7 +480,8 @@ Erro: 'invalid_token' na response..."
     /* 🔥 NOVO: Container principal com sidebar */
     .conductor-chat-container {
       display: flex;
-      height: 100vh;
+      /* height: 100vh; - REMOVIDO: permite que flex do pai (.chat-panel) controle a altura */
+      height: 100%; /* Usa 100% da altura do pai */
       overflow: hidden;
     }
 
@@ -500,7 +501,7 @@ Erro: 'invalid_token' na response..."
       display: flex;
       flex-direction: column;
       flex: 1;
-      height: 100vh;
+      /* height: 100vh; - REMOVIDO: permite que flex do pai controle a altura */
       background: #fafbfc;
       border-left: 1px solid #e1e4e8;
     }

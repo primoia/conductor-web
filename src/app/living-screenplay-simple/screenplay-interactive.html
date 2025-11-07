@@ -138,21 +138,6 @@
               (blockCommand)="onBlockCommand($event)">
             </app-interactive-editor>
           </div>
-
-          <!-- Editor Footer / Status Bar -->
-          <div class="editor-footer">
-            <app-gamified-panel
-              [refreshMs]="30000"
-              [isSaving]="isSaving"
-              [isDirty]="isDirty"
-              [hasCurrentScreenplay]="!!currentScreenplay"
-              [showStatusInHeaderWhenCollapsed]="true"
-              (settings)="openAgentPersonalization()"
-              (stateChange)="onPanelStateChange($event)"
-              (loadScreenplay)="onLoadProjectScreenplay()">
-              <app-event-ticker [isExpanded]="isPanelExpanded" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
-            </app-gamified-panel>
-          </div>
         </div>
 
 
@@ -261,17 +246,35 @@
       <!-- Resizable splitter -->
       <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
 
-      <!-- Chat Panel with Agent Dock -->
-      <div class="chat-panel" [style.width.%]="chatWidth">
-        <app-conductor-chat
-          #conductorChat
-          [contextualAgents]="contextualAgents"
-          (addAgentRequested)="openAgentSelector()"
-          (deleteAgentRequested)="onDeleteAgentClick()"
-          (agentDockClicked)="onDockAgentClick($event)"
-          (activeConversationChanged)="onActiveConversationChanged($event)"
-          (agentOrderChanged)="onAgentOrderChanged($event)">
-        </app-conductor-chat>
+      <!-- Third Column: Chat + Footer -->
+      <div class="third-column" [style.width.%]="chatWidth">
+        <!-- Chat Panel with Agent Dock -->
+        <div class="chat-panel">
+          <app-conductor-chat
+            #conductorChat
+            [contextualAgents]="contextualAgents"
+            (addAgentRequested)="openAgentSelector()"
+            (deleteAgentRequested)="onDeleteAgentClick()"
+            (agentDockClicked)="onDockAgentClick($event)"
+            (activeConversationChanged)="onActiveConversationChanged($event)"
+            (agentOrderChanged)="onAgentOrderChanged($event)">
+          </app-conductor-chat>
+        </div>
+
+        <!-- Editor Footer - Abaixo do chat-panel, dentro da third-column -->
+        <div class="editor-footer">
+          <app-gamified-panel
+            [refreshMs]="30000"
+            [isSaving]="isSaving"
+            [isDirty]="isDirty"
+            [hasCurrentScreenplay]="!!currentScreenplay"
+            [showStatusInHeaderWhenCollapsed]="true"
+            (settings)="openAgentPersonalization()"
+            (stateChange)="onPanelStateChange($event)"
+            (loadScreenplay)="onLoadProjectScreenplay()">
+            <app-event-ticker [isExpanded]="isPanelExpanded" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
+          </app-gamified-panel>
+        </div>
       </div>
     </div>
 
