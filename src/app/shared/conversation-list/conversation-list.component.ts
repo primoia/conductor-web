@@ -44,8 +44,7 @@ import { ConversationService, ConversationSummary } from '../../services/convers
           class="conversation-item"
           [class.active]="conv.conversation_id === activeConversationId"
           (click)="onSelectConversation(conv.conversation_id)"
-          cdkDrag
-          [cdkDragDisabled]="editingConversationId === conv.conversation_id">
+          cdkDrag>
 
           <!-- Drag handle -->
           <div class="drag-handle" cdkDragHandle title="Arrastar para reordenar">
@@ -57,49 +56,36 @@ import { ConversationService, ConversationSummary } from '../../services/convers
 
           <!-- Content wrapper -->
           <div class="conversation-content">
+            <!-- Título no topo (sem edição inline) -->
             <div class="conversation-header">
-            <span
-              *ngIf="editingConversationId !== conv.conversation_id"
-              class="conversation-title"
-              (dblclick)="startEditTitle(conv.conversation_id, conv.title)"
-              title="Duplo clique para editar">
-              {{ conv.title }}
-            </span>
-            <input
-              *ngIf="editingConversationId === conv.conversation_id"
-              type="text"
-              class="title-edit-input"
-              [(ngModel)]="editingTitle"
-              (blur)="saveTitle(conv.conversation_id)"
-              (keydown.enter)="saveTitle(conv.conversation_id)"
-              (keydown.escape)="cancelEditTitle()"
-              (click)="$event.stopPropagation()"
-              #titleInput
-            />
-            <button
-              class="edit-context-btn"
-              (click)="onEditContext($event, conv.conversation_id)"
-              title="Editar contexto">
-              📝
-            </button>
-            <button
-              class="delete-btn"
-              (click)="onDeleteConversation($event, conv.conversation_id)"
-              title="Deletar conversa">
-              🗑️
-            </button>
-          </div>
+              <span class="conversation-title" [title]="conv.title">
+                {{ conv.title }}
+              </span>
+            </div>
 
-          <div class="conversation-meta">
-            <span class="participants" *ngIf="conv.participant_count > 0">
-              {{ conv.participant_count }} agente(s)
-            </span>
-            <span class="count">{{ conv.message_count }} msgs</span>
-          </div>
+            <!-- Meta informações -->
+            <div class="conversation-meta">
+              <span class="participants" *ngIf="getActiveAgentCount(conv.conversation_id) > 0">
+                {{ getActiveAgentCount(conv.conversation_id) }} agente(s)
+              </span>
+              <span class="count">{{ conv.message_count }} msgs</span>
+            </div>
 
-          <div class="conversation-date">
-            {{ formatDate(conv.updated_at) }}
-          </div>
+            <!-- Botões de ação no footer -->
+            <div class="conversation-footer">
+              <button
+                class="edit-context-btn"
+                (click)="onEditContext($event, conv)"
+                title="Editar conversa">
+                📝
+              </button>
+              <button
+                class="delete-btn"
+                (click)="onDeleteConversation($event, conv.conversation_id)"
+                title="Deletar conversa">
+                🗑️
+              </button>
+            </div>
           </div> <!-- /conversation-content -->
         </div>
       </div>
@@ -113,6 +99,46 @@ import { ConversationService, ConversationSummary } from '../../services/convers
           <p class="hint" *ngIf="screenplayId">Clique no + para começar</p>
         </div>
       </ng-template>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Editar Conversa</h3>
+          <button class="modal-close-btn" (click)="closeEditModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="modal-title">Título</label>
+            <input
+              id="modal-title"
+              type="text"
+              class="modal-title-input"
+              [(ngModel)]="editModalTitle"
+              placeholder="Digite o título da conversa"
+              maxlength="100"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="modal-context">Contexto (Markdown)</label>
+            <textarea
+              id="modal-context"
+              class="modal-context-input"
+              [(ngModel)]="editModalContext"
+              placeholder="Digite o contexto da conversa em Markdown..."
+              rows="10"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="modal-cancel-btn" (click)="closeEditModal()">Cancelar</button>
+          <button class="modal-save-btn" (click)="saveEditModal()">Salvar</button>
+        </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -210,58 +236,48 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     }
 
     .conversation-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
     .conversation-title {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 15px;
+      font-weight: 600;
       color: #212529;
-      flex: 1;
       word-break: break-word;
-      cursor: text;
+      line-height: 1.4;
+      display: block;
     }
 
-    .title-edit-input {
-      font-size: 14px;
-      font-weight: 500;
-      color: #212529;
-      flex: 1;
-      border: 1px solid #007bff;
-      border-radius: 4px;
-      padding: 4px 8px;
-      outline: none;
-      background: white;
-    }
-
-    .title-edit-input:focus {
-      border-color: #0056b3;
-      box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    /* Footer com botões de ação */
+    .conversation-footer {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      padding-top: 8px;
+      border-top: 1px solid #e9ecef;
+      margin-top: 8px;
     }
 
     .edit-context-btn,
     .delete-btn {
-      background: none;
-      border: none;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
       font-size: 16px;
       cursor: pointer;
-      padding: 0;
-      margin-left: 8px;
-      opacity: 0.5;
-      transition: opacity 0.2s;
+      padding: 4px 12px;
+      transition: all 0.2s;
       flex-shrink: 0;
     }
 
-    .edit-context-btn:hover,
-    .delete-btn:hover {
-      opacity: 1;
+    .edit-context-btn:hover {
+      background: #e7f1ff;
+      border-color: #007bff;
     }
 
-    .edit-context-btn {
-      font-size: 14px;
+    .delete-btn:hover {
+      background: #ffe5e5;
+      border-color: #dc3545;
     }
 
     .conversation-meta {
@@ -269,12 +285,7 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       gap: 12px;
       font-size: 12px;
       color: #6c757d;
-      margin-bottom: 4px;
-    }
-
-    .conversation-date {
-      font-size: 11px;
-      color: #adb5bd;
+      margin-bottom: 8px;
     }
 
     .empty-state {
@@ -338,20 +349,177 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       border-radius: 8px;
       min-height: 80px;
     }
+
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      max-width: 600px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #212529;
+    }
+
+    .modal-close-btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      line-height: 1;
+      color: #6c757d;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .modal-close-btn:hover {
+      background: #f8f9fa;
+      color: #212529;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .modal-title-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+
+    .modal-title-input:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+
+    .modal-context-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      resize: vertical;
+      min-height: 200px;
+      transition: border-color 0.2s;
+    }
+
+    .modal-context-input:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px 20px;
+      border-top: 1px solid #dee2e6;
+      background: #f8f9fa;
+    }
+
+    .modal-cancel-btn,
+    .modal-save-btn {
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .modal-cancel-btn {
+      background: white;
+      color: #6c757d;
+      border: 1px solid #dee2e6;
+    }
+
+    .modal-cancel-btn:hover {
+      background: #f8f9fa;
+      border-color: #adb5bd;
+    }
+
+    .modal-save-btn {
+      background: #007bff;
+      color: white;
+    }
+
+    .modal-save-btn:hover {
+      background: #0056b3;
+    }
   `]
 })
 export class ConversationListComponent implements OnInit {
   @Input() activeConversationId: string | null = null;
   @Input() screenplayId: string | null = null; // 🔥 NOVO: Filtrar conversas por roteiro
+  @Input() agentInstances: any[] = []; // 🔥 NOVO: Lista de instâncias de agentes para contar os ativos
   @Output() conversationSelected = new EventEmitter<string>();
   @Output() conversationCreated = new EventEmitter<void>();
   @Output() conversationDeleted = new EventEmitter<string>();
   @Output() contextEditRequested = new EventEmitter<string>(); // Emite conversation_id para editar contexto
 
   conversations: ConversationSummary[] = [];
-  editingConversationId: string | null = null;
-  editingTitle: string = '';
-  originalTitle: string = '';
+
+  // 🔥 NOVO: Estado do modal de edição
+  showEditModal = false;
+  editingConversation: ConversationSummary | null = null;
+  editModalTitle = '';
+  editModalContext = '';
 
   constructor(private conversationService: ConversationService) {}
 
@@ -404,9 +572,93 @@ export class ConversationListComponent implements OnInit {
     }
   }
 
-  onEditContext(event: Event, conversationId: string): void {
+  /**
+   * 🔥 NOVO: Conta agentes ativos (não deletados) em uma conversa
+   */
+  getActiveAgentCount(conversationId: string): number {
+    return this.agentInstances.filter(agent =>
+      agent.conversation_id === conversationId &&
+      !agent.isDeleted &&
+      !agent.is_deleted
+    ).length;
+  }
+
+  /**
+   * 🔥 NOVO: Abre modal para editar título e contexto da conversa
+   */
+  onEditContext(event: Event, conversation: ConversationSummary): void {
     event.stopPropagation(); // Prevent selecting the conversation
-    this.contextEditRequested.emit(conversationId);
+
+    this.editingConversation = conversation;
+    this.editModalTitle = conversation.title;
+    this.editModalContext = conversation.context || '';
+    this.showEditModal = true;
+
+    // Focar no contexto após o modal abrir
+    setTimeout(() => {
+      const contextInput = document.querySelector('.modal-context-input') as HTMLTextAreaElement;
+      if (contextInput) {
+        contextInput.focus();
+      }
+    }, 100);
+  }
+
+  /**
+   * 🔥 NOVO: Salva alterações do modal
+   */
+  saveEditModal(): void {
+    if (!this.editingConversation) return;
+
+    if (!this.editModalTitle || this.editModalTitle.trim().length < 3) {
+      alert('O título deve ter no mínimo 3 caracteres');
+      return;
+    }
+
+    const conversationId = this.editingConversation.conversation_id;
+    const trimmedTitle = this.editModalTitle.trim();
+    const trimmedContext = this.editModalContext.trim();
+
+    // Atualizar título
+    this.conversationService.updateConversationTitle(conversationId, trimmedTitle).subscribe({
+      next: () => {
+        console.log('✅ Título atualizado com sucesso');
+
+        // Atualizar contexto se houver
+        if (trimmedContext !== (this.editingConversation?.context || '')) {
+          this.conversationService.updateConversationContext(conversationId, trimmedContext || null).subscribe({
+            next: () => {
+              console.log('✅ Contexto atualizado com sucesso');
+              this.closeEditModal();
+              this.loadConversations(); // Recarregar lista
+            },
+            error: (error: any) => {
+              console.error('❌ Erro ao atualizar contexto:', error);
+              alert('Título atualizado, mas erro ao atualizar contexto');
+              this.closeEditModal();
+              this.loadConversations();
+            }
+          });
+        } else {
+          // Apenas título foi alterado
+          this.closeEditModal();
+          this.loadConversations();
+        }
+      },
+      error: (error: any) => {
+        console.error('❌ Erro ao atualizar título:', error);
+        alert('Erro ao atualizar conversa');
+      }
+    });
+  }
+
+  /**
+   * 🔥 NOVO: Fecha modal de edição
+   */
+  closeEditModal(): void {
+    this.showEditModal = false;
+    this.editingConversation = null;
+    this.editModalTitle = '';
+    this.editModalContext = '';
   }
 
   onDeleteConversation(event: Event, conversationId: string): void {
@@ -438,68 +690,6 @@ export class ConversationListComponent implements OnInit {
     this.loadConversations();
   }
 
-  startEditTitle(conversationId: string, currentTitle: string): void {
-    this.editingConversationId = conversationId;
-    this.editingTitle = currentTitle;
-    this.originalTitle = currentTitle;
-
-    // Focar no input após o Angular renderizar
-    setTimeout(() => {
-      const input = document.querySelector('.title-edit-input') as HTMLInputElement;
-      if (input) {
-        input.focus();
-        input.select();
-      }
-    }, 0);
-  }
-
-  saveTitle(conversationId: string): void {
-    if (!this.editingTitle || this.editingTitle.trim().length < 3) {
-      alert('O título deve ter no mínimo 3 caracteres');
-      this.editingTitle = this.originalTitle;
-      this.editingConversationId = null;
-      return;
-    }
-
-    if (this.editingTitle.trim().length > 100) {
-      alert('O título deve ter no máximo 100 caracteres');
-      this.editingTitle = this.originalTitle;
-      this.editingConversationId = null;
-      return;
-    }
-
-    const trimmedTitle = this.editingTitle.trim();
-
-    if (trimmedTitle === this.originalTitle) {
-      // Sem mudança
-      this.editingConversationId = null;
-      return;
-    }
-
-    this.conversationService.updateConversationTitle(conversationId, trimmedTitle).subscribe({
-      next: (response) => {
-        console.log('✅ Título atualizado:', response);
-        // Atualizar localmente
-        const conv = this.conversations.find(c => c.conversation_id === conversationId);
-        if (conv) {
-          conv.title = response.new_title;
-        }
-        this.editingConversationId = null;
-      },
-      error: (error) => {
-        console.error('❌ Erro ao atualizar título:', error);
-        alert('Erro ao atualizar título: ' + (error.error?.detail || error.message));
-        this.editingTitle = this.originalTitle;
-        this.editingConversationId = null;
-      }
-    });
-  }
-
-  cancelEditTitle(): void {
-    this.editingConversationId = null;
-    this.editingTitle = '';
-    this.originalTitle = '';
-  }
 
   /**
    * 🔥 NOVO: Handler para drag & drop

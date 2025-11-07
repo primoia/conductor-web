@@ -55,6 +55,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
         <app-conversation-list
           [activeConversationId]="activeConversationId"
           [screenplayId]="activeScreenplayId"
+          [agentInstances]="contextualAgents"
           (conversationSelected)="onSelectConversation($event)"
           (conversationCreated)="onCreateNewConversation()"
           (conversationDeleted)="onDeleteConversation($event)"
@@ -487,9 +488,9 @@ Erro: 'invalid_token' na response..."
 
     /* 🔥 NOVO: Sidebar com lista de conversas */
     .conversation-sidebar {
-      width: 200px;       /* Reduzido de 300px para 200px */
-      min-width: 180px;   /* Reduzido de 250px para 180px */
-      max-width: 250px;   /* Reduzido de 400px para 250px */
+      width: 280px;       /* Aumentado para melhor visualização */
+      min-width: 240px;   /* Largura mínima razoável */
+      max-width: 350px;   /* Máximo para não ocupar muito espaço */
       flex-shrink: 0;
       background: #f8f9fa;
       border-right: 1px solid #dee2e6;
@@ -1809,7 +1810,7 @@ Erro: 'invalid_token' na response..."
     @media (max-width: 768px) {
       .conversation-sidebar {
         position: absolute;
-        left: -200px;  /* Ajustado de -300px para -200px */
+        left: -280px;  /* Ajustado para nova largura */
         top: 0;
         bottom: 0;
         z-index: 1000;
