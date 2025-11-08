@@ -39,3 +39,60 @@ Esta abordagem desbloqueia fluxos de trabalho que antes eram impossíveis:
 -   **Code Reviews Contextuais:** Um desenvolvedor pode solicitar um code review simplesmente colocando um emoji `🧐` em um bloco de código dentro de um documento de pull request.
 
 Em suma, o Conductor Web visa fechar o ciclo entre a ideação e a automação, transformando o ato de escrever em uma forma de programar e orquestrar sistemas de Inteligência Artificial.
+
+## 5. Evolução do Sistema: Funcionalidades Implementadas
+
+Desde a concepção inicial, o sistema evoluiu significativamente com novas capacidades:
+
+### 5.1 Sistema de Conversas Contextualizadas
+
+O conceito original de agentes isolados foi expandido para um **modelo de conversas persistentes**:
+
+-   **Conversas como Unidade de Contexto:** Cada conversa agrupa múltiplas iterações (perguntas e respostas) com um ou mais agentes, mantendo contexto compartilhado.
+-   **Histórico Recuperável:** Todo o histórico de mensagens é preservado no backend (MongoDB), permitindo retomar conversas em qualquer momento.
+-   **Contexto Markdown:** Cada conversa possui um campo de contexto editável em markdown, servindo como "termos de referência" para os agentes.
+-   **Múltiplos Agentes Colaborativos:** Uma única conversa pode ter vários agentes participantes, cada um com sua especialização.
+
+### 5.2 Gamificação e Observabilidade
+
+Para dar visibilidade ao "trabalho invisível" dos agentes, foi implementado um **sistema de gamificação em tempo real**:
+
+-   **Eventos Híbridos:** Combina comunicação WebSocket (tempo real) com polling REST (fallback) e carregamento de histórico.
+-   **Ticker Visual:** Interface estilo "feed de notícias" exibindo execuções de agentes com diferentes níveis de severidade (info, warning, error).
+-   **Categorização Semântica:** Eventos classificados automaticamente (build, critical, analysis, success, alert) com base no resultado.
+-   **Dados Históricos:** Inicialização com últimos 50 eventos do backend, proporcionando contexto imediato.
+
+### 5.3 Interação Multimodal
+
+A interface foi expandida para suportar **entrada de voz**:
+
+-   **Reconhecimento de Fala:** Integração com Web Speech API para transcrição automática.
+-   **Inserção Contextual:** Texto transcrito é inserido diretamente no editor TipTap, permitindo fluxo contínuo entre fala e escrita.
+-   **Interface Intuitiva:** Botão de microfone com toggle para controle simples de gravação.
+
+### 5.4 Sistema de Relatórios Detalhados
+
+Para permitir análise profunda das execuções, foi criado um **modal de relatórios com múltiplas visualizações**:
+
+-   **Interface com Abas:** Navegação entre Resultado (markdown renderizado), Prompt (entrada do agente) e JSON (dados brutos).
+-   **Metadados Completos:** Exibição de duração, timestamps, status, erros e identificadores.
+-   **Integração com Backend:** Busca automática de dados completos via task ID quando disponível.
+
+### 5.5 Gestão Avançada de Screenplay
+
+O conceito de screenplay evoluiu com **capacidades de gerenciamento de ciclo de vida**:
+
+-   **Reload de Disco:** Uso da File System Access API para recarregar screenplays diretamente do sistema de arquivos sem perder estado.
+-   **Working Directory Inheritance:** Propagação automática do diretório de trabalho do screenplay para conversas e agentes.
+-   **Sincronização Bidirecional:** Mudanças no editor são refletidas no disco e vice-versa, mantendo sempre a fonte de verdade atualizada.
+
+### 5.6 Deleção Inteligente de Histórico
+
+Para permitir correção de curso em conversas, foi implementado um **sistema de deleção com rollback**:
+
+-   **Deleção de Iterações:** Remove pares completos de pergunta (usuário) + resposta (agente).
+-   **Atualização Otimista:** UI atualizada imediatamente para feedback instantâneo.
+-   **Rollback Automático:** Se a operação no backend falhar, o estado da UI é revertido automaticamente.
+-   **Soft Delete:** Mensagens marcadas como deletadas permanecem no banco para auditoria futura.
+
+Estas evoluções transformam o Conductor Web de um protótipo conceitual em uma **plataforma completa de orquestração de IA contextualizada por documentos**.

@@ -2493,9 +2493,22 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
             this.selectedAgentEmoji = conversation.active_agent.emoji || null;
             console.log('✅ [CHAT] Agente ativo carregado:', conversation.active_agent.name);
 
-            // Carregar CWD do agente (pode estar nos contextualAgents)
-            // TODO: Melhorar isso buscando CWD do backend se necessário
-            this.activeAgentCwd = null; // Por enquanto, será detectado se necessário
+            // Carregar CWD do agente dos contextualAgents
+            const agentInstance = this.contextualAgents.find((agent: any) =>
+              agent.id === conversation.active_agent!.instance_id
+            );
+
+            if (agentInstance?.config?.cwd) {
+              this.activeAgentCwd = agentInstance.config.cwd;
+              console.log('✅ [CHAT] CWD carregado do agente:', this.activeAgentCwd);
+            } else {
+              // Fallback para localStorage
+              const storedCwd = localStorage.getItem(`agent-cwd-${this.activeAgentId}`);
+              this.activeAgentCwd = storedCwd || null;
+              if (storedCwd) {
+                console.log('✅ [CHAT] CWD carregado do localStorage:', storedCwd);
+              }
+            }
           } else {
             // Agente foi deletado - limpar estado
             this.activeAgentId = null;
