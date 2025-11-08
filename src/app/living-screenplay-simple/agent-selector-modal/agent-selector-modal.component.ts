@@ -1,7 +1,10 @@
-import { Component, EventEmitter, Input, OnInit, Output, HostListener, ViewChild, ElementRef, AfterViewInit, SimpleChanges, OnChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, ViewChild, ElementRef, AfterViewInit, SimpleChanges, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentService, Agent } from '../../services/agent.service';
+import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
+import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
 
 export interface AgentSelectionData {
   agent: Agent;
@@ -9,521 +12,35 @@ export interface AgentSelectionData {
   cwd?: string; // Working directory for agent execution
 }
 
+/**
+ * Modal para seleção de agentes do Conductor.
+ * Permite buscar, filtrar e selecionar agentes disponíveis, com opção de configurar diretório de trabalho.
+ *
+ * @extends BaseModalComponent
+ * ✓ Herda gerenciamento de teclado (ESC)
+ * ✓ Herda gerenciamento de backdrop
+ * ✓ Padronização completa aplicada
+ *
+ * @example
+ * ```html
+ * <app-agent-selector-modal
+ *   [isVisible]="showModal"
+ *   (agentSelected)="handleAgentSelected($event)"
+ *   (closeModal)="handleClose()">
+ * </app-agent-selector-modal>
+ * ```
+ */
 @Component({
   selector: 'app-agent-selector-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick()">
-      <div class="modal-content" (click)="onContentClick($event)">
-        <div class="modal-header">
-          <h3>🤖 Selecionar Agente</h3>
-          <button class="close-btn" (click)="onClose()">×</button>
-        </div>
-
-        <!-- Search bar -->
-        <div class="search-container" *ngIf="!isLoading && !error">
-          <input
-            #searchInput
-            type="text"
-            class="search-input"
-            [(ngModel)]="searchQuery"
-            (ngModelChange)="onSearchChange()"
-            placeholder="🔍 Buscar agente por nome..."
-            autofocus>
-          <button *ngIf="searchQuery" class="clear-search" (click)="clearSearch()">×</button>
-        </div>
-
-        <div class="modal-body">
-          <!-- Loading state -->
-          <div *ngIf="isLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>Carregando agentes disponíveis...</p>
-          </div>
-
-          <!-- Error state -->
-          <div *ngIf="error && !isLoading" class="error-state">
-            <div class="error-icon">⚠️</div>
-            <p>{{ error }}</p>
-            <button class="retry-btn" (click)="loadAgents()">🔄 Tentar Novamente</button>
-          </div>
-
-          <!-- Agents list -->
-          <div *ngIf="!isLoading && !error" class="agents-list">
-            <div *ngIf="filteredAgents.length === 0 && agents.length > 0" class="empty-state">
-              <div class="empty-icon">🔍</div>
-              <p>Nenhum agente encontrado</p>
-              <small>Tente outra busca</small>
-            </div>
-
-            <div *ngIf="agents.length === 0" class="empty-state">
-              <div class="empty-icon">🤷</div>
-              <p>Nenhum agente disponível</p>
-              <small>Crie agentes usando o CLI do Conductor</small>
-            </div>
-
-            <div
-              *ngFor="let agent of filteredAgents"
-              class="agent-item"
-              (click)="selectAgent(agent)"
-              [title]="agent.description">
-              <div class="agent-emoji">{{ agent.emoji }}</div>
-              <div class="agent-info">
-                <div class="agent-name">{{ agent.name }}</div>
-                <div class="agent-description">{{ agent.description }}</div>
-              </div>
-              <div class="select-indicator">→</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Advanced Settings (collapsible) -->
-        <div class="advanced-settings" *ngIf="!isLoading && !error">
-          <button
-            class="advanced-toggle"
-            (click)="toggleAdvancedSettings()"
-            type="button">
-            <span class="toggle-icon">{{ showAdvancedSettings ? '▼' : '▶' }}</span>
-            ⚙️ Configurações avançadas
-          </button>
-
-          <div class="advanced-content" *ngIf="showAdvancedSettings">
-            <div class="form-group">
-              <label for="cwdInput">📁 Diretório de trabalho (opcional)</label>
-              <input
-                id="cwdInput"
-                type="text"
-                class="cwd-input"
-                [(ngModel)]="workingDirectory"
-                placeholder="/mnt/ramdisk/projeto-exemplo"
-                (keydown.enter)="$event.preventDefault()">
-              <small class="help-text">Define onde o agente executará os comandos</small>
-            </div>
-
-            <div class="recent-dirs" *ngIf="recentDirectories.length > 0">
-              <small class="recent-label">Diretórios recentes:</small>
-              <div class="dir-chips">
-                <button
-                  *ngFor="let dir of recentDirectories"
-                  class="dir-chip"
-                  (click)="selectDirectory(dir)"
-                  type="button">
-                  📂 {{ dir }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer" *ngIf="!isLoading && !error && agents.length > 0">
-          <button class="btn btn-secondary" (click)="onClose()">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .modal-backdrop {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1100;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .modal-content {
-      background: white;
-      border-radius: 12px;
-      max-width: 600px;
-      width: 90%;
-      max-height: 80vh;
-      overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      display: flex;
-      flex-direction: column;
-      animation: slideIn 0.3s ease;
-    }
-
-    @keyframes slideIn {
-      from {
-        transform: translateY(-20px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 20px;
-      border-bottom: 1px solid #eee;
-      background: #f8f9fa;
-      border-radius: 12px 12px 0 0;
-    }
-
-    .search-container {
-      padding: 16px 20px;
-      border-bottom: 1px solid #eee;
-      background: white;
-      position: relative;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 10px 40px 10px 12px;
-      border: 2px solid #dee2e6;
-      border-radius: 8px;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .search-input:focus {
-      border-color: #007bff;
-    }
-
-    .clear-search {
-      position: absolute;
-      right: 28px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: #6c757d;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 18px;
-      transition: background 0.2s;
-    }
-
-    .clear-search:hover {
-      background: #545b62;
-    }
-
-    .modal-header h3 {
-      margin: 0;
-      color: #333;
-      font-size: 18px;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: #999;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      transition: all 0.2s;
-    }
-
-    .close-btn:hover {
-      color: #333;
-      background: #e9ecef;
-    }
-
-    .modal-body {
-      padding: 20px;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .loading-state,
-    .error-state,
-    .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-      text-align: center;
-      color: #666;
-    }
-
-    .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #007bff;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 16px;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .error-icon,
-    .empty-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-    }
-
-    .retry-btn {
-      margin-top: 16px;
-      padding: 8px 16px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.2s;
-    }
-
-    .retry-btn:hover {
-      background: #0056b3;
-    }
-
-    .agents-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .agent-item {
-      display: flex;
-      align-items: center;
-      padding: 16px;
-      border: 2px solid #dee2e6;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: white;
-    }
-
-    .agent-item:hover {
-      border-color: #007bff;
-      background: #f8f9ff;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
-    }
-
-    .agent-emoji {
-      font-size: 36px;
-      width: 60px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: #f8f9fa;
-      margin-right: 16px;
-      flex-shrink: 0;
-    }
-
-    .agent-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .agent-name {
-      font-weight: 600;
-      font-size: 16px;
-      color: #333;
-      margin-bottom: 4px;
-    }
-
-    .agent-description {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.4;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .select-indicator {
-      font-size: 24px;
-      color: #999;
-      margin-left: 12px;
-      transition: all 0.2s;
-    }
-
-    .agent-item:hover .select-indicator {
-      color: #007bff;
-      transform: translateX(4px);
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      padding: 16px 20px;
-      border-top: 1px solid #eee;
-      background: #f8f9fa;
-      border-radius: 0 0 12px 12px;
-    }
-
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #545b62;
-    }
-
-    /* Advanced Settings */
-    .advanced-settings {
-      border-top: 1px solid #eee;
-      margin-top: 0;
-    }
-
-    .advanced-toggle {
-      width: 100%;
-      padding: 12px 20px;
-      background: #f8f9fa;
-      border: none;
-      text-align: left;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      color: #495057;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: background 0.2s;
-    }
-
-    .advanced-toggle:hover {
-      background: #e9ecef;
-    }
-
-    .toggle-icon {
-      font-size: 10px;
-      transition: transform 0.2s;
-    }
-
-    .advanced-content {
-      padding: 16px 20px;
-      background: #fafbfc;
-      animation: slideDown 0.3s ease;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        max-height: 0;
-      }
-      to {
-        opacity: 1;
-        max-height: 300px;
-      }
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #495057;
-    }
-
-    .cwd-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 2px solid #dee2e6;
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: 'Courier New', monospace;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .cwd-input:focus {
-      border-color: #007bff;
-    }
-
-    .help-text {
-      display: block;
-      margin-top: 4px;
-      font-size: 11px;
-      color: #6c757d;
-    }
-
-    .recent-dirs {
-      margin-top: 12px;
-    }
-
-    .recent-label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 11px;
-      color: #6c757d;
-      font-weight: 600;
-    }
-
-    .dir-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .dir-chip {
-      padding: 4px 10px;
-      background: white;
-      border: 1px solid #dee2e6;
-      border-radius: 12px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: 'Courier New', monospace;
-    }
-
-    .dir-chip:hover {
-      background: #e7f3ff;
-      border-color: #007bff;
-      transform: translateY(-1px);
-    }
-  `]
+  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
+  templateUrl: './agent-selector-modal.component.html',
+  styleUrls: ['./agent-selector-modal.component.scss']
 })
-export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnChanges {
-  @Input() isVisible: boolean = false;
+export class AgentSelectorModalComponent extends BaseModalComponent implements OnInit, AfterViewInit, OnChanges {
+  @Input() override isVisible: boolean = false;
   @Output() agentSelected = new EventEmitter<AgentSelectionData>();
-  @Output() close = new EventEmitter<void>();
+  @Output() override closeModal = new EventEmitter<void>();
 
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
 
@@ -532,6 +49,7 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
   searchQuery: string = '';
   isLoading: boolean = false;
   error: string | null = null;
+  footerButtons: ModalButton[] = [];
 
   // Advanced settings
   showAdvancedSettings: boolean = false;
@@ -539,15 +57,35 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
   recentDirectories: string[] = [];
 
   constructor(private agentService: AgentService) {
+    super();
     this.loadRecentDirectories();
+    this.setupFooterButtons();
   }
 
-  @HostListener('document:keydown.escape')
-  handleEscapeKey(): void {
-    if (this.isVisible) {
+  /**
+   * Configura os botões do footer do modal.
+   * @private
+   */
+  private setupFooterButtons(): void {
+    this.footerButtons = [
+      {
+        label: 'Cancelar',
+        type: 'secondary',
+        action: 'cancel'
+      }
+    ];
+  }
+
+  /**
+   * Manipula ações dos botões do footer.
+   * @param action - Ação disparada pelo botão
+   */
+  handleFooterAction(action: string): void {
+    if (action === 'cancel') {
       this.onClose();
     }
   }
+
 
   ngOnInit(): void {
     if (this.isVisible) {
@@ -569,7 +107,8 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
   }
 
   /**
-   * Focus the search input field
+   * Foca o campo de busca
+   * @private
    */
   private focusSearchInput(): void {
     if (this.isVisible && this.searchInput?.nativeElement) {
@@ -577,6 +116,9 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     }
   }
 
+  /**
+   * Carrega a lista de agentes disponíveis do backend.
+   */
   loadAgents(): void {
     this.isLoading = true;
     this.error = null;
@@ -596,6 +138,9 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     });
   }
 
+  /**
+   * Filtra a lista de agentes com base no texto de busca.
+   */
   onSearchChange(): void {
     if (!this.searchQuery || this.searchQuery.trim() === '') {
       this.filteredAgents = this.agents;
@@ -609,11 +154,18 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     }
   }
 
+  /**
+   * Limpa o campo de busca e reseta a lista filtrada.
+   */
   clearSearch(): void {
     this.searchQuery = '';
     this.onSearchChange();
   }
 
+  /**
+   * Seleciona um agente e emite o evento de seleção.
+   * @param agent - Agente selecionado
+   */
   selectAgent(agent: Agent): void {
     const instanceId = this.agentService.generateInstanceId();
     const selectionData: AgentSelectionData = {
@@ -632,15 +184,26 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     this.onClose();
   }
 
+  /**
+   * Alterna a visibilidade das configurações avançadas.
+   */
   toggleAdvancedSettings(): void {
     this.showAdvancedSettings = !this.showAdvancedSettings;
   }
 
+  /**
+   * Seleciona um diretório da lista de recentes.
+   * @param dir - Diretório a ser selecionado
+   */
   selectDirectory(dir: string): void {
     this.workingDirectory = dir;
   }
 
-  loadRecentDirectories(): void {
+  /**
+   * Carrega os diretórios recentes do localStorage.
+   * @private
+   */
+  private loadRecentDirectories(): void {
     const stored = localStorage.getItem('agent-recent-directories');
     if (stored) {
       try {
@@ -652,7 +215,12 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     }
   }
 
-  saveToRecentDirectories(dir: string): void {
+  /**
+   * Salva um diretório na lista de recentes.
+   * @param dir - Diretório a ser salvo
+   * @private
+   */
+  private saveToRecentDirectories(dir: string): void {
     // Remove if already exists
     this.recentDirectories = this.recentDirectories.filter(d => d !== dir);
     // Add to beginning
@@ -663,17 +231,28 @@ export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnCha
     localStorage.setItem('agent-recent-directories', JSON.stringify(this.recentDirectories));
   }
 
-  onClose(): void {
+  // ============================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ============================================================
+
+  /**
+   * Fecha o modal e limpa estados.
+   * Override do BaseModalComponent para adicionar limpeza de estados específicos.
+   */
+  override onClose(): void {
     this.searchQuery = '';
     this.filteredAgents = this.agents;
-    this.close.emit();
+    this.closeModal.emit();
+    super.onClose();
   }
 
-  onBackdropClick(): void {
-    this.onClose();
-  }
-
-  onContentClick(event: Event): void {
+  /**
+   * Manipula clique no backdrop.
+   * Override do BaseModalComponent para permitir fechamento via backdrop.
+   * @param event - Evento de clique do mouse
+   */
+  public override onBackdropClick(event: Event): void {
     event.stopPropagation();
+    this.onClose();
   }
 }

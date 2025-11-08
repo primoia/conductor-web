@@ -1,0 +1,74 @@
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content"
+       (click)="$event.stopPropagation()"
+       role="dialog"
+       aria-labelledby="working-dir-modal-title"
+       aria-describedby="working-dir-modal-description"
+       [attr.aria-modal]="true">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h3 id="working-dir-modal-title">📁 Configurar Diretório de Trabalho do Roteiro</h3>
+      <button class="close-btn"
+              (click)="onClose()"
+              aria-label="Fechar modal"
+              type="button">
+        ×
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body" id="working-dir-modal-description">
+      <p class="modal-description">
+        Defina o diretório padrão onde os agentes deste roteiro executarão comandos.
+        Novos agentes herdarão automaticamente este diretório.
+      </p>
+
+      <!-- Current Directory Display -->
+      <div class="current-dir" *ngIf="currentDirectory">
+        <label>Diretório Atual:</label>
+        <code>{{ currentDirectory }}</code>
+      </div>
+
+      <!-- Input Form -->
+      <div class="form-group">
+        <label for="working-directory-input">Novo Diretório:</label>
+        <input
+          type="text"
+          id="working-directory-input"
+          name="working-directory"
+          [(ngModel)]="tempDirectory"
+          placeholder="/mnt/ramdisk/primoia-main/conductor-community"
+          class="working-dir-input"
+          (keydown.enter)="onEnterKey()"
+          aria-required="true"
+          aria-describedby="working-dir-hint"
+          [attr.aria-invalid]="errorMessage ? true : null"
+        />
+        <small id="working-dir-hint" class="hint">Caminho absoluto do projeto no servidor</small>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="errorMessage" role="alert">
+        ⚠️ {{ errorMessage }}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-secondary"
+              (click)="onClose()"
+              type="button"
+              aria-label="Cancelar">
+        Cancelar
+      </button>
+      <button class="btn btn-primary"
+              (click)="onSave()"
+              [disabled]="!isValid"
+              type="button"
+              aria-label="Salvar diretório">
+        Salvar Diretório
+      </button>
+    </div>
+  </div>
+</div>

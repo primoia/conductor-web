@@ -1,0 +1,142 @@
+<!--
+  ============================================================
+  AGENT SELECTOR MODAL - NORMALIZADO
+  ============================================================
+  ✓ Estrutura padronizada (backdrop + container)
+  ✓ Gestão de visibilidade via *ngIf
+  ✓ Eventos de fechamento padronizados
+  ✓ Accessibility (ARIA) aplicado
+  ✓ Classes CSS normalizadas
+  Data de normalização: 2025-11-08
+  ============================================================
+-->
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+
+    <app-modal-header
+      [title]="'🤖 Selecionar Agente'"
+      [showCloseButton]="true"
+      (closeClick)="onClose()"
+      aria-label="Cabeçalho do modal de seleção de agente">
+    </app-modal-header>
+
+    <!-- Search bar -->
+    <div class="search-container" *ngIf="!isLoading && !error">
+      <input
+        #searchInput
+        type="text"
+        class="search-input"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+        placeholder="🔍 Buscar agente por nome..."
+        aria-label="Buscar agente por nome"
+        autofocus>
+      <button
+        *ngIf="searchQuery"
+        class="clear-search"
+        (click)="clearSearch()"
+        aria-label="Limpar busca">×</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Loading state -->
+      <div *ngIf="isLoading" class="loading-state" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Carregando agentes disponíveis...</p>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="error && !isLoading" class="error-state" role="alert">
+        <div class="error-icon" aria-hidden="true">⚠️</div>
+        <p>{{ error }}</p>
+        <button class="retry-btn" (click)="loadAgents()">🔄 Tentar Novamente</button>
+      </div>
+
+      <!-- Agents list -->
+      <div *ngIf="!isLoading && !error" class="agents-list">
+        <div *ngIf="filteredAgents.length === 0 && agents.length > 0" class="empty-state" role="status">
+          <div class="empty-icon" aria-hidden="true">🔍</div>
+          <p>Nenhum agente encontrado</p>
+          <small>Tente outra busca</small>
+        </div>
+
+        <div *ngIf="agents.length === 0" class="empty-state" role="status">
+          <div class="empty-icon" aria-hidden="true">🤷</div>
+          <p>Nenhum agente disponível</p>
+          <small>Crie agentes usando o CLI do Conductor</small>
+        </div>
+
+        <div
+          *ngFor="let agent of filteredAgents"
+          class="agent-item"
+          (click)="selectAgent(agent)"
+          (keydown.enter)="selectAgent(agent)"
+          [title]="agent.description"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'Selecionar agente: ' + agent.name">
+          <div class="agent-emoji" aria-hidden="true">{{ agent.emoji }}</div>
+          <div class="agent-info">
+            <div class="agent-name">{{ agent.name }}</div>
+            <div class="agent-description">{{ agent.description }}</div>
+          </div>
+          <div class="select-indicator" aria-hidden="true">→</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Settings (collapsible) -->
+    <div class="advanced-settings" *ngIf="!isLoading && !error">
+      <button
+        class="advanced-toggle"
+        (click)="toggleAdvancedSettings()"
+        type="button"
+        [attr.aria-expanded]="showAdvancedSettings"
+        aria-controls="advanced-content">
+        <span class="toggle-icon" aria-hidden="true">{{ showAdvancedSettings ? '▼' : '▶' }}</span>
+        ⚙️ Configurações avançadas
+      </button>
+
+      <div
+        id="advanced-content"
+        class="advanced-content"
+        *ngIf="showAdvancedSettings"
+        [@slideDown]>
+        <div class="form-group">
+          <label for="cwdInput">📁 Diretório de trabalho (opcional)</label>
+          <input
+            id="cwdInput"
+            type="text"
+            class="cwd-input"
+            [(ngModel)]="workingDirectory"
+            placeholder="/mnt/ramdisk/projeto-exemplo"
+            (keydown.enter)="$event.preventDefault()"
+            aria-label="Diretório de trabalho">
+          <small class="help-text">Define onde o agente executará os comandos</small>
+        </div>
+
+        <div class="recent-dirs" *ngIf="recentDirectories.length > 0">
+          <small class="recent-label">Diretórios recentes:</small>
+          <div class="dir-chips">
+            <button
+              *ngFor="let dir of recentDirectories"
+              class="dir-chip"
+              (click)="selectDirectory(dir)"
+              type="button"
+              [attr.aria-label]="'Selecionar diretório: ' + dir">
+              📂 {{ dir }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-modal-footer
+      *ngIf="!isLoading && !error && agents.length > 0"
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)"
+      aria-label="Ações do modal">
+    </app-modal-footer>
+
+  </div>
+</div>

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { InteractiveEditor } from '../interactive-editor/interactive-editor';
-import { ProposalModal } from '../modal/proposal-modal';
+import { ProposalModal } from '../modal/proposal-modal.component';
 import { InteractiveSidebar } from '../sidebar/interactive-sidebar';
 import { ClickablePlaceholder } from '../placeholder/clickable-placeholder';
 

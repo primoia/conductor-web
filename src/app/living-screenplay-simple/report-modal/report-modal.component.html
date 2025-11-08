@@ -1,0 +1,80 @@
+<!--
+  Report Modal - Modal para exibição de relatórios de tarefas
+
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ Usa componentes base reutilizáveis (ModalHeader, ModalFooter)
+  ✅ Implementa acessibilidade (ARIA, keyboard navigation)
+  ✅ Usa classes padrão (modal-backdrop, modal-container)
+-->
+
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <app-modal-header
+      id="report-modal-title"
+      [title]="data?.title || 'Relatório'"
+      [showCloseButton]="true"
+      (close)="requestClose()">
+    </app-modal-header>
+
+    <div class="modal-body">
+      <div class="meta">
+        <span class="sev" [class.warn]="data?.severity==='warning'" [class.err]="data?.severity==='error'">{{ severityIcon(data?.severity) }}</span>
+        <span class="time" *ngIf="data?.timestamp">{{ formatRelative(data!.timestamp!) }}</span>
+      </div>
+
+      <!-- Loading state -->
+      <div class="loading" *ngIf="isLoadingDetails">
+        <div class="spinner"></div>
+        <span>Carregando detalhes completos...</span>
+      </div>
+
+      <!-- Error state -->
+      <div class="error-message" *ngIf="loadError">
+        <span>⚠️ {{ loadError }}</span>
+      </div>
+
+      <!-- Content with tabs -->
+      <div *ngIf="!isLoadingDetails && !loadError">
+        <!-- Tabs (show even without fullTaskData for fallback to summary) -->
+        <div class="tabs">
+          <button class="tab-btn" [class.active]="activeTab === 'result'" (click)="activeTab = 'result'">
+            ✅ Resultado
+          </button>
+          <button class="tab-btn" [class.active]="activeTab === 'prompt'" (click)="activeTab = 'prompt'" *ngIf="hasPromptData()">
+            📝 Prompt
+          </button>
+          <button class="tab-btn" [class.active]="activeTab === 'json'" (click)="activeTab = 'json'">
+            🔧 JSON
+          </button>
+        </div>
+
+        <!-- Tab content -->
+        <div class="tab-content">
+          <!-- Result tab -->
+          <div *ngIf="activeTab === 'result'">
+            <div class="markdown-content" [innerHTML]="formatMarkdown(getResultText())"></div>
+            <div class="info-badge" *ngIf="!fullTaskData">
+              ℹ️ Exibindo resumo (dados completos não disponíveis)
+            </div>
+          </div>
+
+          <!-- Prompt tab -->
+          <div *ngIf="activeTab === 'prompt'">
+            <div class="markdown-content" [innerHTML]="formatMarkdown(getPromptText())"></div>
+          </div>
+
+          <!-- JSON tab -->
+          <div *ngIf="activeTab === 'json'">
+            <pre class="details">{{ (fullTaskData || data?.details) | json }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)">
+    </app-modal-footer>
+  </div>
+</div>

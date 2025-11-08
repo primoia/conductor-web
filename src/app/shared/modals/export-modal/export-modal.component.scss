@@ -1,0 +1,142 @@
+@use '../../../shared/styles/modal-variables' as vars;
+@use '../../../shared/styles/modal-mixins' as mixins;
+
+// ============================================================================
+// Export Modal Styles
+// ============================================================================
+
+.modal-backdrop {
+  @include mixins.modal-backdrop;
+}
+
+.modal-content {
+  @include mixins.modal-container(550px);
+}
+
+.modal-header {
+  @include mixins.modal-header;
+}
+
+.modal-body {
+  @include mixins.modal-body;
+}
+
+.modal-footer {
+  @include mixins.modal-footer;
+}
+
+// ============================================================================
+// Custom Content Styles
+// ============================================================================
+
+.modal-description {
+  margin-bottom: 20px;
+  color: #6b7280;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+// Form group
+.form-group {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: vars.$modal-title-color;
+    margin-bottom: 8px;
+  }
+
+  .filename-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    border: 2px solid vars.$modal-border-color;
+    border-radius: 6px;
+    background: white;
+    color: vars.$modal-title-color;
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+    }
+
+    &::placeholder {
+      color: #9ca3af;
+      opacity: 0.6;
+    }
+
+    &[aria-invalid="true"] {
+      border-color: #dc3545;
+      background: rgba(220, 53, 69, 0.05);
+    }
+  }
+
+  .hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #9ca3af;
+    font-style: italic;
+  }
+}
+
+// Error message
+.error-message {
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid #dc3545;
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: #dc3545;
+  font-size: 13px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+// ============================================================================
+// Responsive Adjustments
+// ============================================================================
+
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 95%;
+  }
+
+  .form-group {
+    .filename-input {
+      font-size: 13px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-description {
+    font-size: 13px;
+  }
+
+  .form-group {
+    .filename-input {
+      font-size: 12px;
+      padding: 10px 12px;
+    }
+  }
+}

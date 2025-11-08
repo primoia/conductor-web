@@ -1,0 +1,327 @@
+// =============================================================================
+// MODAL VARIABLES - Conductor Web
+// =============================================================================
+// Versão: 1.0
+// Data: 08/11/2025
+// Descrição: Variáveis compartilhadas para padronização de modais
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 🎨 CORES
+// -----------------------------------------------------------------------------
+
+// Backdrop
+$modal-backdrop-color: rgba(0, 0, 0, 0.6) !default;
+$modal-backdrop-blur: 4px !default;
+
+// Container
+$modal-background: #ffffff !default;
+$modal-bg: $modal-background !default;
+$modal-border-color: #e1e4e8 !default;
+$modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !default;
+$modal-box-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1) !default;
+
+// Header
+$modal-header-bg: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !default;
+$modal-header-border-color: #e1e4e8 !default;
+$modal-title-color: #2c3e50 !default;
+
+// Footer
+$modal-footer-bg: linear-gradient(135deg, #f7fafc 0%, #ffffff 100%) !default;
+$modal-footer-border-color: #e1e4e8 !default;
+
+// Close Button
+$modal-close-btn-color: #6b7280 !default;
+$modal-close-btn-hover-color: #374151 !default;
+$modal-close-btn-hover-bg: rgba(107, 114, 128, 0.1) !default;
+
+// Scrollbar
+$modal-scrollbar-width: 8px !default;
+$modal-scrollbar-track-bg: #f1f1f1 !default;
+$modal-scrollbar-thumb-bg: #c1c1c1 !default;
+$modal-scrollbar-thumb-hover-bg: #a8a8a8 !default;
+
+// -----------------------------------------------------------------------------
+// 📐 DIMENSÕES E ESPAÇAMENTOS
+// -----------------------------------------------------------------------------
+
+// Modal Container
+$modal-border-radius-desktop: 12px !default;
+$modal-border-radius-tablet: 8px !default;
+$modal-border-radius-mobile: 0px !default;
+
+$modal-max-width: 800px !default;
+$modal-max-height: 90vh !default;
+$modal-width-desktop: 90% !default;
+$modal-width-tablet: 95% !default;
+$modal-width-mobile: 100% !default;
+
+// Padding
+$modal-header-padding: 20px 24px !default;
+$modal-body-padding: 24px !default;
+$modal-footer-padding: 20px 24px !default;
+
+// Mobile adjustments
+$modal-padding-mobile: 16px !default;
+
+// Gaps
+$modal-footer-gap: 12px !default;
+$modal-footer-gap-mobile: 8px !default;
+
+// -----------------------------------------------------------------------------
+// ⚡ ANIMAÇÕES
+// -----------------------------------------------------------------------------
+
+$modal-animation-duration: 0.3s !default;
+$modal-animation-easing: ease-out !default;
+
+// Backdrop animation
+$modal-backdrop-fade-duration: 0.3s !default;
+
+// Modal slide animation
+$modal-slide-distance: -30px !default;
+$modal-slide-scale: 0.95 !default;
+
+// -----------------------------------------------------------------------------
+// 📏 Z-INDEX
+// -----------------------------------------------------------------------------
+
+$modal-z-index: 1000 !default;
+$modal-backdrop-z-index: 1000 !default;
+
+// Nested modals (if needed)
+$modal-nested-z-index-increment: 100 !default;
+
+// Aliases for legacy code
+$z-index-modal: $modal-z-index !default;
+$z-index-modal-high: 1100 !default;
+
+// -----------------------------------------------------------------------------
+// 🔘 BOTÕES
+// -----------------------------------------------------------------------------
+
+// Dimensões
+$btn-border-radius: 6px !default;
+$btn-padding: 10px 20px !default;
+$btn-gap: 8px !default;
+$btn-font-size: 14px !default;
+$btn-font-weight: 500 !default;
+
+// Dimensões mobile
+$btn-padding-mobile: 12px 16px !default;
+
+// Transições
+$btn-transition: all 0.2s ease !default;
+
+// Estados
+$btn-disabled-opacity: 0.6 !default;
+$btn-loading-opacity: 0.7 !default;
+
+// Cores - Primary
+$btn-primary-bg: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !default;
+$btn-primary-hover-bg: linear-gradient(135deg, #0056b3 0%, #004085 100%) !default;
+$btn-primary-color: #ffffff !default;
+$btn-primary-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !default;
+
+// Cores - Secondary
+$btn-secondary-bg: #6b7280 !default;
+$btn-secondary-hover-bg: #4b5563 !default;
+$btn-secondary-color: #ffffff !default;
+
+// Cores - Danger
+$btn-danger-bg: #dc3545 !default;
+$btn-danger-hover-bg: #c82333 !default;
+$btn-danger-color: #ffffff !default;
+
+// Cores - Success
+$btn-success-bg: #28a745 !default;
+$btn-success-hover-bg: #218838 !default;
+$btn-success-color: #ffffff !default;
+
+// Cores - Warning
+$btn-warning-bg: #ffc107 !default;
+$btn-warning-hover-bg: #e0a800 !default;
+$btn-warning-color: #212529 !default;
+
+// -----------------------------------------------------------------------------
+// 📱 RESPONSIVIDADE - BREAKPOINTS
+// -----------------------------------------------------------------------------
+
+$modal-breakpoint-desktop: 1024px !default;
+$modal-breakpoint-tablet: 768px !default;
+$modal-breakpoint-mobile: 480px !default;
+
+// -----------------------------------------------------------------------------
+// 🎯 ESTADOS E FEEDBACK
+// -----------------------------------------------------------------------------
+
+// Loading spinner
+$spinner-size: 14px !default;
+$spinner-border-width: 2px !default;
+$spinner-border-color: rgba(255, 255, 255, 0.3) !default;
+$spinner-border-top-color: #ffffff !default;
+$spinner-animation-duration: 0.6s !default;
+
+// Error messages
+$error-bg: rgba(220, 53, 69, 0.1) !default;
+$error-border-color: #dc3545 !default;
+$error-color: #dc3545 !default;
+$error-border-radius: 6px !default;
+$error-padding: 12px !default;
+
+// Validation errors
+$validation-error-bg: rgba(220, 38, 38, 0.1) !default;
+$validation-error-border-color: #dc2626 !default;
+$validation-error-color: #dc2626 !default;
+$validation-error-border-width: 3px !default;
+
+// Success messages
+$success-bg: rgba(40, 167, 69, 0.1) !default;
+$success-border-color: #28a745 !default;
+$success-color: #28a745 !default;
+
+// Warning messages
+$warning-bg: rgba(255, 193, 7, 0.1) !default;
+$warning-border-color: #ffc107 !default;
+$warning-color: #856404 !default;
+
+// -----------------------------------------------------------------------------
+// 🎭 TIPOGRAFIA
+// -----------------------------------------------------------------------------
+
+$modal-title-font-size: 20px !default;
+$modal-title-font-weight: 600 !default;
+$modal-title-line-height: 1.4 !default;
+
+$modal-body-font-size: 14px !default;
+$modal-body-line-height: 1.6 !default;
+
+$modal-close-btn-font-size: 24px !default;
+
+// -----------------------------------------------------------------------------
+// 🔧 UTILITÁRIOS
+// -----------------------------------------------------------------------------
+
+// Focus outline
+$modal-focus-outline-color: #007bff !default;
+$modal-focus-outline-width: 2px !default;
+$modal-focus-outline-offset: 2px !default;
+
+// Dividers
+$modal-divider-color: #e1e4e8 !default;
+$modal-divider-width: 1px !default;
+
+// -----------------------------------------------------------------------------
+// 📝 TEXT COLORS
+// -----------------------------------------------------------------------------
+$modal-text-primary: #2c3e50 !default;
+$modal-text-secondary: #6b7280 !default;
+$modal-text-muted: #9ca3af !default;
+
+// -----------------------------------------------------------------------------
+// 🎨 THEME COLORS
+// -----------------------------------------------------------------------------
+$modal-primary-color: #007bff !default;
+$modal-success-color: #28a745 !default;
+$modal-error-color: #dc3545 !default;
+$modal-warning-color: #ffc107 !default;
+$modal-color-primary: $modal-primary-color !default;
+$modal-color-success: $modal-success-color !default;
+$modal-color-danger: $modal-error-color !default;
+$modal-color-warning: $modal-warning-color !default;
+
+// -----------------------------------------------------------------------------
+// 📦 ADDITIONAL BACKGROUNDS
+// -----------------------------------------------------------------------------
+$modal-body-bg-alt: #f8f9fa !default;
+$modal-bg-secondary: #f7fafc !default;
+
+// -----------------------------------------------------------------------------
+// 📏 ADDITIONAL BORDER RADIUS
+// -----------------------------------------------------------------------------
+$modal-border-radius: 8px !default;
+$modal-border-radius-sm: 4px !default;
+$modal-border-radius-md: 8px !default;
+
+// -----------------------------------------------------------------------------
+// ⚡ ADDITIONAL TRANSITIONS
+// -----------------------------------------------------------------------------
+$modal-transition: all 0.2s ease !default;
+$modal-transition-duration: 0.2s !default;
+
+// -----------------------------------------------------------------------------
+// 📊 ADDITIONAL SPACING
+// -----------------------------------------------------------------------------
+$modal-spacing-xs: 4px !default;
+$modal-spacing-sm: 8px !default;
+$modal-spacing-md: 16px !default;
+$modal-spacing-lg: 24px !default;
+$modal-spacing-xl: 32px !default;
+$modal-spacing-xxl: 48px !default;
+
+// -----------------------------------------------------------------------------
+// 📐 FONT SIZES
+// -----------------------------------------------------------------------------
+$modal-font-size-xs: 12px !default;
+$modal-font-size-sm: 14px !default;
+$modal-font-size-md: 16px !default;
+$modal-font-size-lg: 18px !default;
+$modal-font-size-xl: 20px !default;
+$modal-font-size-xxl: 24px !default;
+
+// Aliases for legacy code
+$font-size-xs: $modal-font-size-xs !default;
+$font-size-sm: $modal-font-size-sm !default;
+$font-size-base: $modal-font-size-md !default;
+$font-size-lg: $modal-font-size-lg !default;
+
+// -----------------------------------------------------------------------------
+// 📏 FONT WEIGHTS
+// -----------------------------------------------------------------------------
+$font-weight-medium: 500 !default;
+$font-weight-semibold: 600 !default;
+
+// -----------------------------------------------------------------------------
+// 📊 SPACING ALIASES (for legacy code)
+// -----------------------------------------------------------------------------
+$spacing-xs: $modal-spacing-xs !default;
+$spacing-sm: $modal-spacing-sm !default;
+$spacing-md: $modal-spacing-md !default;
+$spacing-lg: $modal-spacing-lg !default;
+$spacing-xl: $modal-spacing-xl !default;
+$spacing-xxl: $modal-spacing-xxl !default;
+
+// -----------------------------------------------------------------------------
+// 🎨 COLOR ALIASES (for legacy code)
+// -----------------------------------------------------------------------------
+$text-color-primary: $modal-text-primary !default;
+$text-color-secondary: $modal-text-secondary !default;
+$text-color-muted: $modal-text-muted !default;
+$primary-color: $modal-primary-color !default;
+$border-color: $modal-border-color !default;
+$background-color-primary: $modal-background !default;
+$background-color-light: $modal-body-bg-alt !default;
+$background-color-disabled: #e9ecef !default;
+$danger-color: $modal-error-color !default;
+
+// -----------------------------------------------------------------------------
+// 📏 BORDER RADIUS ALIASES
+// -----------------------------------------------------------------------------
+$border-radius-sm: $modal-border-radius-sm !default;
+$border-radius-md: $modal-border-radius-md !default;
+
+// -----------------------------------------------------------------------------
+// ⚡ TRANSITIONS
+// -----------------------------------------------------------------------------
+$transition-normal: $modal-transition !default;
+
+// -----------------------------------------------------------------------------
+// 📱 BREAKPOINTS
+// -----------------------------------------------------------------------------
+$breakpoint-desktop: $modal-breakpoint-desktop !default;
+$breakpoint-tablet: $modal-breakpoint-tablet !default;
+$breakpoint-mobile: $modal-breakpoint-mobile !default;
+
+// =============================================================================
+// FIM DAS VARIÁVEIS
+// =============================================================================

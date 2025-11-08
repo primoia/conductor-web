@@ -1,0 +1,67 @@
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content"
+       (click)="$event.stopPropagation()"
+       role="dialog"
+       aria-labelledby="export-modal-title"
+       aria-describedby="export-modal-description"
+       [attr.aria-modal]="true">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h3 id="export-modal-title">📤 Exportar Roteiro para Disco</h3>
+      <button class="close-btn"
+              (click)="onClose()"
+              aria-label="Fechar modal"
+              type="button">
+        ×
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body" id="export-modal-description">
+      <p class="modal-description">
+        Escolha um nome para o arquivo e o sistema abrirá uma janela para você selecionar onde salvar.
+      </p>
+
+      <!-- Input Form -->
+      <div class="form-group">
+        <label for="export-filename">Nome do arquivo:</label>
+        <input
+          type="text"
+          id="export-filename"
+          name="export-filename"
+          [(ngModel)]="tempFilename"
+          placeholder="roteiro-vivo.md"
+          class="filename-input"
+          (keydown.enter)="onEnterKey()"
+          aria-required="true"
+          aria-describedby="filename-hint"
+          [attr.aria-invalid]="errorMessage ? true : null"
+        />
+        <small id="filename-hint" class="hint">Você poderá escolher onde salvar o arquivo</small>
+      </div>
+
+      <!-- Error Message -->
+      <div class="error-message" *ngIf="errorMessage" role="alert">
+        ⚠️ {{ errorMessage }}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-secondary"
+              (click)="onClose()"
+              type="button"
+              aria-label="Cancelar">
+        Cancelar
+      </button>
+      <button class="btn btn-primary"
+              (click)="onExport()"
+              [disabled]="!isValid"
+              type="button"
+              aria-label="Escolher local e exportar">
+        Escolher Local e Exportar
+      </button>
+    </div>
+  </div>
+</div>

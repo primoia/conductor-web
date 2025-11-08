@@ -1,0 +1,146 @@
+/**
+ * Agent Personalization Modal Styles
+ * Normalizado em: 2025-11-08
+ *
+ * Checklist de conformidade:
+ * - [x] @use com namespace para modal-variables
+ * - [x] @use com namespace 'mixins' para modal-mixins
+ * - [x] Classes .modal-backdrop e .modal-container
+ * - [x] Mixins usam namespace mixins.
+ * - [x] Variáveis sem prefixo $
+ */
+
+@use '../../shared/styles/modal-variables' as *;
+@use '../../shared/styles/modal-mixins' as mixins;
+
+.modal-backdrop {
+  @include mixins.modal-overlay;
+}
+
+.modal-container {
+  @include mixins.modal-container;
+  width: 700px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body {
+  @include mixins.modal-body;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: $modal-body-padding;
+
+  .hint {
+    font-size: $font-size-sm;
+    color: $text-color-muted;
+    margin-bottom: $spacing-md;
+    padding: $spacing-sm;
+    background: $background-color-light;
+    border-left: 3px solid $primary-color;
+    border-radius: $border-radius-sm;
+
+    @media (max-width: $breakpoint-tablet) {
+      font-size: $font-size-xs;
+    }
+  }
+
+  .profiles {
+    display: grid;
+    gap: $spacing-md;
+
+    .profile {
+      border: 1px solid $border-color;
+      border-radius: $border-radius-md;
+      padding: $spacing-md;
+      background: $background-color-light;
+      transition: all $transition-normal;
+
+      &:hover {
+        border-color: darken($border-color, 10%);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        align-items: center;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-sm;
+
+        @media (max-width: $breakpoint-tablet) {
+          grid-template-columns: 1fr;
+          gap: $spacing-xs;
+        }
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        label {
+          font-size: $font-size-sm;
+          font-weight: $font-weight-semibold;
+          color: $text-color-secondary;
+
+          @media (max-width: $breakpoint-tablet) {
+            font-size: $font-size-xs;
+          }
+        }
+
+        input {
+          padding: $spacing-sm $spacing-md;
+          border: 1px solid $border-color;
+          border-radius: $border-radius-sm;
+          font-size: $font-size-base;
+          transition: all $transition-normal;
+
+          &:focus {
+            outline: none;
+            border-color: $primary-color;
+            box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+          }
+
+          &:disabled {
+            background-color: $background-color-disabled;
+            color: $text-color-muted;
+            cursor: not-allowed;
+          }
+
+          @media (max-width: $breakpoint-tablet) {
+            font-size: $font-size-sm;
+            padding: $spacing-xs $spacing-sm;
+          }
+        }
+      }
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    color: $text-color-muted;
+    padding: $spacing-xxl 0;
+
+    p {
+      margin: 0;
+      font-size: $font-size-base;
+
+      @media (max-width: $breakpoint-tablet) {
+        font-size: $font-size-sm;
+      }
+    }
+  }
+}
+
+// Responsividade
+@media (max-width: $breakpoint-mobile) {
+  .modal-container {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .modal-body {
+    padding: $spacing-sm;
+    max-height: 65vh;
+  }
+}

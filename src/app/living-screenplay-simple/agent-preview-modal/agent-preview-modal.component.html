@@ -1,0 +1,81 @@
+<!--
+  Agent Preview Modal Template
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ ARIA compliant (WCAG 2.1 AA)
+-->
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)" role="dialog"
+     aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+
+    <!-- Modal Header usando componente base -->
+    <app-modal-header
+      [title]="getModalTitle()"
+      [showCloseButton]="!isLoading"
+      [ariaLabelledBy]="'modal-title'"
+      (close)="onReject()">
+    </app-modal-header>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <!-- Loading state -->
+      <div *ngIf="isLoading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Processando com {{ previewData?.agentName }}...</p>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="error && !isLoading" class="error-state">
+        <div class="error-icon">⚠️</div>
+        <p class="error-message">{{ error }}</p>
+        <button class="btn btn-secondary" (click)="onReject()">Fechar</button>
+      </div>
+
+      <!-- Diff view -->
+      <div *ngIf="!isLoading && !error && previewData" class="diff-container">
+        <div class="diff-section">
+          <div class="section-header original-header">
+            <span class="header-icon" aria-hidden="true">📝</span>
+            <span class="header-title">Texto Original</span>
+          </div>
+          <div class="text-content original-text">{{ previewData.originalText }}</div>
+        </div>
+
+        <div class="diff-arrow" aria-hidden="true">→</div>
+
+        <div class="diff-section">
+          <div class="section-header proposed-header">
+            <span class="header-icon" aria-hidden="true">✨</span>
+            <span class="header-title">Texto Proposto</span>
+          </div>
+          <div class="text-content proposed-text">{{ previewData.proposedText }}</div>
+        </div>
+      </div>
+
+      <!-- Character count stats -->
+      <div *ngIf="!isLoading && !error && previewData" class="stats" role="region" aria-label="Estatísticas de caracteres">
+        <div class="stat-item">
+          <span class="stat-label">Original:</span>
+          <span class="stat-value">{{ previewData.originalText.length }} caracteres</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Proposto:</span>
+          <span class="stat-value">{{ previewData.proposedText.length }} caracteres</span>
+        </div>
+        <div class="stat-item"
+             [class.stat-positive]="getDiff() > 0"
+             [class.stat-negative]="getDiff() < 0">
+          <span class="stat-label">Diferença:</span>
+          <span class="stat-value">{{ getDiff() > 0 ? '+' : '' }}{{ getDiff() }} caracteres</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer usando componente base -->
+    <app-modal-footer
+      *ngIf="!isLoading && !error"
+      [buttons]="getFooterActions()"
+      (buttonClick)="onFooterAction($event)">
+    </app-modal-footer>
+  </div>
+</div>

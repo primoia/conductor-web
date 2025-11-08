@@ -1,0 +1,631 @@
+// =============================================================================
+// MODAL MIXINS - Conductor Web
+// =============================================================================
+// Versão: 1.0
+// Data: 08/11/2025
+// Descrição: Mixins SCSS reutilizáveis para padronização de modais
+// =============================================================================
+
+@import 'modal-variables';
+
+// =============================================================================
+// 🎭 BACKDROP E OVERLAY
+// =============================================================================
+
+/// Aplica estilos padrão ao backdrop (overlay) do modal
+/// @example scss
+///   .my-modal-backdrop {
+///     @include modal-backdrop();
+///   }
+@mixin modal-backdrop() {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: $modal-backdrop-color;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: $modal-backdrop-z-index;
+  backdrop-filter: blur($modal-backdrop-blur);
+  animation: backdropFadeIn $modal-backdrop-fade-duration $modal-animation-easing;
+
+  @keyframes backdropFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+// =============================================================================
+// 📦 CONTAINER DO MODAL
+// =============================================================================
+
+/// Aplica estilos padrão ao container principal do modal
+/// @param {String} $max-width [800px] - Largura máxima do modal
+/// @example scss
+///   .my-modal-content {
+///     @include modal-container();
+///   }
+@mixin modal-container($max-width: $modal-max-width) {
+  background: $modal-background;
+  border-radius: $modal-border-radius-desktop;
+  max-width: $max-width;
+  width: $modal-width-desktop;
+  max-height: $modal-max-height;
+  display: flex;
+  flex-direction: column;
+  box-shadow: $modal-shadow;
+  animation: modalSlideIn $modal-animation-duration $modal-animation-easing;
+  overflow: hidden;
+  border: $modal-divider-width solid $modal-border-color;
+
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY($modal-slide-distance) scale($modal-slide-scale);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  // Responsividade - Tablet
+  @media (max-width: $modal-breakpoint-tablet) {
+    width: $modal-width-tablet;
+    max-height: 95vh;
+    border-radius: $modal-border-radius-tablet;
+  }
+
+  // Responsividade - Mobile
+  @media (max-width: $modal-breakpoint-mobile) {
+    width: $modal-width-mobile;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: $modal-border-radius-mobile;
+  }
+}
+
+// =============================================================================
+// 📋 HEADER DO MODAL
+// =============================================================================
+
+/// Aplica estilos padrão ao header do modal
+/// @example scss
+///   .my-modal-header {
+///     @include modal-header();
+///   }
+@mixin modal-header() {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $modal-header-padding;
+  border-bottom: $modal-divider-width solid $modal-header-border-color;
+  background: $modal-header-bg;
+
+  h3, h2, h1 {
+    margin: 0;
+    font-size: $modal-title-font-size;
+    font-weight: $modal-title-font-weight;
+    color: $modal-title-color;
+    line-height: $modal-title-line-height;
+  }
+
+  // Responsividade - Mobile
+  @media (max-width: $modal-breakpoint-mobile) {
+    padding: $modal-padding-mobile;
+  }
+}
+
+/// Aplica estilos ao botão de fechar do header
+/// @example scss
+///   .close-btn {
+///     @include modal-close-button();
+///   }
+@mixin modal-close-button() {
+  background: none;
+  border: none;
+  font-size: $modal-close-btn-font-size;
+  cursor: pointer;
+  color: $modal-close-btn-color;
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: $btn-transition;
+
+  &:hover {
+    color: $modal-close-btn-hover-color;
+    background: $modal-close-btn-hover-bg;
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &:focus-visible {
+    outline: $modal-focus-outline-width solid $modal-focus-outline-color;
+    outline-offset: $modal-focus-outline-offset;
+  }
+}
+
+// =============================================================================
+// 📄 BODY DO MODAL
+// =============================================================================
+
+/// Aplica estilos padrão ao body do modal
+/// @example scss
+///   .my-modal-body {
+///     @include modal-body();
+///   }
+@mixin modal-body() {
+  padding: $modal-body-padding;
+  overflow-y: auto;
+  flex: 1;
+  font-size: $modal-body-font-size;
+  line-height: $modal-body-line-height;
+
+  // Scrollbar personalizada (WebKit)
+  &::-webkit-scrollbar {
+    width: $modal-scrollbar-width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $modal-scrollbar-track-bg;
+    border-radius: calc($modal-scrollbar-width / 2);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $modal-scrollbar-thumb-bg;
+    border-radius: calc($modal-scrollbar-width / 2);
+
+    &:hover {
+      background: $modal-scrollbar-thumb-hover-bg;
+    }
+  }
+
+  // Scrollbar personalizada (Firefox)
+  scrollbar-width: thin;
+  scrollbar-color: $modal-scrollbar-thumb-bg $modal-scrollbar-track-bg;
+
+  // Responsividade - Mobile
+  @media (max-width: $modal-breakpoint-mobile) {
+    padding: $modal-padding-mobile;
+  }
+}
+
+// =============================================================================
+// 🔘 FOOTER DO MODAL
+// =============================================================================
+
+/// Aplica estilos padrão ao footer do modal
+/// @example scss
+///   .my-modal-footer {
+///     @include modal-footer();
+///   }
+@mixin modal-footer() {
+  display: flex;
+  justify-content: flex-end;
+  gap: $modal-footer-gap;
+  padding: $modal-footer-padding;
+  border-top: $modal-divider-width solid $modal-footer-border-color;
+  background: $modal-footer-bg;
+
+  // Responsividade - Tablet e Mobile
+  @media (max-width: $modal-breakpoint-tablet) {
+    flex-direction: column;
+    gap: $modal-footer-gap-mobile;
+
+    .btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  // Mobile específico
+  @media (max-width: $modal-breakpoint-mobile) {
+    padding: $modal-padding-mobile;
+  }
+}
+
+// =============================================================================
+// 🎨 BOTÕES
+// =============================================================================
+
+/// Base para todos os botões modais
+/// @example scss
+///   .my-button {
+///     @include btn-base();
+///   }
+@mixin btn-base() {
+  padding: $btn-padding;
+  border-radius: $btn-border-radius;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  cursor: pointer;
+  transition: $btn-transition;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $btn-gap;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: $btn-disabled-opacity;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: $modal-focus-outline-width solid $modal-focus-outline-color;
+    outline-offset: $modal-focus-outline-offset;
+  }
+
+  // Mobile
+  @media (max-width: $modal-breakpoint-mobile) {
+    padding: $btn-padding-mobile;
+  }
+}
+
+/// Botão primário (ação principal)
+/// @example scss
+///   .btn-primary {
+///     @include btn-primary();
+///   }
+@mixin btn-primary() {
+  @include btn-base();
+  background: $btn-primary-bg;
+  color: $btn-primary-color;
+
+  &:hover:not(:disabled) {
+    background: $btn-primary-hover-bg;
+    transform: translateY(-1px);
+    box-shadow: $btn-primary-shadow;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/// Botão secundário
+/// @example scss
+///   .btn-secondary {
+///     @include btn-secondary();
+///   }
+@mixin btn-secondary() {
+  @include btn-base();
+  background: $btn-secondary-bg;
+  color: $btn-secondary-color;
+
+  &:hover:not(:disabled) {
+    background: $btn-secondary-hover-bg;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/// Botão de perigo (ações destrutivas)
+/// @example scss
+///   .btn-danger {
+///     @include btn-danger();
+///   }
+@mixin btn-danger() {
+  @include btn-base();
+  background: $btn-danger-bg;
+  color: $btn-danger-color;
+
+  &:hover:not(:disabled) {
+    background: $btn-danger-hover-bg;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+/// Botão de sucesso
+/// @example scss
+///   .btn-success {
+///     @include btn-success();
+///   }
+@mixin btn-success() {
+  @include btn-base();
+  background: $btn-success-bg;
+  color: $btn-success-color;
+
+  &:hover:not(:disabled) {
+    background: $btn-success-hover-bg;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+// =============================================================================
+// ⚡ ANIMAÇÕES E ESTADOS
+// =============================================================================
+
+/// Aplica estado de loading ao botão
+/// @example scss
+///   .btn.loading {
+///     @include btn-loading-state();
+///   }
+@mixin btn-loading-state() {
+  cursor: not-allowed;
+  opacity: $btn-loading-opacity;
+  pointer-events: none;
+}
+
+/// Spinner de loading
+/// @param {Color} $color [null] - Optional color for the spinner
+/// @example scss
+///   .spinner {
+///     @include loading-spinner();
+///   }
+@mixin loading-spinner($color: null) {
+  display: inline-block;
+  width: $spinner-size;
+  height: $spinner-size;
+  border: $spinner-border-width solid $spinner-border-color;
+
+  @if $color {
+    border-top-color: $color;
+  } @else {
+    border-top-color: $spinner-border-top-color;
+  }
+
+  border-radius: 50%;
+  animation: spin $spinner-animation-duration linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+// =============================================================================
+// 🎯 MENSAGENS DE FEEDBACK
+// =============================================================================
+
+/// Mensagem de erro
+/// @example scss
+///   .error-message {
+///     @include error-message();
+///   }
+@mixin error-message() {
+  background: $error-bg;
+  border: $modal-divider-width solid $error-border-color;
+  border-radius: $error-border-radius;
+  padding: $error-padding;
+  color: $error-color;
+  font-size: $btn-font-size;
+  display: flex;
+  align-items: center;
+  gap: $btn-gap;
+  margin-top: 16px;
+}
+
+/// Item de erro de validação
+/// @example scss
+///   .validation-error-item {
+///     @include validation-error-item();
+///   }
+@mixin validation-error-item() {
+  font-size: 12px;
+  color: $validation-error-color;
+  margin: 4px 0;
+  padding: 4px 8px;
+  background: $validation-error-bg;
+  border-radius: 4px;
+  border-left: $validation-error-border-width solid $validation-error-border-color;
+}
+
+/// Mensagem de sucesso
+/// @example scss
+///   .success-message {
+///     @include success-message();
+///   }
+@mixin success-message() {
+  background: $success-bg;
+  border: $modal-divider-width solid $success-border-color;
+  border-radius: $error-border-radius;
+  padding: $error-padding;
+  color: $success-color;
+  font-size: $btn-font-size;
+  display: flex;
+  align-items: center;
+  gap: $btn-gap;
+}
+
+// =============================================================================
+// 🔧 UTILITÁRIOS
+// =============================================================================
+
+/// Reset de estilos do modal
+/// Útil para sobrescrever estilos globais
+/// @example scss
+///   .modal-content {
+///     @include modal-reset();
+///   }
+@mixin modal-reset() {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+
+  *, *::before, *::after {
+    box-sizing: inherit;
+  }
+}
+
+/// Aplica estilo de foco acessível
+/// @example scss
+///   button {
+///     @include focus-outline();
+///   }
+@mixin focus-outline() {
+  &:focus-visible {
+    outline: $modal-focus-outline-width solid $modal-focus-outline-color;
+    outline-offset: $modal-focus-outline-offset;
+  }
+}
+
+/// Media query para responsividade simplificada
+/// @param {String} $breakpoint - desktop, tablet ou mobile
+/// @example scss
+///   .my-element {
+///     @include responsive(mobile) {
+///       font-size: 12px;
+///     }
+///   }
+@mixin responsive($breakpoint) {
+  @if $breakpoint == desktop {
+    @media (min-width: $modal-breakpoint-desktop) {
+      @content;
+    }
+  } @else if $breakpoint == tablet {
+    @media (max-width: $modal-breakpoint-tablet) and (min-width: $modal-breakpoint-mobile) {
+      @content;
+    }
+  } @else if $breakpoint == mobile {
+    @media (max-width: $modal-breakpoint-mobile) {
+      @content;
+    }
+  }
+}
+
+// =============================================================================
+// 🔄 ALIASES FOR BACKWARD COMPATIBILITY
+// =============================================================================
+
+/// Alias for modal-backdrop (for backward compatibility)
+@mixin modal-overlay($z-index: $modal-backdrop-z-index) {
+  @include modal-backdrop();
+  z-index: $z-index;
+}
+
+/// Custom scrollbar styling
+/// @example scss
+///   .scrollable-element {
+///     @include custom-scrollbar();
+///   }
+@mixin custom-scrollbar() {
+  // Scrollbar personalizada (WebKit)
+  &::-webkit-scrollbar {
+    width: $modal-scrollbar-width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $modal-scrollbar-track-bg;
+    border-radius: calc($modal-scrollbar-width / 2);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $modal-scrollbar-thumb-bg;
+    border-radius: calc($modal-scrollbar-width / 2);
+
+    &:hover {
+      background: $modal-scrollbar-thumb-hover-bg;
+    }
+  }
+
+  // Scrollbar personalizada (Firefox)
+  scrollbar-width: thin;
+  scrollbar-color: $modal-scrollbar-thumb-bg $modal-scrollbar-track-bg;
+}
+
+/// Loading state with centered content
+/// @example scss
+///   .loading-container {
+///     @include loading-state();
+///   }
+@mixin loading-state() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $modal-spacing-xl;
+}
+
+/// Responsive media query helper
+/// @example scss
+///   .my-element {
+///     @include modal-responsive() {
+///       padding: 8px;
+///     }
+///   }
+@mixin modal-responsive() {
+  @media (max-width: $modal-breakpoint-tablet) {
+    @content;
+  }
+}
+
+/// Spinner alternative with color parameter
+/// @param {Color} $color - Color for the spinner
+@mixin spinner($color: $spinner-border-top-color) {
+  display: inline-block;
+  width: $spinner-size;
+  height: $spinner-size;
+  border: $spinner-border-width solid $spinner-border-color;
+  border-top-color: $color;
+  border-radius: 50%;
+  animation: spin $spinner-animation-duration linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+/// Resets button styles to browser defaults
+/// @example scss
+///   .my-button {
+///     @include button-reset();
+///   }
+@mixin button-reset() {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  outline: inherit;
+}
+
+/// Validation message styling
+/// @param {Color} $color - Color for the validation message
+/// @example scss
+///   .validation-msg {
+///     @include validation-message(#dc3545);
+///   }
+@mixin validation-message($color: $modal-error-color) {
+  font-size: $modal-font-size-sm;
+  color: $color;
+  margin: $modal-spacing-xs 0;
+  padding: $modal-spacing-xs $modal-spacing-sm;
+  background: rgba($color, 0.1);
+  border-radius: $modal-border-radius-sm;
+  border-left: 3px solid $color;
+}
+
+// =============================================================================
+// FIM DOS MIXINS
+// =============================================================================

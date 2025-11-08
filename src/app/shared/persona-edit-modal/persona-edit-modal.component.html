@@ -1,0 +1,122 @@
+<!-- Persona Edit Modal Template -->
+<div class="persona-edit-modal">
+  <div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)"
+       role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+
+      <!-- Modal Header usando componente base -->
+      <app-modal-header
+        title="Editar Persona"
+        icon="✏️"
+        [showCloseButton]="true"
+        
+        (close)="close()">
+      </app-modal-header>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <div class="editor-container">
+          <!-- Editor Tabs -->
+          <div class="editor-tabs" role="tablist">
+            <button
+              class="tab"
+              [class.active]="activeTab === 'edit'"
+              (click)="setActiveTab('edit')"
+              data-tab="edit"
+              [attr.aria-selected]="activeTab === 'edit'"
+              role="tab"
+              id="edit-tab"
+              aria-controls="edit-panel">
+              Editar
+            </button>
+            <button
+              class="tab"
+              [class.active]="activeTab === 'preview'"
+              (click)="setActiveTab('preview')"
+              data-tab="preview"
+              [attr.aria-selected]="activeTab === 'preview'"
+              role="tab"
+              id="preview-tab"
+              aria-controls="preview-panel">
+              Preview
+            </button>
+          </div>
+
+          <!-- Editor Content -->
+          <div class="editor-content" role="tabpanel"
+               [id]="activeTab === 'edit' ? 'edit-panel' : 'preview-panel'"
+               [attr.aria-labelledby]="activeTab === 'edit' ? 'edit-tab' : 'preview-tab'">
+            <!-- Edit Tab -->
+            <textarea
+              *ngIf="activeTab === 'edit'"
+              [(ngModel)]="personaText"
+              (input)="onTextChange()"
+              placeholder="Digite a persona do agente..."
+              class="persona-textarea"
+              [maxlength]="maxLength"
+              [class.error]="validationState.errors.length > 0"
+              aria-label="Editor de persona"
+              aria-describedby="char-count validation-errors">
+            </textarea>
+
+            <!-- Preview Tab -->
+            <div
+              *ngIf="activeTab === 'preview'"
+              class="persona-preview"
+              [innerHTML]="getPreviewHtml()"
+              aria-label="Preview da persona">
+            </div>
+          </div>
+
+          <!-- Editor Footer com informações de validação -->
+          <div class="editor-footer">
+            <div class="validation-info">
+              <span
+                class="char-count"
+                [class.warning]="personaText.length > maxLength * 0.8"
+                [class.error]="personaText.length > maxLength"
+                id="char-count"
+                role="status"
+                aria-live="polite">
+                {{ personaText.length }}/{{ maxLength }} caracteres
+              </span>
+              <span
+                class="save-status"
+                [class]="saveState.status"
+                *ngIf="saveState.status !== 'idle'"
+                role="status"
+                aria-live="polite">
+                {{ getSaveStatusText() }}
+              </span>
+            </div>
+
+            <!-- Validation Errors -->
+            <div class="validation-errors" id="validation-errors"
+                 *ngIf="validationState.errors.length > 0"
+                 role="alert" aria-live="assertive">
+              <div class="error-item" *ngFor="let error of validationState.errors">
+                {{ error }}
+              </div>
+            </div>
+
+            <!-- Validation Warnings -->
+            <div class="validation-warnings"
+                 *ngIf="validationState.warnings.length > 0"
+                 role="alert" aria-live="polite">
+              <div class="warning-item" *ngFor="let warning of validationState.warnings">
+                {{ warning }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer usando componente base -->
+      <app-modal-footer
+        [buttons]="getFooterActions()"
+        
+        (buttonClick)="onFooterAction($event)">
+      </app-modal-footer>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,184 @@
+// =============================================================================
+// MODAL FOOTER STYLES - Conductor Web
+// =============================================================================
+// Versão: 1.0
+// Data: 08/11/2025
+// =============================================================================
+
+@use '../../styles/modal-variables' as *;
+@use '../../styles/modal-mixins' as mixins;
+
+// =============================================================================
+// FOOTER CONTAINER
+// =============================================================================
+
+.modal-footer {
+  @include mixins.modal-footer();
+
+  & {
+    // Layout flexbox
+    display: flex;
+    align-items: center;
+  }
+
+  // Default: ações à direita
+  &:not(.align-left) {
+    justify-content: flex-end;
+  }
+
+  // Variação: ações à esquerda
+  &.align-left {
+    justify-content: flex-start;
+  }
+
+  // Variação: compacto
+  &.compact {
+    padding: 12px 16px;
+  }
+}
+
+// =============================================================================
+// LAYOUT INTERNO
+// =============================================================================
+
+.footer-left,
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-left {
+  margin-right: auto;
+}
+
+.footer-right {
+  margin-left: auto;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: $modal-footer-gap;
+
+  // Em mobile, empilha verticalmente
+  @media (max-width: $modal-breakpoint-tablet) {
+    flex-direction: column;
+    gap: $modal-footer-gap-mobile;
+    width: 100%;
+  }
+}
+
+// =============================================================================
+// BOTÕES
+// =============================================================================
+
+.btn {
+  @include mixins.btn-base();
+}
+
+.btn-primary {
+  @include mixins.btn-primary();
+}
+
+.btn-secondary {
+  @include mixins.btn-secondary();
+}
+
+.btn-danger {
+  @include mixins.btn-danger();
+}
+
+.btn-success {
+  @include mixins.btn-success();
+}
+
+.btn-warning {
+  background: $btn-warning-bg;
+  color: $btn-warning-color;
+
+  &:hover:not(:disabled) {
+    background: $btn-warning-hover-bg;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+}
+
+// =============================================================================
+// ESTADOS DOS BOTÕES
+// =============================================================================
+
+.btn-loading {
+  @include mixins.btn-loading-state();
+}
+
+.btn-full-width {
+  width: 100%;
+}
+
+// Em mobile, todos os botões ficam com largura total
+@media (max-width: $modal-breakpoint-tablet) {
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+// =============================================================================
+// SPINNER DE LOADING
+// =============================================================================
+
+.spinner {
+  @include mixins.loading-spinner();
+  margin-right: 8px;
+}
+
+// =============================================================================
+// LABEL DO BOTÃO
+// =============================================================================
+
+.button-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// =============================================================================
+// VARIAÇÕES DE FOOTER
+// =============================================================================
+
+// Footer com fundo transparente
+.modal-footer.transparent {
+  background: transparent;
+  border-top: none;
+}
+
+// Footer sem border
+.modal-footer.no-border {
+  border-top: none;
+}
+
+// Footer com sombra (para modais com scroll)
+.modal-footer.with-shadow {
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+// Footer centralizado
+.modal-footer.centered {
+  justify-content: center;
+}
+
+// Footer com espaçamento entre botões
+.modal-footer.spaced {
+  .footer-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+// =============================================================================
+// FIM DO ARQUIVO
+// =============================================================================

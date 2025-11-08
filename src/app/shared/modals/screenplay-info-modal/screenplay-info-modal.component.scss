@@ -1,0 +1,154 @@
+@use '../../../shared/styles/modal-variables' as vars;
+@use '../../../shared/styles/modal-mixins' as mixins;
+
+// ============================================================================
+// Screenplay Info Modal Styles
+// ============================================================================
+
+.modal-backdrop {
+  @include mixins.modal-backdrop;
+}
+
+.modal-content {
+  @include mixins.modal-container(600px);
+}
+
+.modal-header {
+  @include mixins.modal-header;
+}
+
+.modal-body {
+  @include mixins.modal-body;
+}
+
+.modal-footer {
+  @include mixins.modal-footer;
+  justify-content: center; // Center single button
+}
+
+// ============================================================================
+// Custom Content Styles
+// ============================================================================
+
+.modal-description {
+  margin-bottom: 24px;
+  color: #6b7280;
+  line-height: 1.6;
+  font-size: 14px;
+  text-align: center;
+}
+
+// Shortcuts Grid
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #f9fafb;
+  border: 1px solid vars.$modal-border-color;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    transform: translateX(2px);
+  }
+
+  .shortcut-keys {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+
+    kbd {
+      display: inline-block;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: #374151;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.05);
+      min-width: 32px;
+      text-align: center;
+      line-height: 1;
+    }
+  }
+
+  .shortcut-desc {
+    flex: 1;
+    margin-left: 16px;
+    font-size: 14px;
+    color: vars.$modal-title-color;
+    font-weight: 500;
+  }
+}
+
+// ============================================================================
+// Responsive Adjustments
+// ============================================================================
+
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 95%;
+  }
+
+  .shortcuts-grid {
+    gap: 10px;
+  }
+
+  .shortcut-item {
+    padding: 12px 14px;
+
+    .shortcut-keys {
+      gap: 4px;
+
+      kbd {
+        padding: 5px 8px;
+        font-size: 11px;
+        min-width: 28px;
+      }
+    }
+
+    .shortcut-desc {
+      margin-left: 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-description {
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .shortcuts-grid {
+    gap: 8px;
+  }
+
+  .shortcut-item {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+
+    .shortcut-keys {
+      margin-bottom: 8px;
+    }
+
+    .shortcut-desc {
+      margin-left: 0;
+      font-size: 12px;
+    }
+  }
+}

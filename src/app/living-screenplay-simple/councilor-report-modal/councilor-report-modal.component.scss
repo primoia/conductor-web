@@ -1,0 +1,201 @@
+/**
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Usa @use com namespaces em vez de @import
+ * ✅ Aplica mixins com namespace 'mixins.'
+ */
+
+@use '../../shared/styles/modal-variables' as *;
+@use '../../shared/styles/modal-mixins' as mixins;
+
+.modal-backdrop {
+  @include mixins.modal-overlay($z-index-modal);
+}
+
+.modal-container {
+  @include mixins.modal-container(900px);
+}
+
+.modal-body {
+  @include mixins.modal-body;
+}
+
+// Stats Section
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: $modal-spacing-md;
+  margin-bottom: $modal-spacing-xl;
+}
+
+.stat-card {
+  background: $modal-bg-secondary;
+  border-radius: $modal-border-radius;
+  padding: $modal-spacing-md;
+  display: flex;
+  align-items: center;
+  gap: $modal-spacing-md;
+  border: 1px solid $modal-border-color;
+}
+
+.stat-icon {
+  font-size: $modal-font-size-xxl;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: $modal-font-size-xl;
+  font-weight: 600;
+  color: $modal-text-primary;
+  margin-bottom: $modal-spacing-xs;
+}
+
+.stat-label {
+  font-size: $modal-font-size-xs;
+  color: $modal-text-secondary;
+  text-transform: uppercase;
+}
+
+// Executions Section
+.executions-section h3 {
+  margin: 0 0 $modal-spacing-md 0;
+  font-size: $modal-font-size-lg;
+  font-weight: 600;
+  color: $modal-text-primary;
+}
+
+.executions-list {
+  display: flex;
+  flex-direction: column;
+  gap: $modal-spacing-sm;
+}
+
+.execution-item {
+  background: $modal-bg-secondary;
+  border-radius: $modal-border-radius;
+  padding: $modal-spacing-md;
+  border-left: 4px solid $modal-border-color;
+  transition: all $modal-transition-duration;
+
+  &:hover {
+    background: lighten($modal-bg-secondary, 5%);
+  }
+
+  &.severity-error {
+    border-left-color: $modal-color-danger;
+  }
+
+  &.severity-warning {
+    border-left-color: $modal-color-warning;
+  }
+
+  &.severity-success {
+    border-left-color: $modal-color-success;
+  }
+}
+
+.execution-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $modal-spacing-sm;
+}
+
+.execution-info {
+  display: flex;
+  gap: $modal-spacing-sm;
+  align-items: center;
+}
+
+.severity-badge,
+.status-badge {
+  padding: 4px 12px;
+  border-radius: $modal-border-radius-sm;
+  font-size: $modal-font-size-xs;
+  font-weight: 500;
+}
+
+.severity-badge {
+  &.severity-error {
+    background: rgba($modal-color-danger, 0.2);
+    color: $modal-color-danger;
+  }
+
+  &.severity-warning {
+    background: rgba($modal-color-warning, 0.2);
+    color: $modal-color-warning;
+  }
+
+  &.severity-success {
+    background: rgba($modal-color-success, 0.2);
+    color: $modal-color-success;
+  }
+}
+
+.status-badge {
+  &.status-completed {
+    background: rgba($modal-color-success, 0.2);
+    color: $modal-color-success;
+  }
+
+  &.status-running {
+    background: rgba($modal-color-primary, 0.2);
+    color: $modal-color-primary;
+  }
+
+  &.status-error {
+    background: rgba($modal-color-danger, 0.2);
+    color: $modal-color-danger;
+  }
+}
+
+.execution-meta {
+  display: flex;
+  gap: $modal-spacing-sm;
+  font-size: $modal-font-size-xs;
+  color: $modal-text-secondary;
+}
+
+.execution-output,
+.execution-error {
+  margin-top: $modal-spacing-sm;
+
+  pre {
+    background: darken($modal-bg-secondary, 5%);
+    padding: $modal-spacing-sm;
+    border-radius: $modal-border-radius-sm;
+    font-size: $modal-font-size-xs;
+    color: $modal-text-secondary;
+    overflow-x: auto;
+    margin: $modal-spacing-sm 0 0 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+}
+
+.execution-error {
+  color: $modal-color-danger;
+
+  strong {
+    display: block;
+    margin-bottom: $modal-spacing-xs;
+  }
+}
+
+// Empty State
+.empty-state {
+  text-align: center;
+  padding: $modal-spacing-xl $modal-spacing-md;
+  color: $modal-text-secondary;
+}
+
+// Loading State
+.loading-state {
+  @include mixins.loading-state;
+}
+
+.spinner {
+  @include mixins.spinner;
+}

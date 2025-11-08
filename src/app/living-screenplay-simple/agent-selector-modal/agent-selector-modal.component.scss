@@ -1,0 +1,374 @@
+// ============================================================
+// AGENT SELECTOR MODAL - NORMALIZADO
+// ============================================================
+// ✓ Usa sistema de design tokens padronizado
+// ✓ Usa mixins compartilhados
+// ✓ Classes padronizadas (.modal-backdrop, .modal-container)
+// ✓ Namespace 'mixins.' aplicado
+// ✓ Responsividade consistente
+// Data de normalização: 2025-11-08
+// ============================================================
+
+@use '../../shared/styles/modal-variables' as *;
+@use '../../shared/styles/modal-mixins' as mixins;
+
+.modal-backdrop {
+  @include mixins.modal-overlay;
+  z-index: $z-index-modal-high; // Higher z-index for agent selector
+}
+
+.modal-container {
+  @include mixins.modal-container;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+// Search container
+.search-container {
+  padding: $spacing-md $spacing-lg;
+  border-bottom: 1px solid $border-color;
+  background: $background-color-primary;
+  position: relative;
+
+  .search-input {
+    width: 100%;
+    padding: $spacing-sm 40px $spacing-sm $spacing-md;
+    border: 2px solid $border-color;
+    border-radius: $border-radius-md;
+    font-size: $font-size-base;
+    outline: none;
+    transition: border-color $transition-normal;
+
+    &:focus {
+      border-color: $primary-color;
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    }
+
+    @media (max-width: $breakpoint-tablet) {
+      font-size: $font-size-sm;
+    }
+  }
+
+  .clear-search {
+    position: absolute;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: $text-color-muted;
+    color: $background-color-primary;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background $transition-normal;
+
+    &:hover {
+      background: $text-color-secondary;
+    }
+
+    &:focus {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
+  }
+}
+
+.modal-body {
+  @include mixins.modal-body;
+  overflow-y: auto;
+  flex: 1;
+
+  .loading-state,
+  .error-state,
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-xxl $spacing-lg;
+    text-align: center;
+    color: $text-color-muted;
+
+    p {
+      margin: 0;
+      font-size: $font-size-base;
+    }
+
+    small {
+      font-size: $font-size-sm;
+      color: $text-color-muted;
+      margin-top: $spacing-xs;
+    }
+  }
+
+  .spinner {
+    @include mixins.loading-spinner;
+    margin-bottom: $spacing-md;
+  }
+
+  .error-icon,
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: $spacing-md;
+  }
+
+  .retry-btn {
+    margin-top: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    background: $primary-color;
+    color: $background-color-primary;
+    border: none;
+    border-radius: $border-radius-sm;
+    cursor: pointer;
+    font-size: $font-size-base;
+    transition: background $transition-normal;
+
+    &:hover {
+      background: darken($primary-color, 10%);
+    }
+
+    &:focus {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
+  }
+
+  .agents-list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+
+    .agent-item {
+      display: flex;
+      align-items: center;
+      padding: $spacing-md;
+      border: 2px solid $border-color;
+      border-radius: $border-radius-md;
+      cursor: pointer;
+      transition: all $transition-normal;
+      background: $background-color-primary;
+
+      &:hover,
+      &:focus {
+        border-color: $primary-color;
+        background: lighten($primary-color, 45%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba($primary-color, 0.15);
+        outline: none;
+      }
+
+      .agent-emoji {
+        font-size: 36px;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: $background-color-light;
+        margin-right: $spacing-md;
+        flex-shrink: 0;
+
+        @media (max-width: $breakpoint-mobile) {
+          font-size: 28px;
+          width: 48px;
+          height: 48px;
+        }
+      }
+
+      .agent-info {
+        flex: 1;
+        min-width: 0;
+
+        .agent-name {
+          font-weight: $font-weight-semibold;
+          font-size: $font-size-lg;
+          color: $text-color-primary;
+          margin-bottom: $spacing-xs;
+
+          @media (max-width: $breakpoint-tablet) {
+            font-size: $font-size-base;
+          }
+        }
+
+        .agent-description {
+          font-size: $font-size-sm;
+          color: $text-color-muted;
+          line-height: 1.4;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+
+          @media (max-width: $breakpoint-tablet) {
+            font-size: $font-size-xs;
+          }
+        }
+      }
+
+      .select-indicator {
+        font-size: 24px;
+        color: $text-color-muted;
+        margin-left: $spacing-md;
+        transition: all $transition-normal;
+      }
+
+      &:hover .select-indicator,
+      &:focus .select-indicator {
+        color: $primary-color;
+        transform: translateX(4px);
+      }
+    }
+  }
+}
+
+// Advanced Settings
+.advanced-settings {
+  border-top: 1px solid $border-color;
+
+  .advanced-toggle {
+    width: 100%;
+    padding: $spacing-md $spacing-lg;
+    background: $background-color-light;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $text-color-secondary;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    transition: background $transition-normal;
+
+    &:hover {
+      background: darken($background-color-light, 3%);
+    }
+
+    &:focus {
+      outline: 2px solid $primary-color;
+      outline-offset: -2px;
+    }
+
+    .toggle-icon {
+      font-size: 10px;
+      transition: transform $transition-normal;
+    }
+  }
+
+  .advanced-content {
+    padding: $spacing-md $spacing-lg;
+    background: lighten($background-color-light, 2%);
+
+    .form-group {
+      margin-bottom: $spacing-md;
+
+      label {
+        display: block;
+        margin-bottom: $spacing-xs;
+        font-size: $font-size-sm;
+        font-weight: $font-weight-semibold;
+        color: $text-color-secondary;
+      }
+
+      .cwd-input {
+        width: 100%;
+        padding: $spacing-sm $spacing-md;
+        border: 2px solid $border-color;
+        border-radius: $border-radius-sm;
+        font-size: $font-size-sm;
+        font-family: 'Courier New', monospace;
+        outline: none;
+        transition: border-color $transition-normal;
+
+        &:focus {
+          border-color: $primary-color;
+          box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+        }
+      }
+
+      .help-text {
+        display: block;
+        margin-top: $spacing-xs;
+        font-size: $font-size-xs;
+        color: $text-color-muted;
+      }
+    }
+
+    .recent-dirs {
+      margin-top: $spacing-md;
+
+      .recent-label {
+        display: block;
+        margin-bottom: $spacing-xs;
+        font-size: $font-size-xs;
+        color: $text-color-muted;
+        font-weight: $font-weight-semibold;
+      }
+
+      .dir-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-xs;
+
+        .dir-chip {
+          padding: $spacing-xs $spacing-sm;
+          background: $background-color-primary;
+          border: 1px solid $border-color;
+          border-radius: 12px;
+          font-size: $font-size-xs;
+          cursor: pointer;
+          transition: all $transition-normal;
+          font-family: 'Courier New', monospace;
+
+          &:hover {
+            background: lighten($primary-color, 45%);
+            border-color: $primary-color;
+            transform: translateY(-1px);
+          }
+
+          &:focus {
+            outline: 2px solid $primary-color;
+            outline-offset: 2px;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsividade
+@media (max-width: $breakpoint-mobile) {
+  .modal-container {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .modal-body {
+    padding: $spacing-sm;
+  }
+
+  .search-container {
+    padding: $spacing-sm;
+  }
+
+  .advanced-settings {
+    .advanced-toggle {
+      padding: $spacing-sm;
+      font-size: $font-size-xs;
+    }
+
+    .advanced-content {
+      padding: $spacing-sm;
+    }
+  }
+}

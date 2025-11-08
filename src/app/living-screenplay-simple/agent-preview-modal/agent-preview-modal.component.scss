@@ -1,0 +1,248 @@
+// =============================================================================
+// AGENT PREVIEW MODAL STYLES - Conductor Web
+// =============================================================================
+// ✅ Normalizado seguindo especificação de modais padrão v1.0
+// ✅ Usa variáveis e mixins compartilhados
+// ✅ Responsivo (3 breakpoints: desktop, tablet, mobile)
+// ✅ Acessibilidade WCAG 2.1 AA compliant
+// =============================================================================
+
+@use '../../shared/styles/modal-variables' as *;
+@use '../../shared/styles/modal-mixins' as mixins;
+
+// =============================================================================
+// BASE MODAL STRUCTURE
+// =============================================================================
+
+.modal-backdrop {
+  @include mixins.modal-backdrop();
+}
+
+.modal-container {
+  @include mixins.modal-container(900px);
+  width: 95%;
+  max-height: 85vh;
+}
+
+.modal-body {
+  @include mixins.modal-body();
+  background: $modal-body-bg-alt;
+}
+
+// =============================================================================
+// LOADING AND ERROR STATES
+// =============================================================================
+
+.loading-state,
+.error-state {
+  @include mixins.loading-state();
+  padding: $modal-spacing-xxl $modal-spacing-lg;
+  text-align: center;
+  color: $modal-text-secondary;
+  min-height: 300px;
+
+  p {
+    margin: 0;
+    font-size: $modal-font-size-sm;
+    font-weight: $font-weight-medium;
+  }
+}
+
+.spinner {
+  @include mixins.loading-spinner($modal-primary-color);
+  margin-bottom: $modal-spacing-lg;
+}
+
+.error-icon {
+  font-size: $modal-font-size-xxl * 2.5;
+  margin-bottom: $modal-spacing-lg;
+  line-height: 1;
+}
+
+.error-message {
+  color: $modal-error-color;
+  font-weight: $font-weight-medium;
+  margin-bottom: $modal-spacing-lg;
+}
+
+.btn {
+  @include mixins.btn-base();
+
+  &.btn-secondary {
+    @include mixins.btn-secondary();
+  }
+}
+
+// =============================================================================
+// DIFF COMPARISON VIEW
+// =============================================================================
+
+.diff-container {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  gap: $modal-spacing-lg;
+  margin-bottom: $modal-spacing-lg;
+
+  @include mixins.modal-responsive() {
+    grid-template-columns: 1fr;
+    gap: $modal-spacing-md;
+  }
+}
+
+.diff-section {
+  background: $modal-bg;
+  border-radius: $modal-border-radius;
+  overflow: hidden;
+  box-shadow: $modal-box-shadow-sm;
+}
+
+.section-header {
+  padding: $modal-spacing-md $modal-spacing-lg;
+  font-weight: $font-weight-semibold;
+  font-size: $modal-font-size-sm;
+  display: flex;
+  align-items: center;
+  gap: $modal-spacing-sm;
+}
+
+.original-header {
+  background: #fff3cd;
+  color: #856404;
+  border-bottom: 2px solid #ffc107;
+}
+
+.proposed-header {
+  background: #d4edda;
+  color: #155724;
+  border-bottom: 2px solid #28a745;
+}
+
+.header-icon {
+  font-size: $modal-font-size-lg;
+  line-height: 1;
+}
+
+.text-content {
+  padding: $modal-spacing-lg;
+  font-size: $modal-font-size-sm;
+  line-height: 1.7;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Monaco', 'Menlo', monospace;
+
+  @include mixins.custom-scrollbar();
+}
+
+.original-text {
+  color: $modal-text-primary;
+  background: #fffbf0;
+}
+
+.proposed-text {
+  color: #155724;
+  background: #f0f9f4;
+  font-weight: 500;
+}
+
+.diff-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $modal-font-size-xxl + 8px;
+  color: $modal-primary-color;
+  font-weight: bold;
+
+  @include mixins.modal-responsive() {
+    transform: rotate(90deg);
+    font-size: $modal-font-size-xl;
+  }
+}
+
+// =============================================================================
+// CHARACTER COUNT STATISTICS
+// =============================================================================
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  padding: $modal-spacing-lg;
+  background: $modal-bg;
+  border-radius: $modal-border-radius;
+  box-shadow: $modal-box-shadow-sm;
+  gap: $modal-spacing-md;
+
+  @media (max-width: $modal-breakpoint-mobile) {
+    flex-direction: column;
+    gap: $modal-spacing-sm;
+  }
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $modal-spacing-xs;
+
+  @media (max-width: $modal-breakpoint-mobile) {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.stat-label {
+  font-size: $modal-font-size-xs;
+  color: $modal-text-secondary;
+  text-transform: uppercase;
+  font-weight: $font-weight-semibold;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: $modal-font-size-md;
+  font-weight: 700;
+  color: $modal-text-primary;
+}
+
+.stat-positive .stat-value {
+  color: $modal-success-color;
+}
+
+.stat-negative .stat-value {
+  color: $modal-error-color;
+}
+
+// =============================================================================
+// RESPONSIVE OVERRIDES
+// =============================================================================
+
+@media (max-width: $modal-breakpoint-tablet) {
+  .modal-container {
+    width: 98%;
+    max-height: 90vh;
+  }
+
+  .diff-container {
+    gap: $modal-spacing-md;
+  }
+}
+
+@media (max-width: $modal-breakpoint-mobile) {
+  .modal-container {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .text-content {
+    min-height: 150px;
+    max-height: 300px;
+  }
+}
+
+// =============================================================================
+// FIM DO ARQUIVO
+// =============================================================================

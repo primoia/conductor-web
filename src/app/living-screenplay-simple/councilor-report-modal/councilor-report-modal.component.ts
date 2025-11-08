@@ -1,42 +1,50 @@
-import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
 import { CouncilorReport } from '../../models/councilor.types';
+import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 
 /**
  * Modal para exibir relatório detalhado de um conselheiro
+ *
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Estende BaseModalComponent para comportamentos consistentes
+ * ✅ Usa componentes base reutilizáveis (ModalHeader, ModalFooter)
+ * ✅ Implementa acessibilidade (ARIA, keyboard navigation)
  *
  * Mostra:
  * - Estatísticas gerais (total execuções, taxa sucesso)
  * - Lista de execuções recentes
  * - Próxima execução agendada
+ *
+ * @extends BaseModalComponent
  */
 @Component({
   selector: 'app-councilor-report-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, ModalHeaderComponent, ModalFooterComponent],
   templateUrl: './councilor-report-modal.component.html',
-  styleUrls: ['./councilor-report-modal.component.css']
+  styleUrls: ['./councilor-report-modal.component.scss']
 })
-export class CouncilorReportModalComponent implements OnInit {
+export class CouncilorReportModalComponent extends BaseModalComponent implements OnInit {
+  @Input() override isVisible: boolean = false;
   @Input() report: CouncilorReport | null = null;
   @Input() councilorName: string = '';
   @Output() close = new EventEmitter<void>();
+  @Output() override closeModal = new EventEmitter<void>();
+
+  constructor() {
+    super(); // Call parent constructor
+  }
 
   ngOnInit(): void {
     console.log('📋 Report modal opened:', this.report);
   }
 
-  /**
-   * Fecha o modal
-   */
-  onClose(): void {
-    this.close.emit();
-  }
-
-  @HostListener('document:keydown.escape')
-  handleEsc(): void {
-    this.onClose();
-  }
+  // ===========================================================================
+  // MÉTODOS DE FORMATAÇÃO E UTILIDADES
+  // ===========================================================================
 
   /**
    * Formata data para exibição amigável
@@ -128,6 +136,57 @@ export class CouncilorReportModalComponent implements OnInit {
       case 'running': return 'Executando';
       case 'error': return 'Erro';
       default: return 'Pendente';
+    }
+  }
+
+  // ===========================================================================
+  // FOOTER E AÇÕES
+  // ===========================================================================
+
+  /**
+   * Retorna os botões do footer
+   */
+  get footerButtons(): ModalButton[] {
+    return [
+      {
+        label: 'Fechar',
+        type: 'secondary',
+        action: 'close'
+      }
+    ];
+  }
+
+  /**
+   * Manipula ações dos botões do footer.
+   * @param action - Ação disparada pelo botão
+   */
+  handleFooterAction(action: string): void {
+    if (action === 'close') {
+      this.onClose();
+    }
+  }
+
+  // ===========================================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ===========================================================================
+
+  /**
+   * Fecha o modal
+   * @override
+   */
+  override onClose(): void {
+    this.close.emit();
+    this.closeModal.emit();
+    super.onClose();
+  }
+
+  /**
+   * Manipula o clique no backdrop
+   * @override
+   */
+  public override onBackdropClick(event: Event): void {
+    if (event.target === event.currentTarget && !this.preventBackdropClose()) {
+      this.onClose();
     }
   }
 }

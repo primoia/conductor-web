@@ -1,10 +1,31 @@
-<div class="modal-backdrop" (click)="onCancel()">
-  <div class="modal-container" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <h2>⭐ Promover Agente a Conselheiro</h2>
-      <button class="close-btn" (click)="onCancel()" title="Fechar">×</button>
-    </div>
+<!--
+  ============================================================
+  MODAL: Promote Councilor Modal
+  ============================================================
+  Estado de Normalização:
+  ✓ Extends BaseModalComponent
+  ✓ Usa isVisible para controle de exibição
+  ✓ Usa closeModal como output padrão
+  ✓ Implementa onClose() override
+  ✓ Implementa onBackdropClick() override
+  ✓ Usa classes .modal-backdrop e .modal-container
+  ✓ Usa *ngIf="isVisible" no backdrop
+  ✓ Usa (click)="onBackdropClick($event)" no backdrop
+  ✓ Usa (click)="$event.stopPropagation()" inline no container
+  ✓ Usa mixins SCSS padronizados
+
+  Data: 2025-11-08
+  ============================================================
+-->
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+
+    <app-modal-header
+      [title]="'⭐ Promover Agente a Conselheiro'"
+      [showCloseButton]="true"
+      (closeClick)="onClose()"
+      aria-label="Cabeçalho do modal de promoção">
+    </app-modal-header>
 
     <!-- Body -->
     <div class="modal-body">
@@ -262,18 +283,11 @@ Retorne lista com sugestões de refatoração."
     </div>
 
     <!-- Footer -->
-    <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="onCancel()" [disabled]="isSubmitting">
-        Cancelar
-      </button>
-      <button
-        class="btn btn-primary"
-        (click)="onSubmit()"
-        [disabled]="!isValid() || isSubmitting"
-      >
-        <span *ngIf="!isSubmitting">⭐ Promover</span>
-        <span *ngIf="isSubmitting">Promovendo...</span>
-      </button>
-    </div>
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)"
+      aria-label="Ações do modal">
+    </app-modal-footer>
+
   </div>
 </div>

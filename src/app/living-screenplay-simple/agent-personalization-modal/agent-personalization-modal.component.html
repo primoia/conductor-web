@@ -1,0 +1,79 @@
+<!--
+  Agent Personalization Modal
+  Checklist de normalização:
+  - [x] *ngIf="isVisible" no backdrop
+  - [x] (click)="onBackdropClick($event)" no backdrop
+  - [x] (click)="$event.stopPropagation()" no container
+  - [x] Classes: .modal-backdrop e .modal-container
+  - [x] Usa (closeClick)="onClose()" no header
+-->
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-container" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+
+    <app-modal-header
+      [title]="'⚙️ Gerenciar Secretários'"
+      [showCloseButton]="true"
+      (closeClick)="onClose()"
+      aria-label="Cabeçalho do modal de gerenciamento de secretários">
+    </app-modal-header>
+
+    <div class="modal-body">
+      <div class="hint" role="note">Edite os nomes, cargos e emojis dos agentes.</div>
+
+      <div class="profiles" *ngIf="editableProfiles.length > 0; else emptyState">
+        <div class="profile" *ngFor="let p of editableProfiles; trackBy: trackById">
+          <div class="row">
+            <label for="agent-id-{{p.agentId}}">ID</label>
+            <input
+              type="text"
+              id="agent-id-{{p.agentId}}"
+              [value]="p.agentId"
+              disabled
+              aria-label="ID do agente (somente leitura)" />
+          </div>
+          <div class="row">
+            <label for="agent-name-{{p.agentId}}">Nome</label>
+            <input
+              type="text"
+              id="agent-name-{{p.agentId}}"
+              [(ngModel)]="p.displayName"
+              placeholder="Maria"
+              aria-label="Nome do agente" />
+          </div>
+          <div class="row">
+            <label for="agent-role-{{p.agentId}}">Cargo</label>
+            <input
+              type="text"
+              id="agent-role-{{p.agentId}}"
+              [(ngModel)]="p.role"
+              placeholder="Inspetora de Qualidade"
+              aria-label="Cargo do agente" />
+          </div>
+          <div class="row">
+            <label for="agent-emoji-{{p.agentId}}">Emoji</label>
+            <input
+              type="text"
+              id="agent-emoji-{{p.agentId}}"
+              [(ngModel)]="p.emoji"
+              placeholder="🔍"
+              maxlength="4"
+              aria-label="Emoji do agente" />
+          </div>
+        </div>
+      </div>
+
+      <ng-template #emptyState>
+        <div class="empty-state" role="status">
+          <p>Nenhum agente detectado ainda.</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)"
+      aria-label="Ações do modal">
+    </app-modal-footer>
+
+  </div>
+</div>

@@ -1,14 +1,24 @@
-<div class="modal-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
-  <div class="modal-content" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="header-content">
-        <i class="fas fa-exclamation-triangle"></i>
-        <h3>Conflito de Arquivo Detectado</h3>
-      </div>
-      <button class="close-btn" (click)="onCancel()" title="Fechar">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
+<!--
+  Conflict Resolution Modal Template
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ ARIA compliant (WCAG 2.1 AA)
+-->
+<div class="modal-backdrop"
+     *ngIf="isVisible"
+     (click)="onBackdropClick($event)"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="conflict-modal-title">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header reutilizável -->
+    <app-modal-header
+      id="conflict-modal-title"
+      title="Conflito de Arquivo Detectado"
+      icon="fas fa-exclamation-triangle"
+      [showCloseButton]="true"
+      (close)="onCancel()">
+    </app-modal-header>
 
     <div class="modal-body">
       <div class="conflict-info">
@@ -77,34 +87,12 @@
           autofocus>
       </div>
 
-      <div class="modal-actions" *ngIf="!showRenameInput">
-        <button class="btn btn-danger" (click)="onOverwrite()" title="Substituir o roteiro existente pelo novo">
-          <i class="fas fa-sync-alt"></i>
-          Sobrescrever
-        </button>
-
-        <button class="btn btn-secondary" (click)="onKeepExisting()" title="Manter o roteiro existente e descartar o novo">
-          <i class="fas fa-ban"></i>
-          Manter Existente
-        </button>
-
-        <button class="btn btn-primary" (click)="onShowRename()" title="Salvar com um nome diferente">
-          <i class="fas fa-edit"></i>
-          Renomear
-        </button>
-      </div>
-
-      <div class="modal-actions" *ngIf="showRenameInput">
-        <button class="btn btn-secondary" (click)="showRenameInput = false">
-          <i class="fas fa-arrow-left"></i>
-          Voltar
-        </button>
-
-        <button class="btn btn-primary" (click)="onRename()" [disabled]="!newName.trim()">
-          <i class="fas fa-check"></i>
-          Confirmar Renomeação
-        </button>
-      </div>
     </div>
+
+    <!-- Footer reutilizável com botões dinâmicos -->
+    <app-modal-footer
+      [buttons]="showRenameInput ? renameButtons : defaultButtons"
+      (buttonClick)="handleFooterAction($event)">
+    </app-modal-footer>
   </div>
 </div>

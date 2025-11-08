@@ -1,125 +1,36 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BaseModalComponent } from '../modals/base/base-modal.component';
 import { PersonaEditService, ValidationState, SaveState } from '../../services/persona-edit.service';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
+import { ModalHeaderComponent } from '../modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../modals/base/modal-footer.component';
 
 /**
  * Modal para edição de persona
- * SAGA-008: Fase 2 - Funcionalidade Completa
+ *
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Estende BaseModalComponent para comportamentos consistentes
+ * ✅ Usa componentes base reutilizáveis (ModalHeader, ModalFooter)
+ * ✅ Implementa acessibilidade (ARIA, keyboard navigation)
+ * ✅ SAGA-008: Fase 2 - Funcionalidade Completa
+ *
+ * @extends BaseModalComponent
  */
 @Component({
   selector: 'app-persona-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styleUrls: ['./persona-edit-modal.component.scss'],
-  template: `
-    <div class="persona-edit-modal">
-      <div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
-        <div class="modal-content" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="modal-title" aria-describedby="modal-description">
-          <div class="modal-header">
-            <h4 id="modal-title">Editar Persona</h4>
-            <button class="close-btn" (click)="close()" aria-label="Fechar modal">✕</button>
-          </div>
-          <div class="modal-body">
-            <div class="editor-container">
-              <div class="editor-tabs">
-                <button 
-                  class="tab" 
-                  [class.active]="activeTab === 'edit'"
-                  (click)="setActiveTab('edit')"
-                  data-tab="edit"
-                  [attr.aria-selected]="activeTab === 'edit'"
-                  role="tab">
-                  Editar
-                </button>
-                <button 
-                  class="tab" 
-                  [class.active]="activeTab === 'preview'"
-                  (click)="setActiveTab('preview')"
-                  data-tab="preview"
-                  [attr.aria-selected]="activeTab === 'preview'"
-                  role="tab">
-                  Preview
-                </button>
-              </div>
-              
-              <div class="editor-content" role="tabpanel" [attr.aria-labelledby]="activeTab === 'edit' ? 'edit-tab' : 'preview-tab'">
-                <textarea 
-                  *ngIf="activeTab === 'edit'"
-                  [(ngModel)]="personaText" 
-                  (input)="onTextChange()"
-                  placeholder="Digite a persona do agente..."
-                  class="persona-textarea"
-                  [maxlength]="maxLength"
-                  [class.error]="validationState.errors.length > 0"
-                  aria-label="Editor de persona"
-                  aria-describedby="char-count validation-errors">
-                </textarea>
-                
-                <div 
-                  *ngIf="activeTab === 'preview'"
-                  class="persona-preview"
-                  [innerHTML]="getPreviewHtml()"
-                  aria-label="Preview da persona">
-                </div>
-              </div>
-              
-              <div class="editor-footer">
-                <div class="validation-info">
-                  <span 
-                    class="char-count" 
-                    [class.warning]="personaText.length > maxLength * 0.8"
-                    [class.error]="personaText.length > maxLength"
-                    id="char-count">
-                    {{ personaText.length }}/{{ maxLength }} caracteres
-                  </span>
-                  <span 
-                    class="save-status" 
-                    [class]="saveState.status"
-                    *ngIf="saveState.status !== 'idle'">
-                    {{ getSaveStatusText() }}
-                  </span>
-                </div>
-                
-                <div class="validation-errors" id="validation-errors" *ngIf="validationState.errors.length > 0" role="alert">
-                  <div class="error-item" *ngFor="let error of validationState.errors">
-                    {{ error }}
-                  </div>
-                </div>
-                
-                <div class="validation-warnings" *ngIf="validationState.warnings.length > 0" role="alert">
-                  <div class="warning-item" *ngFor="let warning of validationState.warnings">
-                    {{ warning }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancel" (click)="close()">Cancelar</button>
-            <button 
-              class="btn-save" 
-              [class.btn-disabled]="!validationState.isValid || saveState.status === 'saving'"
-              [class.btn-saving]="saveState.status === 'saving'"
-              (click)="save()" 
-              [disabled]="!validationState.isValid || saveState.status === 'saving'"
-              [attr.aria-describedby]="validationState.errors.length > 0 ? 'validation-errors' : null">
-              <span *ngIf="saveState.status === 'saving'">Salvando...</span>
-              <span *ngIf="saveState.status !== 'saving'">Salvar</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
+  templateUrl: './persona-edit-modal.component.html',
+  styleUrls: ['./persona-edit-modal.component.scss']
 })
-export class PersonaEditModalComponent implements OnInit, OnChanges, OnDestroy {
-  @Input() isVisible = false;
+export class PersonaEditModalComponent extends BaseModalComponent implements OnInit, OnChanges, OnDestroy {
+  @Input() override isVisible = false;
   @Input() instanceId: string | null = null;
   @Input() currentPersona: string = '';
-  @Output() closeModal = new EventEmitter<void>();
+  @Output() override closeModal = new EventEmitter<void>();
   @Output() personaSaved = new EventEmitter<string>();
 
   personaText = '';
@@ -135,6 +46,8 @@ export class PersonaEditModalComponent implements OnInit, OnChanges, OnDestroy {
     private personaEditService: PersonaEditService,
     private cdr: ChangeDetectorRef
   ) {
+    super(); // Call parent constructor first
+
     // Debounce para validação em tempo real
     this.textChangeSubject
       .pipe(
@@ -345,18 +258,71 @@ export class PersonaEditModalComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
+  // ===========================================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ===========================================================================
+
   /**
    * Fecha o modal
+   * @override
    */
   close(): void {
     this.closeModal.emit();
+    super.onClose();
   }
 
   /**
-   * Manipula clique no backdrop
+   * Hook do BaseModalComponent: previne fechamento por ESC durante salvamento
+   * @override
    */
-  onBackdropClick(event: Event): void {
-    if (event.target === event.currentTarget) {
+  protected override preventEscapeClose(): boolean {
+    return this.saveState.status === 'saving' || super.preventEscapeClose();
+  }
+
+  /**
+   * Hook do BaseModalComponent: previne fechamento por backdrop durante salvamento
+   * @override
+   */
+  protected override preventBackdropClose(): boolean {
+    return this.saveState.status === 'saving' || super.preventBackdropClose();
+  }
+
+  /**
+   * Override do onBackdropClick para usar o método close customizado
+   * @override
+   */
+  public override onBackdropClick(event: Event): void {
+    if (event.target === event.currentTarget && !this.preventBackdropClose()) {
+      this.close();
+    }
+  }
+
+  /**
+   * Configura ações do footer (botões)
+   */
+  getFooterActions(): ModalButton[] {
+    return [
+      {
+        label: 'Cancelar',
+        type: 'secondary',
+        action: 'cancel'
+      },
+      {
+        label: this.saveState.status === 'saving' ? 'Salvando...' : 'Salvar',
+        type: 'primary',
+        action: 'save',
+        disabled: !this.validationState.isValid || this.saveState.status === 'saving'
+      }
+    ];
+  }
+
+  /**
+   * Handler de cliques em ações do footer
+   */
+  onFooterAction(action: string): void {
+    if (action === 'save') {
+      this.save();
+    } else if (action === 'cancel') {
       this.close();
     }
   }

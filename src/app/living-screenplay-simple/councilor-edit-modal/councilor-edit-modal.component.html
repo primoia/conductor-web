@@ -1,15 +1,26 @@
-<div class="modal-backdrop" (click)="onClose()">
+<!--
+  Councilor Edit Modal Template
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ ARIA compliant (WCAG 2.1 AA)
+-->
+<div class="modal-backdrop"
+     *ngIf="isVisible"
+     (click)="onBackdropClick($event)"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="councilor-edit-title">
   <div class="modal-container" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <div class="header-content">
-        <h2>⚙️ Editar Configuração</h2>
-        <p class="councilor-name" *ngIf="councilor">
-          {{ councilor.customization?.display_name || councilor.name }}
-        </p>
-      </div>
-      <button class="close-btn" (click)="onClose()" title="Fechar" [disabled]="isSaving">×</button>
-    </div>
+    <!-- Header reutilizável -->
+    <app-modal-header
+      id="councilor-edit-title"
+      title="Editar Configuração"
+      icon="fas fa-cog"
+      [subtitle]="councilor?.customization?.display_name || councilor?.name || ''"
+      [showCloseButton]="true"
+      [disabled]="isSaving"
+      (close)="onClose()">
+    </app-modal-header>
 
     <!-- Body -->
     <div class="modal-body">
@@ -127,32 +138,17 @@
         </div>
 
         <!-- Error Message -->
-        <div class="error-message" *ngIf="errorMessage">
-          ❌ {{ errorMessage }}
+        <div class="error-message" *ngIf="errorMessage" role="alert">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ errorMessage }}
         </div>
       </form>
     </div>
 
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button
-        class="btn btn-secondary"
-        (click)="onClose()"
-        [disabled]="isSaving"
-      >
-        Cancelar
-      </button>
-      <button
-        class="btn btn-primary"
-        (click)="onSave()"
-        [disabled]="isSaving"
-      >
-        <span *ngIf="!isSaving">💾 Salvar Alterações</span>
-        <span *ngIf="isSaving">
-          <span class="spinner-small"></span>
-          Salvando...
-        </span>
-      </button>
-    </div>
+    <!-- Footer reutilizável -->
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)">
+    </app-modal-footer>
   </div>
 </div>

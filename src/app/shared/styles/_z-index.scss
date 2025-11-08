@@ -1,0 +1,254 @@
+// =============================================================================
+// Z-INDEX HIERARCHY - Conductor Web
+// =============================================================================
+// Versão: 1.0
+// Data: 08/11/2025
+// Descrição: Hierarquia centralizada de z-index para todo o sistema
+// =============================================================================
+
+// =============================================================================
+// 📚 DOCUMENTAÇÃO
+// =============================================================================
+//
+// IMPORTANTE: Este arquivo define a hierarquia de z-index para todo o sistema.
+//
+// REGRAS:
+// 1. NUNCA use valores de z-index hardcoded em componentes
+// 2. SEMPRE importe e use estas variáveis
+// 3. Para adicionar novos níveis, atualize este arquivo e documente o uso
+// 4. Mantenha a hierarquia lógica e espaçada para permitir inserções
+//
+// COMO USAR:
+// @import 'src/app/shared/styles/z-index' as z;
+// .my-element {
+//   z-index: z.$modal;
+// }
+//
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 🏗️ CAMADAS BASE (0-99)
+// -----------------------------------------------------------------------------
+
+/// Elementos padrão sem elevação
+$base: 0 !default;
+
+/// Elementos levemente elevados
+$elevated: 10 !default;
+
+// -----------------------------------------------------------------------------
+// 🎯 NAVEGAÇÃO E UI (100-399)
+// -----------------------------------------------------------------------------
+
+/// Dropdowns e menus suspensos
+/// Uso: Select dropdowns, context menus
+$dropdown: 100 !default;
+
+/// Cabeçalho sticky/fixed
+/// Uso: Header navigation, breadcrumbs
+$sticky: 200 !default;
+
+/// Sidebar e painéis laterais
+/// Uso: Navigation drawer, side panel
+$sidebar: 250 !default;
+
+/// Elementos fixos (não sticky)
+/// Uso: Floating action buttons, chat widgets
+$fixed: 300 !default;
+
+// -----------------------------------------------------------------------------
+// 🎭 OVERLAYS E INTERAÇÕES (400-999)
+// -----------------------------------------------------------------------------
+
+/// Overlay genérico
+/// Uso: Backgrounds de modais, loading screens
+$overlay: 400 !default;
+
+/// Popovers e tooltips pequenos
+/// Uso: Info tooltips, inline help
+$popover: 500 !default;
+
+/// Datepickers, colorpickers
+/// Uso: Form element overlays
+$picker: 600 !default;
+
+/// Autocomplete e sugestões
+/// Uso: Search suggestions, autocomplete lists
+$autocomplete: 700 !default;
+
+// -----------------------------------------------------------------------------
+// 🪟 MODALS E DIALOGS (1000-1999)
+// -----------------------------------------------------------------------------
+
+/// Modal backdrop (fundo escurecido)
+/// Uso: Background de todos os modais
+$modal-backdrop: 1000 !default;
+
+/// Modal principal (nível 1)
+/// Uso: Modais padrão do sistema
+$modal: 1000 !default;
+
+/// Modal aninhado (nível 2)
+/// Uso: Modal aberto sobre outro modal
+$modal-nested-1: 1100 !default;
+
+/// Modal aninhado (nível 3)
+/// Uso: Modal aberto sobre modal aninhado
+$modal-nested-2: 1200 !default;
+
+/// Modal crítico (sempre no topo de outros modais)
+/// Uso: Confirmações de ações destrutivas, alertas críticos
+$modal-critical: 1500 !default;
+
+// -----------------------------------------------------------------------------
+// 🔔 NOTIFICAÇÕES E FEEDBACKS (2000-2999)
+// -----------------------------------------------------------------------------
+
+/// Toasts e notificações temporárias
+/// Uso: Success/error messages, snackbars
+$toast: 2000 !default;
+
+/// Notificações persistentes
+/// Uso: Cookie banners, update notifications
+$notification: 2100 !default;
+
+/// Badges e indicators
+/// Uso: Notification badges, status indicators
+$badge: 2200 !default;
+
+// -----------------------------------------------------------------------------
+// 💡 TOOLTIPS E HINTS (3000-3999)
+// -----------------------------------------------------------------------------
+
+/// Tooltips padrão
+/// Uso: Hover tooltips, help text
+$tooltip: 3000 !default;
+
+/// Tour guides e onboarding
+/// Uso: Product tours, feature highlights
+$tour-guide: 3100 !default;
+
+/// Context menus
+/// Uso: Right-click menus, action menus
+$context-menu: 3200 !default;
+
+// -----------------------------------------------------------------------------
+// 🚨 SISTEMA E DEBUG (4000+)
+// -----------------------------------------------------------------------------
+
+/// Loading spinners globais
+/// Uso: Full-screen loading states
+$loading-overlay: 4000 !default;
+
+/// Mensagens de erro críticas
+/// Uso: System errors, crash screens
+$error-critical: 4500 !default;
+
+/// Developer tools e debug panels
+/// Uso: Debug overlays, dev tools
+$debug: 9000 !default;
+
+/// Absolute top (use com extremo cuidado)
+/// Uso: Apenas para casos excepcionais
+$absolute-top: 9999 !default;
+
+// =============================================================================
+// 📋 MAPA DE Z-INDEX (para acesso programático)
+// =============================================================================
+
+$z-index-map: (
+  'base': $base,
+  'elevated': $elevated,
+  'dropdown': $dropdown,
+  'sticky': $sticky,
+  'sidebar': $sidebar,
+  'fixed': $fixed,
+  'overlay': $overlay,
+  'popover': $popover,
+  'picker': $picker,
+  'autocomplete': $autocomplete,
+  'modal-backdrop': $modal-backdrop,
+  'modal': $modal,
+  'modal-nested-1': $modal-nested-1,
+  'modal-nested-2': $modal-nested-2,
+  'modal-critical': $modal-critical,
+  'toast': $toast,
+  'notification': $notification,
+  'badge': $badge,
+  'tooltip': $tooltip,
+  'tour-guide': $tour-guide,
+  'context-menu': $context-menu,
+  'loading-overlay': $loading-overlay,
+  'error-critical': $error-critical,
+  'debug': $debug,
+  'absolute-top': $absolute-top
+) !default;
+
+// =============================================================================
+// 🔧 FUNÇÃO UTILITÁRIA
+// =============================================================================
+
+/// Retorna o valor de z-index pelo nome
+/// @param {String} $name - Nome da camada
+/// @return {Number} - Valor do z-index
+/// @example scss
+///   .my-element {
+///     z-index: z-index('modal');
+///   }
+@function z-index($name) {
+  @if map-has-key($z-index-map, $name) {
+    @return map-get($z-index-map, $name);
+  }
+
+  @warn "Z-index '#{$name}' não encontrado no mapa. Retornando 0.";
+  @return 0;
+}
+
+// =============================================================================
+// 📊 REFERÊNCIA VISUAL DA HIERARQUIA
+// =============================================================================
+//
+// 9999 ┃ absolute-top
+// 9000 ┃ debug
+// 4500 ┃ error-critical
+// 4000 ┃ loading-overlay
+//      ┃
+// 3200 ┃ context-menu
+// 3100 ┃ tour-guide
+// 3000 ┃ tooltip
+//      ┃
+// 2200 ┃ badge
+// 2100 ┃ notification
+// 2000 ┃ toast
+//      ┃
+// 1500 ┃ modal-critical
+// 1200 ┃ modal-nested-2
+// 1100 ┃ modal-nested-1
+// 1000 ┃ modal / modal-backdrop
+//      ┃
+//  700 ┃ autocomplete
+//  600 ┃ picker
+//  500 ┃ popover
+//  400 ┃ overlay
+//      ┃
+//  300 ┃ fixed
+//  250 ┃ sidebar
+//  200 ┃ sticky
+//  100 ┃ dropdown
+//      ┃
+//   10 ┃ elevated
+//    0 ┃ base
+//
+// =============================================================================
+
+// =============================================================================
+// 📝 CHANGELOG
+// =============================================================================
+//
+// v1.0 (08/11/2025)
+// - Versão inicial com hierarquia completa
+// - Documentação de uso
+// - Função utilitária z-index()
+// - Mapa de z-index para acesso programático
+//
+// =============================================================================

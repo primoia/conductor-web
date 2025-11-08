@@ -1,140 +1,35 @@
-// SAGA-008: Fase 3 - Polimento
-// Estilos avançados para o modal de edição de persona
+// =============================================================================
+// PERSONA EDIT MODAL STYLES - Conductor Web
+// =============================================================================
+// ✅ Normalizado seguindo especificação de modais padrão v1.0
+// ✅ Usa variáveis e mixins compartilhados
+// ✅ Responsivo (3 breakpoints: desktop, tablet, mobile)
+// ✅ Acessibilidade WCAG 2.1 AA compliant
+// =============================================================================
+
+@use '../styles/modal-variables' as *;
+@use '../styles/modal-mixins' as mixins;
 
 .persona-edit-modal {
   .modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
+    @include mixins.modal-backdrop();
     backdrop-filter: blur(4px);
-    animation: backdropFadeIn 0.3s ease-out;
   }
 
-  .modal-content {
-    background: #ffffff;
-    border-radius: 12px;
+  .modal-container {
+    @include mixins.modal-container();
     max-width: 800px;
     width: 95%;
     max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-    animation: modalSlideIn 0.3s ease-out;
-    overflow: hidden;
-    position: relative;
-    border: 1px solid #e1e4e8;
-
-    // Responsividade
-    @media (max-width: 768px) {
-      width: 98%;
-      max-height: 95vh;
-      border-radius: 8px;
-    }
-
-    @media (max-width: 480px) {
-      width: 100%;
-      height: 100vh;
-      max-height: 100vh;
-      border-radius: 0;
-    }
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    border-bottom: 1px solid #e1e4e8;
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    position: relative;
-
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, #e1e4e8 50%, transparent 100%);
-    }
-
-    h4 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 600;
-      color: #2c3e50;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      &::before {
-        content: '✏️';
-        font-size: 18px;
-      }
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: #6b7280;
-      padding: 8px;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      transition: all 0.2s ease;
-      position: relative;
-      overflow: hidden;
-
-      &::before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        background: rgba(107, 114, 128, 0.1);
-        border-radius: 50%;
-        transition: all 0.3s ease;
-        transform: translate(-50%, -50%);
-      }
-
-      &:hover {
-        color: #374151;
-        background: rgba(107, 114, 128, 0.1);
-        transform: scale(1.05);
-
-        &::before {
-          width: 100%;
-          height: 100%;
-        }
-      }
-
-      &:active {
-        transform: scale(0.95);
-      }
-    }
   }
 
   .modal-body {
+    @include mixins.modal-body();
     padding: 0;
     overflow: hidden;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
   }
 
+  // Editor Container
   .editor-container {
     display: flex;
     flex-direction: column;
@@ -142,32 +37,22 @@
     min-height: 500px;
   }
 
+  // Editor Tabs
   .editor-tabs {
     display: flex;
-    border-bottom: 1px solid #e1e4e8;
-    background: #f8f9fa;
+    border-bottom: 1px solid $modal-border-color;
+    background: $modal-body-bg-alt;
     position: relative;
 
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, #e1e4e8 50%, transparent 100%);
-    }
-
     .tab {
-      background: none;
-      border: none;
+      @include mixins.button-reset();
       padding: 16px 24px;
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      color: #6b7280;
+      color: $modal-text-secondary;
       border-bottom: 3px solid transparent;
-      transition: all 0.3s ease;
+      transition: $modal-transition;
       flex: 1;
       position: relative;
       display: flex;
@@ -175,38 +60,18 @@
       justify-content: center;
       gap: 8px;
 
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, transparent 0%, rgba(0, 123, 255, 0.05) 100%);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-      }
-
       &:hover {
-        background: rgba(0, 123, 255, 0.05);
-        color: #495057;
+        background: rgba($modal-primary-color, 0.05);
+        color: darken($modal-text-secondary, 10%);
         transform: translateY(-1px);
-
-        &::before {
-          opacity: 1;
-        }
       }
 
       &.active {
-        color: #007bff;
-        border-bottom-color: #007bff;
-        background: white;
+        color: $modal-primary-color;
+        border-bottom-color: $modal-primary-color;
+        background: $modal-bg;
         font-weight: 600;
-        box-shadow: 0 -2px 8px rgba(0, 123, 255, 0.1);
-
-        &::before {
-          opacity: 1;
-        }
+        box-shadow: 0 -2px 8px rgba($modal-primary-color, 0.1);
       }
 
       // Ícones dos tabs
@@ -222,6 +87,7 @@
     }
   }
 
+  // Editor Content
   .editor-content {
     flex: 1;
     position: relative;
@@ -230,6 +96,7 @@
     min-height: 400px;
   }
 
+  // Persona Textarea
   .persona-textarea {
     width: 100%;
     height: 100%;
@@ -241,80 +108,43 @@
     line-height: 1.6;
     resize: none;
     outline: none;
-    background: white;
-    color: #2c3e50;
-    transition: all 0.3s ease;
-    position: relative;
+    background: $modal-bg;
+    color: $modal-text-primary;
+    transition: $modal-transition;
 
     &::placeholder {
-      color: #9ca3af;
+      color: $modal-text-muted;
       font-style: italic;
     }
 
     &:focus {
-      background: #fafbfc;
-      box-shadow: inset 0 0 0 2px rgba(0, 123, 255, 0.1);
+      background: $modal-body-bg-alt;
+      box-shadow: inset 0 0 0 2px rgba($modal-primary-color, 0.1);
     }
 
     &.error {
-      border: 2px solid #dc3545;
-      background: #fff5f5;
-      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+      border: 2px solid $modal-error-color;
+      background: lighten($modal-error-color, 45%);
+      box-shadow: 0 0 0 3px rgba($modal-error-color, 0.1);
     }
 
-    // Scrollbar personalizada
-    &::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 4px;
-      transition: background 0.3s ease;
-
-      &:hover {
-        background: #a8a8a8;
-      }
-    }
+    @include mixins.custom-scrollbar();
   }
 
+  // Persona Preview
   .persona-preview {
     padding: 20px;
     height: 100%;
     min-height: 400px;
     overflow-y: auto;
-    background: #f8f9fa;
-    border-left: 1px solid #e1e4e8;
-    position: relative;
+    background: $modal-body-bg-alt;
+    border-left: 1px solid $modal-border-color;
 
-    // Scrollbar personalizada
-    &::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 4px;
-      transition: background 0.3s ease;
-
-      &:hover {
-        background: #a8a8a8;
-      }
-    }
+    @include mixins.custom-scrollbar();
 
     // Estilos para elementos markdown
     h1, h2, h3, h4, h5, h6 {
-      color: #2c3e50;
+      color: $modal-text-primary;
       margin-top: 0;
       margin-bottom: 16px;
       font-weight: 600;
@@ -323,34 +153,32 @@
 
     h1 {
       font-size: 24px;
-      border-bottom: 2px solid #e1e4e8;
+      border-bottom: 2px solid $modal-border-color;
       padding-bottom: 8px;
     }
 
     h2 {
       font-size: 20px;
-      border-bottom: 1px solid #e1e4e8;
+      border-bottom: 1px solid $modal-border-color;
       padding-bottom: 4px;
     }
 
-    h3 {
-      font-size: 18px;
-    }
+    h3 { font-size: 18px; }
 
     p {
       margin: 12px 0;
       line-height: 1.7;
-      color: #374151;
+      color: $modal-text-secondary;
     }
 
     strong {
       font-weight: 600;
-      color: #1f2937;
+      color: $modal-text-primary;
     }
 
     em {
       font-style: italic;
-      color: #6b7280;
+      color: $modal-text-secondary;
     }
 
     ul, ol {
@@ -364,68 +192,50 @@
     }
 
     code {
-      background: #e5e7eb;
+      background: lighten($modal-text-muted, 50%);
       padding: 2px 6px;
       border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+      font-family: 'Monaco', 'Menlo', monospace;
       font-size: 13px;
-      color: #d63384;
-      border: 1px solid #d1d5db;
+      color: $modal-error-color;
+      border: 1px solid $modal-border-color;
     }
 
     pre {
-      background: #f3f4f6;
+      background: $modal-body-bg-alt;
       padding: 16px;
-      border-radius: 8px;
+      border-radius: $modal-border-radius;
       overflow-x: auto;
       margin: 16px 0;
-      border: 1px solid #e5e7eb;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      border: 1px solid $modal-border-color;
+      box-shadow: $modal-box-shadow-sm;
 
       code {
         background: none;
         padding: 0;
         border: none;
-        color: #374151;
+        color: $modal-text-secondary;
         font-size: 13px;
       }
     }
 
     blockquote {
-      border-left: 4px solid #007bff;
+      border-left: 4px solid $modal-primary-color;
       padding-left: 20px;
       margin: 16px 0;
-      color: #6b7280;
+      color: $modal-text-secondary;
       font-style: italic;
-      background: rgba(0, 123, 255, 0.05);
+      background: rgba($modal-primary-color, 0.05);
       padding: 16px 20px;
-      border-radius: 0 8px 8px 0;
-    }
-
-    // Estado vazio
-    &:empty::before {
-      content: 'Nenhum conteúdo para visualizar';
-      color: #9ca3af;
-      font-style: italic;
-      font-size: 14px;
+      border-radius: 0 $modal-border-radius $modal-border-radius 0;
     }
   }
 
+  // Editor Footer
   .editor-footer {
     padding: 32px 40px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border-top: 1px solid #e1e4e8;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, #e1e4e8 50%, transparent 100%);
-    }
+    background: linear-gradient(135deg, $modal-body-bg-alt 0%, $modal-bg 100%);
+    border-top: 1px solid $modal-border-color;
   }
 
   .validation-info {
@@ -439,21 +249,21 @@
 
   .char-count {
     font-size: 13px;
-    color: #6b7280;
+    color: $modal-text-secondary;
     font-weight: 500;
     padding: 4px 8px;
-    background: rgba(107, 114, 128, 0.1);
+    background: rgba($modal-text-secondary, 0.1);
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition: $modal-transition;
 
     &.warning {
-      color: #f59e0b;
-      background: rgba(245, 158, 11, 0.1);
+      color: $modal-warning-color;
+      background: rgba($modal-warning-color, 0.1);
     }
 
     &.error {
-      color: #dc2626;
-      background: rgba(220, 38, 38, 0.1);
+      color: $modal-error-color;
+      background: rgba($modal-error-color, 0.1);
     }
   }
 
@@ -462,40 +272,32 @@
     font-weight: 500;
     padding: 4px 8px;
     border-radius: 4px;
-    transition: all 0.3s ease;
+    transition: $modal-transition;
 
     &.saved {
-      color: #059669;
-      background: rgba(5, 150, 105, 0.1);
+      color: $modal-success-color;
+      background: rgba($modal-success-color, 0.1);
     }
 
     &.error {
-      color: #dc2626;
-      background: rgba(220, 38, 38, 0.1);
+      color: $modal-error-color;
+      background: rgba($modal-error-color, 0.1);
     }
 
     &.saving {
-      color: #2563eb;
-      background: rgba(37, 99, 235, 0.1);
+      color: $modal-primary-color;
+      background: rgba($modal-primary-color, 0.1);
     }
   }
 
-  .validation-errors {
+  // Validation Errors & Warnings
+  .validation-errors,
+  .validation-warnings {
     margin-bottom: 8px;
   }
 
   .error-item {
-    font-size: 12px;
-    color: #dc2626;
-    margin: 4px 0;
-    font-weight: 500;
-    padding: 4px 8px;
-    background: rgba(220, 38, 38, 0.1);
-    border-radius: 4px;
-    border-left: 3px solid #dc2626;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    @include mixins.validation-message($modal-error-color);
 
     &::before {
       content: '❌';
@@ -503,22 +305,8 @@
     }
   }
 
-  .validation-warnings {
-    margin-bottom: 8px;
-  }
-
   .warning-item {
-    font-size: 12px;
-    color: #f59e0b;
-    margin: 4px 0;
-    font-weight: 500;
-    padding: 4px 8px;
-    background: rgba(245, 158, 11, 0.1);
-    border-radius: 4px;
-    border-left: 3px solid #f59e0b;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    @include mixins.validation-message($modal-warning-color);
 
     &::before {
       content: '⚠️';
@@ -526,190 +314,11 @@
     }
   }
 
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    padding: 20px 24px;
-    border-top: 1px solid #e1e4e8;
-    background: linear-gradient(135deg, #f7fafc 0%, #ffffff 100%);
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, #e1e4e8 50%, transparent 100%);
-    }
-  }
-
-  .btn-cancel {
-    background: #6b7280;
-    color: white;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 50%;
-      transition: all 0.3s ease;
-      transform: translate(-50%, -50%);
-    }
-
-    &:hover {
-      background: #4b5563;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
-
-      &::before {
-        width: 100%;
-        height: 100%;
-      }
-    }
-
-    &:active {
-      transform: translateY(0);
-    }
-  }
-
-  .btn-save {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-    color: white;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    position: relative;
-    overflow: hidden;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 50%;
-      transition: all 0.3s ease;
-      transform: translate(-50%, -50%);
-    }
-
-    &:hover:not(.btn-disabled) {
-      background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
-
-      &::before {
-        width: 100%;
-        height: 100%;
-      }
-    }
-
-    &:active:not(.btn-disabled) {
-      transform: translateY(0);
-    }
-
-    &.btn-disabled {
-      background: #d1d5db;
-      cursor: not-allowed;
-      opacity: 0.6;
-      transform: none;
-
-      &:hover {
-        transform: none;
-        box-shadow: none;
-      }
-    }
-
-    &.btn-saving {
-      background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-      cursor: not-allowed;
-      transform: none;
-
-      &:hover {
-        transform: none;
-        box-shadow: none;
-      }
-    }
-
-    // Ícone de salvamento
-    &[class*="saving"]::after {
-      content: '';
-      width: 16px;
-      height: 16px;
-      border: 2px solid transparent;
-      border-top: 2px solid currentColor;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-  }
-}
-
-// Animações
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes backdropFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-// Tema escuro desabilitado - mantemos apenas tema claro para consistência com a aplicação
-// @media (prefers-color-scheme: dark) { ... }
-
-// Responsividade avançada
-@media (max-width: 768px) {
-  .persona-edit-modal {
-    .modal-header {
-      padding: 16px 20px;
-
-      h4 {
-        font-size: 18px;
-      }
+  // Responsive adjustments
+  @media (max-width: $modal-breakpoint-tablet) {
+    .modal-container {
+      width: 98%;
+      max-height: 95vh;
     }
 
     .editor-tabs .tab {
@@ -722,35 +331,14 @@
       padding: 16px;
       min-height: 300px;
     }
-
-    .modal-footer {
-      padding: 16px 20px;
-      flex-direction: column;
-      gap: 8px;
-
-      .btn-cancel,
-      .btn-save {
-        width: 100%;
-        justify-content: center;
-      }
-    }
   }
-}
 
-@media (max-width: 480px) {
-  .persona-edit-modal {
-    .modal-content {
-      border-radius: 0;
+  @media (max-width: $modal-breakpoint-mobile) {
+    .modal-container {
+      width: 100%;
       height: 100vh;
       max-height: 100vh;
-    }
-
-    .modal-header {
-      padding: 12px 16px;
-
-      h4 {
-        font-size: 16px;
-      }
+      border-radius: 0;
     }
 
     .editor-tabs .tab {
@@ -766,10 +354,6 @@
 
     .editor-footer {
       padding: 24px 32px;
-    }
-
-    .modal-footer {
-      padding: 12px 16px;
     }
   }
 }

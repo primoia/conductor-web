@@ -1,18 +1,38 @@
-<!-- Agent Control Modal -->
-<div *ngIf="isVisible && agent" class="agent-modal-backdrop" (click)="onBackdropClick()">
-  <div class="agent-modal-content" (click)="onModalContentClick($event)">
-    <div class="agent-modal-header">
-      <h3>{{ agent.emoji }} {{ agent.definition.title }}</h3>
-      <button class="close-btn" (click)="onClose()">×</button>
-    </div>
-    <div class="agent-modal-body">
-      <p><strong>Descrição:</strong> {{ agent.definition.description }}</p>
-      <p><strong>Status:</strong> <span [class]="'status-' + agent.status">{{ getStatusText(agent.status) }}</span></p>
+<!--
+  Agent Control Modal Template
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ ARIA compliant (WCAG 2.1 AA)
+-->
+<div *ngIf="isVisible && agent" class="modal-backdrop" (click)="onBackdropClick($event)"
+     role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description">
+  <div class="modal-container" (click)="$event.stopPropagation()">
 
+    <!-- Modal Header usando componente base -->
+    <app-modal-header
+      [title]="getModalTitle()"
+      [showCloseButton]="true"
+      [ariaLabelledBy]="'modal-title'"
+      (close)="onClose()">
+    </app-modal-header>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <div class="agent-info">
+        <p><strong>Descrição:</strong> {{ agent.definition.description }}</p>
+        <p>
+          <strong>Status:</strong>
+          <span [class]="'status-badge status-' + agent.status">
+            {{ getStatusText(agent.status) }}
+          </span>
+        </p>
+      </div>
+
+      <!-- Content based on agent status -->
       <ng-container [ngSwitch]="agent.status">
 
         <!-- Estado: Pendente -->
-        <div *ngSwitchCase="'pending'">
+        <div *ngSwitchCase="'pending'" class="state-content">
           <div class="prompt-input">
             <label for="agent-prompt"><strong>Prompt para o agente:</strong></label>
             <textarea
@@ -20,95 +40,78 @@
               [value]="agentPrompt"
               (input)="onPromptInput($event)"
               class="prompt-textarea"
-              placeholder="Digite o que você quer que o agente faça... (ex: 'Analise a performance da aplicação e sugira melhorias')">
+              placeholder="Digite o que você quer que o agente faça... (ex: 'Analise a performance da aplicação e sugira melhorias')"
+              aria-label="Prompt para o agente">
             </textarea>
-            <!-- Debug info -->
-            <small style="color: #666; margin-top: 5px; display: block;">
-              Debug: Length = {{ agentPrompt.length }}, Trimmed = {{ agentPrompt.trim().length }}
-            </small>
           </div>
-          <button class="btn btn-primary" (click)="onExecute()" [disabled]="!agentPrompt.trim()">
-            🚀 Executar Agente ({{ agentPrompt.trim().length > 0 ? 'Enabled' : 'Disabled' }})
-          </button>
         </div>
 
         <!-- Estado: Em Fila -->
-        <div *ngSwitchCase="'queued'">
-          <div class="execution-info">
-            <h4>⏳ Agente na Fila</h4>
-            <p>O agente está aguardando na fila de execução.</p>
-            <div class="logs-container">
-              <div *ngFor="let log of executionLogs" class="log-entry">
-                {{ log }}
-              </div>
+        <div *ngSwitchCase="'queued'" class="state-content execution-info">
+          <div class="status-icon">⏳</div>
+          <h4>Agente na Fila</h4>
+          <p>O agente está aguardando na fila de execução.</p>
+          <div class="logs-container" *ngIf="executionLogs.length > 0" role="log" aria-live="polite">
+            <div *ngFor="let log of executionLogs" class="log-entry">
+              {{ log }}
             </div>
-            <button class="btn btn-danger" (click)="onCancel()">
-              ❌ Cancelar Execução
-            </button>
           </div>
         </div>
 
         <!-- Estado: Executando -->
-        <div *ngSwitchCase="'running'">
-          <div class="execution-info">
-            <h4>⚡ Executando Agente</h4>
-            <p>O agente está sendo executado agora...</p>
-            <div class="logs-container">
-              <div *ngFor="let log of executionLogs" class="log-entry">
-                {{ log }}
-              </div>
+        <div *ngSwitchCase="'running'" class="state-content execution-info">
+          <div class="status-icon">⚡</div>
+          <h4>Executando Agente</h4>
+          <p>O agente está sendo executado agora...</p>
+          <div class="logs-container" *ngIf="executionLogs.length > 0" role="log" aria-live="polite">
+            <div *ngFor="let log of executionLogs" class="log-entry">
+              {{ log }}
             </div>
-            <button class="btn btn-danger" (click)="onCancel()">
-              ❌ Cancelar Execução
-            </button>
           </div>
         </div>
 
         <!-- Estado: Concluído -->
-        <div *ngSwitchCase="'completed'">
-          <div class="completion-info">
-            <h4>✅ Execução Concluída</h4>
-            <p>O agente foi executado com sucesso!</p>
+        <div *ngSwitchCase="'completed'" class="state-content completion-info">
+          <div class="status-icon">✅</div>
+          <h4>Execução Concluída</h4>
+          <p>O agente foi executado com sucesso!</p>
 
-            <!-- Show result if available -->
-            <div class="result-container" *ngIf="agent.executionState?.result">
-              <h5>📋 Resultado:</h5>
-              <div class="result-content">
-                {{ getResultDisplay(agent.executionState.result) }}
-              </div>
+          <!-- Show result if available -->
+          <div class="result-container" *ngIf="agent.executionState?.result">
+            <h5>📋 Resultado:</h5>
+            <div class="result-content">
+              {{ getResultDisplay(agent.executionState.result) }}
             </div>
+          </div>
 
-            <!-- Show execution logs -->
-            <div class="logs-container" *ngIf="executionLogs.length > 0">
-              <h5>📝 Logs de Execução:</h5>
-              <div *ngFor="let log of executionLogs" class="log-entry">
-                {{ log }}
-              </div>
+          <!-- Show execution logs -->
+          <div class="logs-container" *ngIf="executionLogs.length > 0" role="log">
+            <h5>📝 Logs de Execução:</h5>
+            <div *ngFor="let log of executionLogs" class="log-entry">
+              {{ log }}
             </div>
-
-            <button class="btn btn-primary" (click)="onExecute()">
-              🔄 Executar Novamente
-            </button>
           </div>
         </div>
 
         <!-- Estado: Erro -->
-        <div *ngSwitchCase="'error'">
-          <div class="error-info">
-            <h4>❌ Erro na Execução</h4>
-            <p>{{ agent.executionState?.error || 'Erro desconhecido' }}</p>
-            <div class="logs-container" *ngIf="executionLogs.length > 0">
-              <div *ngFor="let log of executionLogs" class="log-entry">
-                {{ log }}
-              </div>
+        <div *ngSwitchCase="'error'" class="state-content error-info">
+          <div class="status-icon">❌</div>
+          <h4>Erro na Execução</h4>
+          <p class="error-message">{{ agent.executionState?.error || 'Erro desconhecido' }}</p>
+          <div class="logs-container" *ngIf="executionLogs.length > 0" role="log">
+            <div *ngFor="let log of executionLogs" class="log-entry">
+              {{ log }}
             </div>
-            <button class="btn btn-primary" (click)="onExecute()">
-              🔄 Tentar Novamente
-            </button>
           </div>
         </div>
 
       </ng-container>
     </div>
+
+    <!-- Modal Footer usando componente base -->
+    <app-modal-footer
+      [buttons]="getFooterActions()"
+      (buttonClick)="onFooterAction($event)">
+    </app-modal-footer>
   </div>
 </div>

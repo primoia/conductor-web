@@ -1,13 +1,25 @@
-<div class="modal-backdrop" (click)="onClose()">
+<!--
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa *ngIf="isVisible" para controle de visibilidade
+  ✅ Usa onBackdropClick com stopPropagation inline no container
+  ✅ Implementa acessibilidade (ARIA, roles)
+-->
+<div class="modal-backdrop"
+     *ngIf="isVisible"
+     (click)="onBackdropClick($event)"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="report-modal-title">
   <div class="modal-container" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <div class="header-content">
-        <h2>📋 Relatório do Conselheiro</h2>
-        <p class="councilor-name">{{ councilorName }}</p>
-      </div>
-      <button class="close-btn" (click)="onClose()" title="Fechar">×</button>
-    </div>
+    <!-- Header reutilizável -->
+    <app-modal-header
+      id="report-modal-title"
+      title="Relatório do Conselheiro"
+      icon="fas fa-chart-bar"
+      [subtitle]="councilorName"
+      [showCloseButton]="true"
+      (close)="onClose()">
+    </app-modal-header>
 
     <!-- Body -->
     <div class="modal-body" *ngIf="report">
@@ -92,11 +104,10 @@
       <p>Carregando relatório...</p>
     </div>
 
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button class="btn btn-secondary" (click)="onClose()">
-        Fechar
-      </button>
-    </div>
+    <!-- Footer reutilizável -->
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)">
+    </app-modal-footer>
   </div>
 </div>

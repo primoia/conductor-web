@@ -1,8 +1,11 @@
-import { Component, EventEmitter, HostListener, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { marked } from 'marked';
+import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
+import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 
 export interface ReportModalData {
   title: string;
@@ -29,139 +32,77 @@ export interface TaskDetails {
   is_councilor: boolean;
 }
 
+/**
+ * Modal para exibição de relatórios de tarefas
+ *
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Estende BaseModalComponent para comportamentos consistentes
+ * ✅ Usa componentes base reutilizáveis (ModalHeader, ModalFooter)
+ * ✅ Implementa acessibilidade (ARIA, keyboard navigation)
+ *
+ * Exibe detalhes completos de tarefas executadas por agentes, incluindo:
+ * - Resultado da tarefa (com markdown rendering)
+ * - Prompt original enviado ao agente
+ * - Dados completos em formato JSON
+ * - Metadados (timestamp, severity, status)
+ *
+ * @extends BaseModalComponent
+ */
 @Component({
   selector: 'app-report-modal',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="modal-overlay" *ngIf="isVisible" (click)="requestClose()">
-      <div class="modal-content report-modal" role="dialog" aria-modal="true" aria-label="Detalhes do evento" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>{{ data?.title || 'Relatório' }}</h3>
-          <div class="header-actions">
-            <button class="close-btn" (click)="requestClose()">×</button>
-          </div>
-        </div>
-
-        <div class="modal-body">
-          <div class="meta">
-            <span class="sev" [class.warn]="data?.severity==='warning'" [class.err]="data?.severity==='error'">{{ severityIcon(data?.severity) }}</span>
-            <span class="time" *ngIf="data?.timestamp">{{ formatRelative(data!.timestamp!) }}</span>
-          </div>
-
-          <!-- Loading state -->
-          <div class="loading" *ngIf="isLoadingDetails">
-            <div class="spinner"></div>
-            <span>Carregando detalhes completos...</span>
-          </div>
-
-          <!-- Error state -->
-          <div class="error-message" *ngIf="loadError">
-            <span>⚠️ {{ loadError }}</span>
-          </div>
-
-          <!-- Content with tabs -->
-          <div *ngIf="!isLoadingDetails && !loadError">
-            <!-- Tabs (show even without fullTaskData for fallback to summary) -->
-            <div class="tabs">
-              <button class="tab-btn" [class.active]="activeTab === 'result'" (click)="activeTab = 'result'">
-                ✅ Resultado
-              </button>
-              <button class="tab-btn" [class.active]="activeTab === 'prompt'" (click)="activeTab = 'prompt'" *ngIf="hasPromptData()">
-                📝 Prompt
-              </button>
-              <button class="tab-btn" [class.active]="activeTab === 'json'" (click)="activeTab = 'json'">
-                🔧 JSON
-              </button>
-            </div>
-
-            <!-- Tab content -->
-            <div class="tab-content">
-              <!-- Result tab -->
-              <div *ngIf="activeTab === 'result'">
-                <div class="markdown-content" [innerHTML]="formatMarkdown(getResultText())"></div>
-                <div class="info-badge" *ngIf="!fullTaskData">
-                  ℹ️ Exibindo resumo (dados completos não disponíveis)
-                </div>
-              </div>
-
-              <!-- Prompt tab -->
-              <div *ngIf="activeTab === 'prompt'">
-                <div class="markdown-content" [innerHTML]="formatMarkdown(getPromptText())"></div>
-              </div>
-
-              <!-- JSON tab -->
-              <div *ngIf="activeTab === 'json'">
-                <pre class="details">{{ (fullTaskData || data?.details) | json }}</pre>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-secondary" (click)="requestClose()">Fechar</button>
-          <button class="btn btn-primary" (click)="requestRefresh()">Atualizar agora</button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: #fff; border-radius: 12px; width: 1200px; max-width: 95vw; min-height: 500px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-    .header-actions { display: inline-flex; gap: 8px; align-items: center; }
-    .modal-body { padding: 16px; overflow-y: auto; flex: 1; min-height: 0; }
-    .modal-footer { padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
-    .close-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; }
-    .btn { padding: 6px 12px; border-radius: 8px; border: 1px solid #d1d5db; cursor: pointer; }
-    .btn-primary { background: #edf2ff; border-color: #c7d2fe; }
-    .btn-secondary { background: #f8fafc; }
-    .meta { display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 12px; margin-bottom: 12px; }
-    .sev { font-size: 16px; }
-    .sev.warn { color: #f59e0b; }
-    .sev.err { color: #ef4444; }
-    .details { background: #f9fafb; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; max-height: 500px; overflow: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; }
-    .empty { color: #9ca3af; font-style: italic; text-align: center; padding: 40px; }
-    .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 40px; color: #6b7280; }
-    .spinner { border: 3px solid #f3f4f6; border-top: 3px solid #667eea; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .error-message { color: #ef4444; background: #fef2f2; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
-    .info-badge { color: #0369a1; background: #e0f2fe; padding: 10px 12px; border-radius: 6px; margin-top: 16px; font-size: 12px; border-left: 3px solid #0284c7; }
-
-    /* Tabs styling */
-    .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; }
-    .tab-btn { background: none; border: none; padding: 10px 16px; cursor: pointer; font-size: 14px; font-weight: 500; color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
-    .tab-btn:hover { color: #374151; background: #f9fafb; }
-    .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
-
-    .tab-content { min-height: 200px; }
-
-    /* Markdown content styling similar to chat/ticker */
-    .markdown-content ::ng-deep pre { background-color: #f3f4f6; border-radius: 4px; padding: 12px; overflow-x: auto; font-family: 'Courier New', Courier, monospace; font-size: 12px; }
-    .markdown-content ::ng-deep code { background-color: #f3f4f6; padding: 2px 4px; border-radius: 3px; font-family: 'Courier New', Courier, monospace; }
-    .markdown-content ::ng-deep p { margin-top: 0; margin-bottom: 8px; }
-    .markdown-content ::ng-deep ul, .markdown-content ::ng-deep ol { padding-left: 20px; margin-bottom: 8px; }
-    .markdown-content ::ng-deep img { max-width: 100%; height: auto; display: block; }
-    .markdown-content { overflow-wrap: anywhere; word-break: break-word; }
-  `]
+  imports: [CommonModule, ModalHeaderComponent, ModalFooterComponent],
+  templateUrl: './report-modal.component.html',
+  styleUrl: './report-modal.component.scss'
 })
-export class ReportModalComponent implements OnChanges {
-  @Input() isVisible = false;
+export class ReportModalComponent extends BaseModalComponent implements OnChanges {
+  @Input() override isVisible = false;
   @Input() data: ReportModalData | null = null;
 
   @Output() close = new EventEmitter<void>();
   @Output() refresh = new EventEmitter<void>();
+  @Output() override closeModal = new EventEmitter<void>();
 
-  // State management
+  // ===========================================================================
+  // STATE MANAGEMENT
+  // ===========================================================================
+
   activeTab: 'result' | 'prompt' | 'json' = 'result';
   fullTaskData: TaskDetails | null = null;
   isLoadingDetails = false;
   loadError: string | null = null;
+  footerButtons: ModalButton[] = [];
 
   constructor(
     private sanitizer: DomSanitizer,
     private http: HttpClient
-  ) {}
+  ) {
+    super(); // Call parent constructor
+    this.setupFooterButtons();
+  }
+
+  // ===========================================================================
+  // LIFECYCLE HOOKS
+  // ===========================================================================
+
+  /**
+   * Configura os botões do footer do modal.
+   * @private
+   */
+  private setupFooterButtons(): void {
+    this.footerButtons = [
+      {
+        label: 'Fechar',
+        type: 'secondary',
+        action: 'close'
+      },
+      {
+        label: 'Atualizar agora',
+        type: 'primary',
+        action: 'refresh'
+      }
+    ];
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     // When modal becomes visible, load full task details
@@ -176,6 +117,10 @@ export class ReportModalComponent implements OnChanges {
       this.activeTab = 'result';
     }
   }
+
+  // ===========================================================================
+  // DATA LOADING
+  // ===========================================================================
 
   async loadFullDetails(): Promise<void> {
     if (!this.data?.taskId) {
@@ -215,15 +160,31 @@ export class ReportModalComponent implements OnChanges {
     }
   }
 
-  @HostListener('document:keydown.escape', ['$event'])
-  onEscapeKey(event: Event): void {
-    if (this.isVisible) {
-      this.requestClose();
+  // ===========================================================================
+  // EVENT HANDLERS
+  // ===========================================================================
+
+  /**
+   * Manipula ações dos botões do footer.
+   * @param action - Ação disparada pelo botão
+   */
+  handleFooterAction(action: string): void {
+    switch (action) {
+      case 'close':
+        this.requestClose();
+        break;
+      case 'refresh':
+        this.requestRefresh();
+        break;
     }
   }
 
   requestClose(): void { this.close.emit(); }
   requestRefresh(): void { this.refresh.emit(); }
+
+  // ===========================================================================
+  // HELPER METHODS
+  // ===========================================================================
 
   severityIcon(sev: ReportModalData['severity']): string {
     switch (sev) {
@@ -290,5 +251,28 @@ export class ReportModalComponent implements OnChanges {
     if (!content) return '';
     const rawHtml = marked(content) as string;
     return this.sanitizer.bypassSecurityTrustHtml(rawHtml);
+  }
+
+  // ===========================================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ===========================================================================
+
+  /**
+   * Fecha o modal
+   * @override
+   */
+  override onClose(): void {
+    this.closeModal.emit();
+    super.onClose();
+  }
+
+  /**
+   * Override do onBackdropClick para permitir fechar o modal ao clicar no backdrop
+   * @override
+   */
+  public override onBackdropClick(event: Event): void {
+    if (event.target === event.currentTarget && !this.preventBackdropClose()) {
+      this.requestClose();
+    }
   }
 }

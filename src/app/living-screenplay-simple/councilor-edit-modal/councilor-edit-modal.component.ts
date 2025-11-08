@@ -1,10 +1,18 @@
-import { Component, EventEmitter, HostListener, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
 import { AgentWithCouncilor } from '../../models/councilor.types';
+import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 
 /**
  * Modal para editar configuração de um conselheiro
+ *
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Estende BaseModalComponent para comportamentos consistentes
+ * ✅ Usa componentes base reutilizáveis (ModalHeader, ModalFooter)
+ * ✅ Implementa acessibilidade (ARIA, keyboard navigation)
  *
  * Permite editar:
  * - Título/cargo do conselheiro
@@ -12,17 +20,20 @@ import { AgentWithCouncilor } from '../../models/councilor.types';
  * - Prompt da tarefa
  * - Intervalo de execução
  * - Preferências de notificação
+ *
+ * @extends BaseModalComponent
  */
 @Component({
   selector: 'app-councilor-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
   templateUrl: './councilor-edit-modal.component.html',
-  styleUrls: ['./councilor-edit-modal.component.css']
+  styleUrls: ['./councilor-edit-modal.component.scss']
 })
-export class CouncilorEditModalComponent implements OnInit {
+export class CouncilorEditModalComponent extends BaseModalComponent implements OnInit {
+  @Input() override isVisible: boolean = false;
   @Input() councilor: AgentWithCouncilor | null = null;
-  @Output() close = new EventEmitter<void>();
+  @Output() override closeModal = new EventEmitter<void>();
   @Output() save = new EventEmitter<any>();
 
   // Form data
@@ -39,6 +50,10 @@ export class CouncilorEditModalComponent implements OnInit {
   // Loading state
   isSaving: boolean = false;
   errorMessage: string = '';
+
+  constructor() {
+    super(); // Call parent constructor
+  }
 
   ngOnInit(): void {
     if (this.councilor && this.councilor.councilor_config) {
@@ -57,18 +72,49 @@ export class CouncilorEditModalComponent implements OnInit {
     }
   }
 
+  // ===========================================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ===========================================================================
+
   /**
-   * Fecha o modal sem salvar
+   * Fecha o modal
+   * @override
    */
-  onClose(): void {
+  override onClose(): void {
     if (this.isSaving) return;
-    this.close.emit();
+    this.closeModal.emit();
+    super.onClose();
   }
 
-  @HostListener('document:keydown.escape')
-  handleEsc(): void {
-    this.onClose();
+  /**
+   * Hook do BaseModalComponent: previne fechamento por ESC durante salvamento
+   * @override
+   */
+  protected override preventEscapeClose(): boolean {
+    return this.isSaving || super.preventEscapeClose();
   }
+
+  /**
+   * Hook do BaseModalComponent: previne fechamento por backdrop durante salvamento
+   * @override
+   */
+  protected override preventBackdropClose(): boolean {
+    return this.isSaving || super.preventBackdropClose();
+  }
+
+  /**
+   * Override do onBackdropClick
+   * @override
+   */
+  public override onBackdropClick(event: Event): void {
+    if (event.target === event.currentTarget && !this.preventBackdropClose()) {
+      this.onClose();
+    }
+  }
+
+  // ===========================================================================
+  // MODAL-SPECIFIC METHODS
+  // ===========================================================================
 
   /**
    * Valida o formulário
@@ -170,5 +216,42 @@ export class CouncilorEditModalComponent implements OnInit {
    */
   setScheduleValue(value: string): void {
     this.scheduleValue = value;
+  }
+
+  /**
+   * Retorna os botões do footer
+   */
+  get footerButtons(): ModalButton[] {
+    return [
+      {
+        label: 'Cancelar',
+        type: 'secondary',
+        action: 'cancel',
+        disabled: this.isSaving
+      },
+      {
+        label: this.isSaving ? 'Salvando...' : 'Salvar Alterações',
+        icon: this.isSaving ? undefined : 'fas fa-save',
+        type: 'primary',
+        action: 'save',
+        disabled: this.isSaving,
+        loading: this.isSaving
+      }
+    ];
+  }
+
+  /**
+   * Manipula ações dos botões do footer.
+   * @param action - Ação disparada pelo botão
+   */
+  handleFooterAction(action: string): void {
+    switch (action) {
+      case 'cancel':
+        this.onClose();
+        break;
+      case 'save':
+        this.onSave();
+        break;
+    }
   }
 }

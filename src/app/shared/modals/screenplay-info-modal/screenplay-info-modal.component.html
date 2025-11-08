@@ -1,0 +1,46 @@
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content"
+       (click)="$event.stopPropagation()"
+       role="dialog"
+       aria-labelledby="screenplay-info-modal-title"
+       aria-describedby="screenplay-info-modal-description"
+       [attr.aria-modal]="true">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h3 id="screenplay-info-modal-title">⌨️ Atalhos de Teclado</h3>
+      <button class="close-btn"
+              (click)="onClose()"
+              aria-label="Fechar modal"
+              type="button">
+        ×
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body" id="screenplay-info-modal-description">
+      <p class="modal-description">
+        Use estes atalhos para trabalhar mais rapidamente com seus roteiros.
+      </p>
+
+      <div class="shortcuts-grid">
+        <div class="shortcut-item" *ngFor="let shortcut of shortcuts">
+          <div class="shortcut-keys">
+            <kbd *ngFor="let key of shortcut.keys">{{ key }}</kbd>
+          </div>
+          <span class="shortcut-desc">{{ shortcut.description }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn btn-primary"
+              (click)="onClose()"
+              type="button"
+              aria-label="Fechar">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>

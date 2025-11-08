@@ -18,6 +18,9 @@ import { AgentGameComponent } from './agent-game/agent-game.component';
 import { ScreenplayTreeComponent } from './screenplay-tree/screenplay-tree.component';
 import { AgentCatalogComponent } from './agent-catalog/agent-catalog.component';
 import { ConflictResolutionModalComponent, ConflictResolution } from './conflict-resolution-modal/conflict-resolution-modal.component';
+import { WorkingDirModalComponent } from '../shared/modals/working-dir-modal/working-dir-modal.component';
+import { ExportModalComponent } from '../shared/modals/export-modal/export-modal.component';
+import { ScreenplayInfoModalComponent } from '../shared/modals/screenplay-info-modal/screenplay-info-modal.component';
 import { NotificationToastComponent } from './notification-toast/notification-toast.component';
 // v2: replace CommandBar with GamifiedPanel
 import { GamifiedPanelComponent } from './gamified-panel/gamified-panel.component';
@@ -117,6 +120,9 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     ScreenplayTreeComponent,
     AgentCatalogComponent,
     ConflictResolutionModalComponent,
+    WorkingDirModalComponent,
+    ExportModalComponent,
+    ScreenplayInfoModalComponent,
     NotificationToastComponent,
     GamifiedPanelComponent,
     EventTickerComponent,
@@ -190,7 +196,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Export modal state
   showExportModal = false;
-  exportFilename = '';
+  defaultExportFilename = '';
 
   // Screenplay info modal state
   showScreenplayInfoModal = false;
@@ -209,7 +215,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Working Directory modal state
   showWorkingDirModal = false;
-  tempWorkingDirectory = '';
   currentWorkingDirectory: string | null = null;
   showScreenplaySettings = false;
 
@@ -1756,7 +1761,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     if (filename.endsWith('.md')) {
       filename = filename.slice(0, -3);
     }
-    this.exportFilename = filename;
+    this.defaultExportFilename = filename;
     this.showExportModal = true;
   }
 
@@ -1765,7 +1770,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   closeExportModal(): void {
     this.showExportModal = false;
-    this.exportFilename = '';
   }
 
   /**
@@ -1801,26 +1805,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   openWorkingDirModal(): void {
     this.showScreenplaySettings = false;
-
-    // 🔍 DEBUG: Log para verificar o que está no screenplay
-    console.log('🔍 [MODAL] Opening working dir modal:', {
-      hasCurrentScreenplay: !!this.currentScreenplay,
-      working_directory: this.currentScreenplay?.working_directory,
-      workingDirectory: this.currentScreenplay?.workingDirectory,
-      currentWorkingDirectory: this.currentWorkingDirectory
-    });
-
-    // Load current working directory
-    // 🔒 FIX: Usar currentWorkingDirectory que já foi carregado corretamente
-    if (this.currentScreenplay) {
-      // Se currentWorkingDirectory já está setado, usar ele (mais confiável)
-      // Caso contrário, tentar ler do screenplay (snake_case primeiro, depois camelCase para compatibilidade)
-      this.tempWorkingDirectory = this.currentWorkingDirectory ||
-                                   this.currentScreenplay.working_directory ||
-                                   this.currentScreenplay.workingDirectory ||
-                                   '';
-    }
-
     this.showWorkingDirModal = true;
   }
 
@@ -1829,28 +1813,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   closeWorkingDirModal(): void {
     this.showWorkingDirModal = false;
-    this.tempWorkingDirectory = '';
   }
 
   /**
    * Save working directory
+   * Called by WorkingDirModalComponent when user saves
    */
-  saveWorkingDirectory(): void {
+  saveWorkingDirectory(newWorkingDir: string): void {
     if (!this.currentScreenplay) {
       this.notificationService.showError('Nenhum roteiro carregado');
-      return;
-    }
-
-    const newWorkingDir = this.tempWorkingDirectory.trim();
-
-    if (!newWorkingDir) {
-      this.notificationService.showError('Digite um diretório válido');
-      return;
-    }
-
-    // Basic path validation
-    if (!newWorkingDir.startsWith('/')) {
-      this.notificationService.showError('O caminho deve ser absoluto (começar com /)');
       return;
     }
 
@@ -1872,7 +1843,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         }
 
         this.notificationService.showSuccess('Diretório de trabalho salvo com sucesso');
-        this.closeWorkingDirModal();
       },
       error: (error) => {
         this.logging.error('Erro ao salvar working directory', error, 'ScreenplayInteractive');
@@ -1883,21 +1853,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Export file with custom filename from modal using File System Access API
+   * Called by ExportModalComponent when user confirms export
    */
-  async confirmExport(): Promise<void> {
-    if (!this.exportFilename.trim()) {
-      alert('Por favor, insira um nome para o arquivo.');
-      return;
-    }
-
+  async confirmExport(filename: string): Promise<void> {
     // Get current content
     const content = this.generateMarkdownForSave();
-
-    // Ensure .md extension
-    let filename = this.exportFilename.trim();
-    if (!filename.endsWith('.md')) {
-      filename += '.md';
-    }
 
     try {
       // Check if File System Access API is supported

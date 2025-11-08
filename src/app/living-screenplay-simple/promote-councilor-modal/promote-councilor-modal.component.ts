@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -7,27 +7,48 @@ import {
   PromoteToCouncilorRequest,
   COUNCILOR_TASK_TEMPLATES
 } from '../../models/councilor.types';
+import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
+import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
+import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
 
 /**
- * Modal para promover um agente a conselheiro
+ * Modal para promover um agente a conselheiro.
  *
  * Permite configurar:
  * - Nome e cargo do conselheiro
  * - Tarefa automática (nome, prompt, arquivos de contexto)
  * - Periodicidade (interval ou cron)
  * - Notificações
+ *
+ * @extends BaseModalComponent
+ * ✓ Implementa BaseModalComponent
+ * ✓ Usa isVisible para controle de exibição
+ * ✓ Emite closeModal ao fechar
+ * ✓ Suporta fechamento via ESC (gerenciado pelo BaseModalComponent)
+ * ✓ Suporta fechamento via backdrop (gerenciado pelo BaseModalComponent)
+ *
+ * @example
+ * ```html
+ * <app-promote-councilor-modal
+ *   [isVisible]="showModal"
+ *   [agent]="selectedAgent"
+ *   (promote)="handlePromote($event)"
+ *   (closeModal)="handleClose()">
+ * </app-promote-councilor-modal>
+ * ```
  */
 @Component({
   selector: 'app-promote-councilor-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
   templateUrl: './promote-councilor-modal.component.html',
-  styleUrls: ['./promote-councilor-modal.component.css']
+  styleUrls: ['./promote-councilor-modal.component.scss']
 })
-export class PromoteCouncilorModalComponent {
+export class PromoteCouncilorModalComponent extends BaseModalComponent implements OnInit {
+  @Input() override isVisible = false;
   @Input() agent?: AgentWithCouncilor;
+  @Output() override closeModal = new EventEmitter<void>();
   @Output() promote = new EventEmitter<PromoteToCouncilorRequest>();
-  @Output() close = new EventEmitter<void>();
 
   // Templates de tarefas disponíveis
   taskTemplates = COUNCILOR_TASK_TEMPLATES;
@@ -56,8 +77,14 @@ export class PromoteCouncilorModalComponent {
 
   // Estado de carregamento
   isSubmitting: boolean = false;
+  footerButtons: ModalButton[] = [];
+
+  constructor() {
+    super();
+  }
 
   ngOnInit(): void {
+    this.setupFooterButtons();
     if (this.agent) {
       // Pré-preencher com dados do agente
       this.displayName = this.agent.customization?.display_name || this.generateDefaultName();
@@ -74,6 +101,55 @@ export class PromoteCouncilorModalComponent {
       }
     }
   }
+
+  /**
+   * Configura os botões do footer do modal.
+   * @private
+   */
+  private setupFooterButtons(): void {
+    this.footerButtons = [
+      {
+        label: 'Cancelar',
+        type: 'secondary',
+        action: 'cancel',
+        disabled: this.isSubmitting
+      },
+      {
+        label: this.isSubmitting ? 'Promovendo...' : '⭐ Promover',
+        type: 'primary',
+        action: 'promote',
+        disabled: !this.isValid() || this.isSubmitting
+      }
+    ];
+  }
+
+  /**
+   * Atualiza o estado dos botões do footer.
+   * @private
+   */
+  private updateFooterButtons(): void {
+    this.footerButtons = this.footerButtons.map(button => ({
+      ...button,
+      disabled: button.action === 'cancel' ? this.isSubmitting : !this.isValid() || this.isSubmitting,
+      label: button.action === 'promote' ? (this.isSubmitting ? 'Promovendo...' : '⭐ Promover') : button.label
+    }));
+  }
+
+  /**
+   * Manipula ações dos botões do footer.
+   * @param action - Ação disparada pelo botão
+   */
+  handleFooterAction(action: string): void {
+    switch (action) {
+      case 'cancel':
+        this.onCancel();
+        break;
+      case 'promote':
+        this.onSubmit();
+        break;
+    }
+  }
+
 
   /**
    * Gera nome padrão baseado no agente
@@ -147,6 +223,7 @@ export class PromoteCouncilorModalComponent {
     if (!this.isValid() || this.isSubmitting) return;
 
     this.isSubmitting = true;
+    this.updateFooterButtons();
 
     try {
       // Construir valor de agendamento
@@ -197,14 +274,61 @@ export class PromoteCouncilorModalComponent {
       console.error('❌ [PROMOTE COUNCILOR] Erro ao promover:', error);
     } finally {
       this.isSubmitting = false;
+      this.updateFooterButtons();
     }
   }
+
+  // ============================================================
+  // OVERRIDES DO BASEMODALCOMPONENT
+  // ============================================================
+
+  /**
+   * Fecha o modal emitindo evento closeModal.
+   * @override
+   */
+  override onClose(): void {
+    this.closeModal.emit();
+    super.onClose();
+  }
+
+  /**
+   * Manipula clique no backdrop.
+   * Previne fechamento se modal estiver processando.
+   * @override
+   */
+  public override onBackdropClick(event: Event): void {
+    if (this.preventBackdropClose()) {
+      event.stopPropagation();
+      return;
+    }
+    super.onBackdropClick(event);
+  }
+
+  /**
+   * Determina se deve prevenir fechamento via ESC.
+   * @override
+   */
+  protected override preventEscapeClose(): boolean {
+    return this.isSubmitting;
+  }
+
+  /**
+   * Determina se deve prevenir fechamento via backdrop.
+   * @override
+   */
+  protected override preventBackdropClose(): boolean {
+    return this.isSubmitting;
+  }
+
+  // ============================================================
+  // MÉTODOS ESPECÍFICOS DO MODAL
+  // ============================================================
 
   /**
    * Cancela e fecha modal
    */
   onCancel(): void {
-    this.close.emit();
+    this.onClose();
   }
 
   /**

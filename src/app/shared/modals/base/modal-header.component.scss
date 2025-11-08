@@ -1,0 +1,117 @@
+// =============================================================================
+// MODAL HEADER STYLES - Conductor Web
+// =============================================================================
+// Versão: 1.0
+// Data: 08/11/2025
+// =============================================================================
+
+@use '../../styles/modal-variables' as *;
+@use '../../styles/modal-mixins' as mixins;
+
+// =============================================================================
+// HEADER CONTAINER
+// =============================================================================
+
+.modal-header {
+  @include mixins.modal-header();
+
+  & {
+    // Layout flexbox para alinhamento
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    // Previne quebra de texto no título em telas pequenas
+    min-height: 60px;
+  }
+}
+
+// =============================================================================
+// TÍTULO
+// =============================================================================
+
+.modal-title {
+  margin: 0;
+  font-size: $modal-title-font-size;
+  font-weight: $modal-title-font-weight;
+  color: $modal-title-color;
+  line-height: $modal-title-line-height;
+  flex: 1; // Ocupa espaço disponível
+
+  // Truncar texto longo em telas pequenas
+  @media (max-width: $modal-breakpoint-mobile) {
+    font-size: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// =============================================================================
+// CONTEÚDO ADICIONAL (SLOT)
+// =============================================================================
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  // Em mobile, pode empilhar verticalmente se necessário
+  @media (max-width: $modal-breakpoint-mobile) {
+    flex-wrap: wrap;
+  }
+}
+
+// =============================================================================
+// BOTÃO DE FECHAR
+// =============================================================================
+
+.close-btn {
+  @include mixins.modal-close-button();
+
+  // Garantir que o botão não encolha
+  flex-shrink: 0;
+
+  // Estado desabilitado
+  &:disabled {
+    opacity: $btn-disabled-opacity;
+    cursor: not-allowed;
+
+    &:hover {
+      background: none;
+      transform: none;
+    }
+  }
+
+  // Aumentar área de clique em mobile
+  @media (max-width: $modal-breakpoint-mobile) {
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+  }
+}
+
+// =============================================================================
+// VARIAÇÕES E ESTADOS
+// =============================================================================
+
+// Header com fundo transparente (variação opcional)
+.modal-header.transparent {
+  background: transparent;
+  border-bottom: none;
+}
+
+// Header compacto (menos padding)
+.modal-header.compact {
+  padding: 12px 16px;
+  min-height: 48px;
+}
+
+// Header com sombra (para modais com scroll)
+.modal-header.with-shadow {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+// =============================================================================
+// FIM DO ARQUIVO
+// =============================================================================

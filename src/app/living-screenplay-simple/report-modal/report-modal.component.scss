@@ -1,0 +1,178 @@
+/**
+ * Report Modal - Estilos
+ *
+ * ✅ Normalizado seguindo especificação de modais padrão v1.0
+ * ✅ Usa variáveis e mixins compartilhados
+ * ✅ Usa @use em vez de @import (padrão moderno SCSS)
+ * ✅ Usa namespaces para mixins
+ * ✅ Usa classes padrão (modal-backdrop, modal-container)
+ */
+
+@use '../../shared/styles/modal-variables' as *;
+@use '../../shared/styles/modal-mixins' as mixins;
+
+.modal-backdrop {
+  @include mixins.modal-backdrop();
+}
+
+.modal-container {
+  @include mixins.modal-container(1200px);
+}
+
+.modal-body {
+  @include mixins.modal-body;
+  padding: $modal-spacing-md;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: $modal-spacing-sm;
+  color: $modal-text-secondary;
+  font-size: $modal-font-size-xs;
+  margin-bottom: $modal-spacing-md;
+}
+
+.sev {
+  font-size: $modal-font-size-md;
+
+  &.warn {
+    color: $modal-color-warning;
+  }
+
+  &.err {
+    color: $modal-color-danger;
+  }
+}
+
+.details {
+  background: $modal-bg-secondary;
+  border: 1px solid $modal-border-color;
+  padding: $modal-spacing-md;
+  border-radius: $modal-border-radius;
+  max-height: 500px;
+  overflow: auto;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: $modal-font-size-xs;
+}
+
+.empty {
+  color: $modal-text-muted;
+  font-style: italic;
+  text-align: center;
+  padding: $modal-spacing-xxl 0;
+}
+
+.loading {
+  @include mixins.loading-state;
+}
+
+.spinner {
+  @include mixins.spinner;
+}
+
+.error-message {
+  color: $modal-color-danger;
+  background: lighten($modal-color-danger, 45%);
+  padding: $modal-spacing-md;
+  border-radius: $modal-border-radius;
+  margin-bottom: $modal-spacing-md;
+}
+
+.info-badge {
+  color: darken($modal-color-primary, 20%);
+  background: lighten($modal-color-primary, 40%);
+  padding: 10px 12px;
+  border-radius: $modal-border-radius-sm;
+  margin-top: $modal-spacing-md;
+  font-size: $modal-font-size-xs;
+  border-left: 3px solid $modal-color-primary;
+}
+
+// Tabs styling
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: $modal-spacing-md;
+  border-bottom: 2px solid $modal-border-color;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: $modal-font-size-sm;
+  font-weight: 500;
+  color: $modal-text-secondary;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all $modal-transition-duration;
+
+  &:hover {
+    color: darken($modal-text-secondary, 10%);
+    background: lighten($modal-bg-secondary, 5%);
+  }
+
+  &.active {
+    color: $modal-color-primary;
+    border-bottom-color: $modal-color-primary;
+  }
+}
+
+.tab-content {
+  min-height: 200px;
+}
+
+// Markdown content styling similar to chat/ticker
+.markdown-content {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+
+  ::ng-deep pre {
+    background-color: $modal-bg-secondary;
+    border-radius: $modal-border-radius-sm;
+    padding: $modal-spacing-md;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: $modal-font-size-xs;
+  }
+
+  ::ng-deep code {
+    background-color: $modal-bg-secondary;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  ::ng-deep p {
+    margin-top: 0;
+    margin-bottom: $modal-spacing-sm;
+  }
+
+  ::ng-deep ul, ::ng-deep ol {
+    padding-left: 20px;
+    margin-bottom: $modal-spacing-sm;
+  }
+
+  ::ng-deep img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+// Responsive adjustments
+@include mixins.modal-responsive {
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    font-size: $modal-font-size-xs;
+    padding: 8px 12px;
+  }
+}

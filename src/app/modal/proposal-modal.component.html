@@ -1,0 +1,34 @@
+<!--
+  Proposal Modal Template
+  ✅ Normalizado seguindo especificação de modais padrão v1.0
+  ✅ Usa BaseModalComponent para comportamentos consistentes
+  ✅ ARIA compliant (WCAG 2.1 AA)
+-->
+<div *ngIf="isVisible" class="modal-backdrop" (click)="onBackdropClick($event)"
+     role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-description">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+
+    <app-modal-header
+      [title]="'✨ Editar Proposta'"
+      [showCloseButton]="true"
+      [ariaLabelledBy]="'modal-title'"
+      (close)="onClose()"
+      aria-label="Cabeçalho do modal de edição de proposta">
+    </app-modal-header>
+
+    <div class="modal-body">
+      <app-proposal-block
+        [data]="proposalData"
+        [editable]="true"
+        (statusChange)="onStatusChange($event)">
+      </app-proposal-block>
+    </div>
+
+    <app-modal-footer
+      [buttons]="footerButtons"
+      (buttonClick)="handleFooterAction($event)"
+      aria-label="Ações do modal">
+    </app-modal-footer>
+
+  </div>
+</div>

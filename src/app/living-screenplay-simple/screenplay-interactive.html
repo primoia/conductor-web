@@ -217,32 +217,12 @@
       </app-screenplay-manager>
 
       <!-- Export Modal -->
-      <div class="modal-overlay" *ngIf="showExportModal" (click)="closeExportModal()">
-        <div class="export-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <h3>📤 Exportar Roteiro para Disco</h3>
-            <button class="close-btn" (click)="closeExportModal()">×</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="export-filename">Nome do arquivo:</label>
-              <input
-                type="text"
-                id="export-filename"
-                [(ngModel)]="exportFilename"
-                placeholder="roteiro-vivo.md"
-                class="filename-input"
-                (keydown.enter)="confirmExport()"
-              />
-              <small class="hint">Você poderá escolher onde salvar o arquivo</small>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancel" (click)="closeExportModal()">Cancelar</button>
-            <button class="btn-export" (click)="confirmExport()">Escolher Local e Exportar</button>
-          </div>
-        </div>
-      </div>
+      <app-export-modal
+        [isVisible]="showExportModal"
+        [filename]="defaultExportFilename"
+        (closeModal)="closeExportModal()"
+        (export)="confirmExport($event)">
+      </app-export-modal>
 
       <!-- Resizable splitter -->
       <div class="splitter" (mousedown)="onSplitterMouseDown($event)"></div>
@@ -316,85 +296,18 @@
     </app-conflict-resolution-modal>
 
     <!-- Working Directory Modal -->
-    <div class="modal-overlay" *ngIf="showWorkingDirModal" (click)="closeWorkingDirModal()">
-      <div class="modal-content working-dir-modal" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>📁 Configurar Diretório de Trabalho do Roteiro</h3>
-          <button class="close-btn" (click)="closeWorkingDirModal()">×</button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-description">
-            Defina o diretório padrão onde os agentes deste roteiro executarão comandos.
-            Novos agentes herdarão automaticamente este diretório.
-          </p>
-
-          <div class="current-dir" *ngIf="currentWorkingDirectory">
-            <label>Diretório Atual:</label>
-            <code>{{ currentWorkingDirectory }}</code>
-          </div>
-
-          <div class="form-group">
-            <label for="working-directory-input">Novo Diretório:</label>
-            <input
-              type="text"
-              id="working-directory-input"
-              [(ngModel)]="tempWorkingDirectory"
-              placeholder="/mnt/ramdisk/primoia-main/conductor-community"
-              class="working-dir-input"
-              (keydown.enter)="saveWorkingDirectory()"
-            />
-            <small class="hint">Caminho absoluto do projeto no servidor</small>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" (click)="closeWorkingDirModal()">Cancelar</button>
-          <button class="btn-save" (click)="saveWorkingDirectory()">Salvar Diretório</button>
-        </div>
-      </div>
-    </div>
+    <app-working-dir-modal
+      [isVisible]="showWorkingDirModal"
+      [currentDirectory]="currentWorkingDirectory"
+      (closeModal)="closeWorkingDirModal()"
+      (save)="saveWorkingDirectory($event)">
+    </app-working-dir-modal>
 
     <!-- Screenplay Info Modal -->
-    <div class="modal-overlay" *ngIf="showScreenplayInfoModal" (click)="closeScreenplayInfoModal()" (keydown.escape)="closeScreenplayInfoModal()">
-      <div class="screenplay-info-modal" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>⌨️ Atalhos de Teclado</h3>
-          <button class="close-btn" (click)="closeScreenplayInfoModal()">×</button>
-        </div>
-
-        <div class="modal-body">
-          <div class="shortcuts-grid">
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>S</kbd>
-              <span class="shortcut-desc">Salvar roteiro</span>
-            </div>
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>N</kbd>
-              <span class="shortcut-desc">Novo roteiro</span>
-            </div>
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>O</kbd>
-              <span class="shortcut-desc">Abrir roteiro do banco</span>
-            </div>
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>A</kbd>
-              <span class="shortcut-desc">Adicionar agente</span>
-            </div>
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>E</kbd>
-              <span class="shortcut-desc">Exportar para disco</span>
-            </div>
-            <div class="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>I</kbd>
-              <span class="shortcut-desc">Importar do disco</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-primary" (click)="closeScreenplayInfoModal()">Fechar</button>
-        </div>
-      </div>
-    </div>
+    <app-screenplay-info-modal
+      [isVisible]="showScreenplayInfoModal"
+      (closeModal)="closeScreenplayInfoModal()">
+    </app-screenplay-info-modal>
 
     <!-- UI Enhancement: Notification Toast -->
     <app-notification-toast></app-notification-toast>
