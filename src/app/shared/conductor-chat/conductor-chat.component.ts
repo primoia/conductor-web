@@ -236,7 +236,7 @@ Erro: 'invalid_token' na response..."
             <button
               class="dock-action-btn settings-btn"
               [disabled]="!activeAgentId"
-              (click)="toggleAgentOptionsMenu()"
+              (click)="toggleAgentOptionsMenu($event)"
               title="Opções do agente">
               ⚙️
             </button>
@@ -285,7 +285,9 @@ Erro: 'invalid_token' na response..."
             <!-- Agent Options Menu -->
             <div
               *ngIf="modalStateService.isOpen('agentOptionsMenu')"
-              class="agent-options-menu">
+              class="agent-options-menu"
+              [style.top.px]="menuPosition.top"
+              [style.left.px]="menuPosition.left">
               <button class="menu-item" (click)="viewAgentContext()">
                 📋 Ver Contexto
               </button>
@@ -1375,9 +1377,7 @@ Erro: 'invalid_token' na response..."
     /* Agent Options Menu */
     .agent-options-menu {
       position: fixed;
-      top: 50%;
-      left: 80px;  /* Mudado de right para left pois o dock está à esquerda agora */
-      transform: translateY(-50%);
+      /* top e left são definidos dinamicamente via [style] no template */
       background: white;
       border: 1px solid #e1e4e8;
       border-radius: 12px;
@@ -1385,7 +1385,7 @@ Erro: 'invalid_token' na response..."
       z-index: 1001;
       min-width: 220px;
       overflow: hidden;
-      animation: fadeInRight 0.2s ease;  /* Mudado de fadeInLeft para fadeInRight */
+      animation: fadeInRight 0.2s ease;
     }
 
     @keyframes fadeIn {
@@ -1862,6 +1862,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   // CWD management
   tempCwd: string = '';
+
+  // Menu positioning
+  menuPosition = { top: 0, left: 0 };
   activeAgentCwd: string | null = null;
 
   // Resize functionality - controls chat INPUT AREA height (ONLY editor, not controls)
@@ -2820,7 +2823,17 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   /**
    * Toggle agent options menu
    */
-  toggleAgentOptionsMenu(): void {
+  toggleAgentOptionsMenu(event?: MouseEvent): void {
+    if (event) {
+      const button = event.currentTarget as HTMLElement;
+      const rect = button.getBoundingClientRect();
+
+      // Store position for menu positioning
+      this.menuPosition = {
+        top: rect.top,
+        left: rect.right + 10 // 10px margin from button
+      };
+    }
     this.modalStateService.toggle('agentOptionsMenu');
   }
 

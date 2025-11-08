@@ -22,7 +22,6 @@ interface PanelKpis {
       <!-- Header: Title + Actions -->
       <div class="panel-header">
         <div class="header-title">
-          <span class="title-icon">📰</span>
           <span class="title-text">Notícias dos Agentes</span>
         </div>
         <div class="actions">
@@ -116,8 +115,8 @@ interface PanelKpis {
       display: flex;
       flex-direction: column;
     }
-    .gamified-panel.collapsed { height: 240px; }
-    .gamified-panel.expanded { height: 700px; }
+    .gamified-panel.collapsed { height: 80px; max-height: 80px; }
+    .gamified-panel.expanded { height: 350px; max-height: 350px; }
 
     /* Remove extra margins/padding around expanded content */
     .gamified-panel.expanded .panel-header { padding: 4px 10px; }
@@ -137,11 +136,6 @@ interface PanelKpis {
     .header-title {
       display: flex;
       align-items: center;
-      gap: 8px;
-    }
-
-    .title-icon {
-      font-size: 16px;
     }
 
     .title-text {

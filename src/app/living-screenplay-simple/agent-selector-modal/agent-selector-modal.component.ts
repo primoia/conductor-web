@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, HostListener, ViewChild, ElementRef, AfterViewInit, SimpleChanges, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentService, Agent } from '../../services/agent.service';
@@ -24,6 +24,7 @@ export interface AgentSelectionData {
         <!-- Search bar -->
         <div class="search-container" *ngIf="!isLoading && !error">
           <input
+            #searchInput
             type="text"
             class="search-input"
             [(ngModel)]="searchQuery"
@@ -519,10 +520,12 @@ export interface AgentSelectionData {
     }
   `]
 })
-export class AgentSelectorModalComponent implements OnInit {
+export class AgentSelectorModalComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() isVisible: boolean = false;
   @Output() agentSelected = new EventEmitter<AgentSelectionData>();
   @Output() close = new EventEmitter<void>();
+
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
 
   agents: Agent[] = [];
   filteredAgents: Agent[] = [];
@@ -552,10 +555,25 @@ export class AgentSelectorModalComponent implements OnInit {
     }
   }
 
-  ngOnChanges(): void {
+  ngAfterViewInit(): void {
+    this.focusSearchInput();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
     // Always reload agents when modal becomes visible
-    if (this.isVisible && !this.isLoading) {
+    if (changes['isVisible'] && this.isVisible && !this.isLoading) {
       this.loadAgents();
+      // Focus search input when modal opens
+      setTimeout(() => this.focusSearchInput(), 100);
+    }
+  }
+
+  /**
+   * Focus the search input field
+   */
+  private focusSearchInput(): void {
+    if (this.isVisible && this.searchInput?.nativeElement) {
+      this.searchInput.nativeElement.focus();
     }
   }
 
