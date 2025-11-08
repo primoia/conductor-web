@@ -1805,6 +1805,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // 🔍 DEBUG: Log para verificar o que está no screenplay
     console.log('🔍 [MODAL] Opening working dir modal:', {
       hasCurrentScreenplay: !!this.currentScreenplay,
+      working_directory: this.currentScreenplay?.working_directory,
       workingDirectory: this.currentScreenplay?.workingDirectory,
       currentWorkingDirectory: this.currentWorkingDirectory
     });
@@ -1813,8 +1814,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // 🔒 FIX: Usar currentWorkingDirectory que já foi carregado corretamente
     if (this.currentScreenplay) {
       // Se currentWorkingDirectory já está setado, usar ele (mais confiável)
-      // Caso contrário, tentar ler do screenplay
+      // Caso contrário, tentar ler do screenplay (snake_case primeiro, depois camelCase para compatibilidade)
       this.tempWorkingDirectory = this.currentWorkingDirectory ||
+                                   this.currentScreenplay.working_directory ||
                                    this.currentScreenplay.workingDirectory ||
                                    '';
     }
@@ -1862,9 +1864,10 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       next: (result) => {
         this.logging.info('Working directory salvo com sucesso', 'ScreenplayInteractive');
 
-        // Update local state
+        // Update local state (usar working_directory para corresponder ao backend)
         if (this.currentScreenplay) {
-          this.currentScreenplay.workingDirectory = newWorkingDir;
+          this.currentScreenplay.working_directory = newWorkingDir;
+          this.currentScreenplay.workingDirectory = newWorkingDir; // Manter para compatibilidade
           this.currentWorkingDirectory = newWorkingDir;
         }
 
@@ -2225,8 +2228,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔍 [DEBUG] Screenplay loaded from backend:', {
       id: screenplay.id,
       name: screenplay.name,
+      working_directory: screenplay.working_directory,
       workingDirectory: screenplay.workingDirectory,
-      hasWorkingDirectory: !!screenplay.workingDirectory
+      hasWorkingDirectory: !!(screenplay.working_directory || screenplay.workingDirectory)
     });
 
     // Set current screenplay
@@ -2234,8 +2238,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.isDirty = false;
     this.currentFileName = ''; // Clear disk filename
 
-    // 🔒 FIX: Load working directory from screenplay
-    this.currentWorkingDirectory = screenplay.workingDirectory || null;
+    // 🔒 FIX: Load working directory from screenplay (try snake_case first, fallback to camelCase for compatibility)
+    this.currentWorkingDirectory = screenplay.working_directory || screenplay.workingDirectory || null;
     this.logging.info(`📁 [LOAD] Working directory loaded: ${this.currentWorkingDirectory || 'not set'}`, 'ScreenplayInteractive');
 
     // SAGA-005: Update state for database-linked screenplay

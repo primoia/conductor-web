@@ -10,7 +10,8 @@ export interface ScreenplayListItem {
   name: string;
   description?: string;
   tags?: string[];
-  workingDirectory?: string; // Working directory padrão para agentes
+  working_directory?: string; // Working directory padrão para agentes (snake_case do backend)
+  workingDirectory?: string; // DEPRECATED: Compatibilidade com versões antigas (camelCase)
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -46,7 +47,8 @@ export interface ScreenplayPayload {
   description?: string;
   tags?: string[];
   content?: string;
-  workingDirectory?: string; // Working directory padrão para agentes
+  working_directory?: string; // Working directory padrão para agentes (snake_case para o backend)
+  workingDirectory?: string; // DEPRECATED: Compatibilidade com versões antigas (camelCase)
   filePath?: string; // Caminho do arquivo no disco (mantido para compatibilidade)
   importPath?: string; // Novo: caminho de importação
   exportPath?: string; // Novo: último caminho de exportação
