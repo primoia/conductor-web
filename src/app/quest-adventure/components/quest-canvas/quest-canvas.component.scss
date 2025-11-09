@@ -1,0 +1,97 @@
+.quest-canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2e;
+}
+
+.quest-canvas {
+  display: block;
+  cursor: pointer;
+  touch-action: none; // Previne scroll em mobile
+  image-rendering: pixelated; // Para pixel art
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+.canvas-overlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.npc-indicator {
+  position: absolute;
+  display: none;
+  animation: float 2s ease-in-out infinite;
+
+  &.visible {
+    display: block;
+  }
+
+  .indicator-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #FFD700;
+    text-align: center;
+    line-height: 20px;
+    animation: pulse 1s ease-in-out infinite;
+  }
+}
+
+.location-name {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid #FFD700;
+  border-radius: 20px;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+
+// Animações
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
+// Mobile responsivo
+@media (max-width: 768px) {
+  .quest-canvas {
+    width: 100%;
+    height: auto;
+  }
+
+  .location-name {
+    font-size: 12px;
+    padding: 6px 15px;
+  }
+}

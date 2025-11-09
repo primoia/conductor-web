@@ -1,0 +1,394 @@
+{
+  "dialogues": {
+    "elder_initial": {
+      "id": "elder_initial",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "npc",
+          "text": "Bem-vindo ao Salão da Guilda, Iniciado. Finalmente você chegou!",
+          "next": "explanation"
+        },
+        {
+          "id": "explanation",
+          "speaker": "npc",
+          "text": "Eu sou o Guia. Estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade.",
+          "next": "team_intro"
+        },
+        {
+          "id": "team_intro",
+          "speaker": "npc",
+          "text": "Cada especialista tem seu papel único: O Escriba planeja, a Artesã constrói, e a Crítica refina.",
+          "options": [
+            {
+              "text": "Como posso aprender a orquestrá-los?",
+              "next": "mission_intro",
+              "xp": 10
+            },
+            {
+              "text": "Qual será minha primeira missão?",
+              "next": "mission_intro",
+              "xp": 10
+            }
+          ]
+        },
+        {
+          "id": "mission_intro",
+          "speaker": "npc",
+          "text": "Sua primeira missão como Iniciado é simples mas importante: Orquestre a equipe para criar um estandarte de boas-vindas para nossa guilda.",
+          "next": "first_step"
+        },
+        {
+          "id": "first_step",
+          "speaker": "npc",
+          "text": "Todo grande projeto começa com um plano. Procure o Escriba - ele está em sua mesa de trabalho à esquerda.",
+          "action": {
+            "type": "unlock_npc",
+            "target": "requirements_scribe"
+          },
+          "options": [
+            {
+              "text": "Vou falar com o Escriba agora!",
+              "next": null,
+              "xp": 20,
+              "action": {
+                "type": "complete_objective",
+                "objective": "talk_to_guide"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "scribe_initial": {
+      "id": "scribe_initial",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "npc",
+          "text": "Ah, o novo Iniciado! Prazer em conhecê-lo.",
+          "next": "introduction"
+        },
+        {
+          "id": "introduction",
+          "speaker": "npc",
+          "text": "Eu sou o Escriba. Minha função é transformar o caos de uma ideia em um plano claro e estruturado.",
+          "next": "philosophy"
+        },
+        {
+          "id": "philosophy",
+          "speaker": "npc",
+          "text": "Nada de valor é criado sem antes ser planejado. Eu defino requisitos, organizo etapas, prevejo problemas.",
+          "next": "ask_vision"
+        },
+        {
+          "id": "ask_vision",
+          "speaker": "npc",
+          "text": "O Guia mencionou um estandarte? Excelente! Diga-me sua visão, e eu a transformarei em especificações.",
+          "options": [
+            {
+              "text": "Um estandarte com uma estrela dourada e nosso lema",
+              "next": "ask_motto",
+              "xp": 15
+            },
+            {
+              "text": "Algo que represente criatividade e inovação",
+              "next": "clarify_vision",
+              "xp": 15
+            }
+          ]
+        },
+        {
+          "id": "ask_motto",
+          "speaker": "npc",
+          "text": "Interessante! Uma estrela dourada é um símbolo poderoso. Mas qual seria o lema?",
+          "options": [
+            {
+              "text": "A Criatividade Começa Aqui",
+              "next": "create_plan",
+              "xp": 20
+            },
+            {
+              "text": "Onde Ideias Ganham Vida",
+              "next": "create_plan",
+              "xp": 20
+            }
+          ]
+        },
+        {
+          "id": "clarify_vision",
+          "speaker": "npc",
+          "text": "Criatividade e inovação... Precisamos de algo mais concreto. Que tal uma estrela dourada com um lema inspirador?",
+          "next": "ask_motto"
+        },
+        {
+          "id": "create_plan",
+          "speaker": "npc",
+          "text": "Perfeito! Deixe-me formalizar isso em um plano adequado...",
+          "next": "plan_ready"
+        },
+        {
+          "id": "plan_ready",
+          "speaker": "npc",
+          "text": "Pronto! Aqui está o plano formalizado: Uma estrela dourada de cinco pontas, texto elegante, estilo vibrante, fundo gradiente azul-roxo. Dimensões: 3x2 metros.",
+          "action": {
+            "type": "give_item",
+            "item": "banner_plan"
+          },
+          "next": "send_to_artisan"
+        },
+        {
+          "id": "send_to_artisan",
+          "speaker": "npc",
+          "text": "Excelente trabalho! Mas um plano sem execução é apenas um sonho no papel. Leve isto à Artesã. Ela está na Forja, à direita.",
+          "action": {
+            "type": "unlock_npc",
+            "target": "artisan"
+          },
+          "options": [
+            {
+              "text": "Vou levar o plano para a Artesã!",
+              "next": null,
+              "xp": 30,
+              "action": {
+                "type": "complete_objective",
+                "objective": "get_plan_from_scribe"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "artisan_initial": {
+      "id": "artisan_initial",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "npc",
+          "text": "Finalmente! Ação! Estava ficando entediada!",
+          "next": "introduction"
+        },
+        {
+          "id": "introduction",
+          "speaker": "npc",
+          "text": "Eu sou a Artesã. O Escriba sonha, planeja, teoriza... Mas sou EU quem constrói! Quem faz acontecer!",
+          "next": "about_work"
+        },
+        {
+          "id": "about_work",
+          "speaker": "npc",
+          "text": "Minha forja transforma ideias em realidade. Código, arte, sistemas - eu crio TUDO!",
+          "next": "ask_for_plan"
+        },
+        {
+          "id": "ask_for_plan",
+          "speaker": "npc",
+          "text": "Mostre-me esse plano que o certinho do Escriba fez!",
+          "options": [
+            {
+              "text": "Aqui está o plano do estandarte",
+              "next": "review_plan",
+              "xp": 10
+            }
+          ]
+        },
+        {
+          "id": "review_plan",
+          "speaker": "npc",
+          "text": "Ah sim! Isso eu consigo fazer com os olhos fechados! Uma estrela dourada, texto elegante, gradiente... Perfeito!",
+          "next": "start_creation"
+        },
+        {
+          "id": "start_creation",
+          "speaker": "npc",
+          "text": "Observe a mestra em ação! Vou criar algo magnífico!",
+          "action": {
+            "type": "start_creation"
+          },
+          "next": "creation_complete"
+        },
+        {
+          "id": "creation_complete",
+          "speaker": "npc",
+          "text": "BOOM! Feito! Olha essa beleza! Exatamente como planejado, mas com aquele toque especial meu!",
+          "next": "suggest_critic"
+        },
+        {
+          "id": "suggest_critic",
+          "speaker": "npc",
+          "text": "Mas ei... antes de comemorar... A Crítica sempre tem algo a dizer. Ela está na Galeria, lá em cima. Vá mostrar nossa obra.",
+          "action": {
+            "type": "unlock_npc",
+            "target": "critic"
+          },
+          "options": [
+            {
+              "text": "Vou mostrar para a Crítica!",
+              "next": null,
+              "xp": 40,
+              "action": {
+                "type": "complete_objective",
+                "objective": "execute_with_artisan"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "critic_initial": {
+      "id": "critic_initial",
+      "nodes": [
+        {
+          "id": "greeting",
+          "speaker": "npc",
+          "text": "Eu já estava esperando você, Iniciado.",
+          "next": "introduction"
+        },
+        {
+          "id": "introduction",
+          "speaker": "npc",
+          "text": "Eu sou a Crítica. Meu olhar garante que cada criação não seja apenas funcional, mas excelente.",
+          "next": "philosophy"
+        },
+        {
+          "id": "philosophy",
+          "speaker": "npc",
+          "text": "Muitos me temem. Acham que só aponto defeitos. Mas meu papel é elevar o trabalho ao seu potencial máximo.",
+          "next": "ask_to_see"
+        },
+        {
+          "id": "ask_to_see",
+          "speaker": "npc",
+          "text": "Mostre-me o que a dupla dinâmica criou.",
+          "options": [
+            {
+              "text": "Aqui está o estandarte que criamos",
+              "next": "analyze",
+              "xp": 10
+            }
+          ]
+        },
+        {
+          "id": "analyze",
+          "speaker": "npc",
+          "text": "Hmm... *analisa cuidadosamente* A execução técnica é impecável. A Artesã fez um trabalho admirável, como sempre.",
+          "next": "feedback"
+        },
+        {
+          "id": "feedback",
+          "speaker": "npc",
+          "text": "A estrela está perfeita. O gradiente, harmonioso. Mas... o texto 'A Criatividade Começa Aqui'... É passivo. Descritivo. Não inspira ação.",
+          "next": "suggestion"
+        },
+        {
+          "id": "suggestion",
+          "speaker": "npc",
+          "text": "Sugestão: 'Onde Ideias Ganham Vida'. Mais dinâmico, mais empoderador, você não acha?",
+          "options": [
+            {
+              "text": "Tem razão! Vamos mudar!",
+              "next": "accept_feedback",
+              "xp": 50
+            },
+            {
+              "text": "Prefiro manter o original",
+              "next": "respect_choice",
+              "xp": 30
+            }
+          ]
+        },
+        {
+          "id": "accept_feedback",
+          "speaker": "npc",
+          "text": "Excelente! A humildade de aceitar feedback é o que separa bons Condutores dos grandes.",
+          "next": "refinement_instructions"
+        },
+        {
+          "id": "respect_choice",
+          "speaker": "npc",
+          "text": "Compreendo. A confiança em sua visão também é importante. Mas considere: a iteração é o caminho para a excelência.",
+          "next": "quest_complete"
+        },
+        {
+          "id": "refinement_instructions",
+          "speaker": "npc",
+          "text": "Volte ao Escriba para atualizar o plano, depois peça à Artesã para ajustar o texto. Este ciclo de refinamento é essencial.",
+          "options": [
+            {
+              "text": "Vou refinar o trabalho!",
+              "next": null,
+              "xp": 20,
+              "action": {
+                "type": "start_refinement_cycle"
+              }
+            }
+          ]
+        },
+        {
+          "id": "quest_complete",
+          "speaker": "npc",
+          "text": "Você aprendeu uma lição valiosa hoje: A excelência nasce da colaboração. Volte ao Guia para completar sua iniciação.",
+          "options": [
+            {
+              "text": "Obrigado pela orientação!",
+              "next": null,
+              "xp": 30,
+              "action": {
+                "type": "complete_objective",
+                "objective": "refine_with_critic"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "elder_final": {
+      "id": "elder_final",
+      "nodes": [
+        {
+          "id": "congratulations",
+          "speaker": "npc",
+          "text": "Iniciado! Você completou sua primeira orquestração!",
+          "next": "review"
+        },
+        {
+          "id": "review",
+          "speaker": "npc",
+          "text": "Deixe-me ver o que criaram... *observa o estandarte* Magnífico!",
+          "next": "lesson"
+        },
+        {
+          "id": "lesson",
+          "speaker": "npc",
+          "text": "Mas mais importante que o resultado... Você aprendeu O PROCESSO: Ouvir, Planejar, Executar, Refinar.",
+          "next": "transformation"
+        },
+        {
+          "id": "transformation",
+          "speaker": "npc",
+          "text": "Este é o caminho do Condutor! Você não é mais um Iniciado...",
+          "action": {
+            "type": "player_transformation"
+          },
+          "next": "conductor"
+        },
+        {
+          "id": "conductor",
+          "speaker": "npc",
+          "text": "Você é agora um CONDUTOR! O portão para novos mundos está aberto. Que projetos magníficos você criará?",
+          "options": [
+            {
+              "text": "Estou pronto para novas aventuras!",
+              "next": null,
+              "xp": 100,
+              "action": {
+                "type": "quest_complete",
+                "quest": "guild_banner_quest"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

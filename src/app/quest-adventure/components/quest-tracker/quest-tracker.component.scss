@@ -1,0 +1,333 @@
+.quest-tracker {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 280px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(20, 20, 30, 0.9));
+  border: 2px solid #FFD700;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 215, 0, 0.2);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+
+  // Mobile: bottom of screen, full width
+  @media (max-width: 768px) {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 12px 16px;
+  }
+}
+
+.quest-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+
+  .quest-icon {
+    font-size: 24px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .quest-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: #FFD700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    flex: 1;
+  }
+}
+
+.quest-progress {
+  margin-bottom: 16px;
+
+  .progress-bar {
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #FFD700, #FFA500);
+      border-radius: 8px;
+      transition: width 0.5s ease-out;
+      position: relative;
+      overflow: hidden;
+
+      &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50%;
+        background: linear-gradient(180deg,
+          rgba(255, 255, 255, 0.3),
+          transparent
+        );
+      }
+    }
+  }
+
+  .progress-text {
+    display: block;
+    text-align: center;
+    margin-top: 5px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
+
+.quest-objectives {
+  margin-bottom: 12px;
+  max-height: 150px;
+  overflow-y: auto;
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.3);
+    border-radius: 2px;
+
+    &:hover {
+      background: rgba(255, 215, 0, 0.5);
+    }
+  }
+
+  .objective-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    transition: all 0.3s;
+
+    &.completed {
+      opacity: 0.6;
+
+      .objective-text {
+        text-decoration: line-through;
+        color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    &.current {
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .objective-checkbox {
+      font-size: 14px;
+      width: 20px;
+      text-align: center;
+    }
+
+    .objective-text {
+      flex: 1;
+      font-size: 13px;
+      color: white;
+      line-height: 1.3;
+    }
+  }
+}
+
+.tracker-separator {
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(255, 215, 0, 0.5),
+    transparent
+  );
+  margin: 12px 0;
+}
+
+.player-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .level-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
+
+    .level-label {
+      font-size: 10px;
+      font-weight: bold;
+      color: rgba(0, 0, 0, 0.7);
+      text-transform: uppercase;
+    }
+
+    .level-number {
+      font-size: 20px;
+      font-weight: bold;
+      color: #2c1810;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  .xp-section {
+    flex: 1;
+
+    .xp-bar {
+      height: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(74, 144, 226, 0.3);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+
+      .xp-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4A90E2, #7B68EE);
+        border-radius: 6px;
+        transition: width 0.8s ease-out;
+        position: relative;
+      }
+
+      .xp-glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: linear-gradient(90deg,
+          transparent,
+          rgba(255, 255, 255, 0.4),
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+    }
+
+    .xp-text {
+      display: block;
+      text-align: center;
+      margin-top: 4px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+  }
+}
+
+.new-quest-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #FF6B6B, #FF4757);
+  border-radius: 12px;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(255, 71, 87, 0.5);
+  animation: bounce 2s ease-in-out infinite;
+
+  span {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+}
+
+// Animações
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 215, 0, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.05);
+  }
+}
+
+// Mobile adjustments
+@media (max-width: 768px) {
+  .quest-tracker {
+    .quest-header {
+      .quest-icon {
+        font-size: 20px;
+      }
+
+      .quest-title {
+        font-size: 14px;
+      }
+    }
+
+    .quest-objectives {
+      max-height: 100px;
+
+      .objective-item {
+        padding: 6px;
+
+        .objective-text {
+          font-size: 12px;
+        }
+      }
+    }
+
+    .player-stats {
+      .level-badge {
+        padding: 6px 10px;
+
+        .level-number {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+}

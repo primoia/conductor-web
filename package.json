@@ -23,6 +23,7 @@
   },
   "private": true,
   "dependencies": {
+    "@angular/animations": "^20.3.1",
     "@angular/cdk": "^20.2.12",
     "@angular/common": "^20.3.0",
     "@angular/compiler": "^20.3.0",
@@ -43,6 +44,7 @@
     "@tiptap/suggestion": "^3.4.6",
     "@types/marked": "^5.0.2",
     "eventsource": "^4.0.0",
+    "highlight.js": "^11.11.1",
     "html-to-md": "^0.8.8",
     "lowlight": "^2.9.0",
     "marked": "^16.3.0",

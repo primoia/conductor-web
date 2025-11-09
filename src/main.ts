@@ -1,6 +1,7 @@
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
+import { provideAnimations } from '@angular/platform-browser/animations';
 import { App } from './app/app';
 import { DemoRoadmap } from './app/demo-roadmap/demo-roadmap';
 import { InteractiveDemo } from './app/interactive-demo/interactive-demo';
@@ -12,6 +13,7 @@ import { MinistersPanel } from './app/city-sim/ministers-panel';
 import { WeeklyCouncil } from './app/city-sim/weekly-council';
 import { NeighborhoodView } from './app/city-sim/neighborhood-view';
 import { DraggableCircles } from './app/examples/draggable-circles/draggable-circles';
+import { QuestAdventureComponent } from './app/quest-adventure/quest-adventure.component';
 import { SCREENPLAY_BACKEND } from './app/services/screenplay/screenplay-backend.interface';
 import { DocumentCentricBackend } from './app/services/screenplay/document-centric.backend';
 import { EventSourcedBackend } from './app/services/screenplay/lsa/event-sourced.backend';
@@ -19,12 +21,14 @@ import { EventSourcedBackend } from './app/services/screenplay/lsa/event-sourced
 bootstrapApplication(App, {
   providers: [
     provideHttpClient(),
+    provideAnimations(),
     provideRouter([
       { path: '', component: InteractiveDemo },
       { path: 'architecture', component: DemoRoadmap },
       { path: 'examples', component: EditorExamples },
       { path: 'layers', component: LayeredEditor },
       { path: 'screenplay', component: ScreenplayInteractive },
+      { path: 'quest', component: QuestAdventureComponent },
       { path: 'circles', component: DraggableCircles },
       // City-Sim mockups
       { path: 'city/ministers', component: MinistersPanel },

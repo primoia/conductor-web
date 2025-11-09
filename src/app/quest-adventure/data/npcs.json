@@ -1,0 +1,63 @@
+{
+  "npcs": [
+    {
+      "id": "elder_guide",
+      "name": "O Guia",
+      "title": "Mestre dos Condutores",
+      "emoji": "🧙‍♂️",
+      "agentId": "SystemGuide_Meta_Agent",
+      "position": { "x": 512, "y": 400 },
+      "sprite": "elder",
+      "greeting": "Bem-vindo ao Salão da Guilda, Iniciado. Eu sou o Guia, e estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade.",
+      "unlocked": true,
+      "status": "available",
+      "showIndicator": false,
+      "dialogueTree": "elder_initial"
+    },
+    {
+      "id": "requirements_scribe",
+      "name": "O Escriba",
+      "title": "Mestre dos Requisitos",
+      "emoji": "📋",
+      "agentId": "RequirementsAnalyst_Agent",
+      "position": { "x": 200, "y": 280 },
+      "sprite": "scribe",
+      "greeting": "Ah, o novo Iniciado! Prazer em conhecê-lo. Eu sou o Escriba. Minha função é transformar o caos de uma ideia em um plano claro e estruturado.",
+      "unlocked": false,
+      "status": "locked",
+      "showIndicator": false,
+      "dialogueTree": "scribe_initial",
+      "unlockCondition": "talked_to_elder"
+    },
+    {
+      "id": "artisan",
+      "name": "A Artesã",
+      "title": "Mestra da Criação",
+      "emoji": "⚒️",
+      "agentId": "BuildMaster_Agent",
+      "position": { "x": 824, "y": 280 },
+      "sprite": "artisan",
+      "greeting": "Finalmente! Ação! Estava ficando entediada! Eu sou a Artesã. O Escriba sonha, planeja, teoriza... Mas sou EU quem constrói!",
+      "unlocked": false,
+      "status": "locked",
+      "showIndicator": false,
+      "dialogueTree": "artisan_initial",
+      "unlockCondition": "got_plan_from_scribe"
+    },
+    {
+      "id": "critic",
+      "name": "A Crítica",
+      "title": "Mestra do Refinamento",
+      "emoji": "🎨",
+      "agentId": "QualityAnalyst_Agent",
+      "position": { "x": 512, "y": 130 },
+      "sprite": "critic",
+      "greeting": "Eu já estava esperando você, Iniciado. Eu sou a Crítica. Meu olhar garante que cada criação não seja apenas funcional, mas excelente.",
+      "unlocked": false,
+      "status": "locked",
+      "showIndicator": false,
+      "dialogueTree": "critic_initial",
+      "unlockCondition": "banner_created"
+    }
+  ]
+}

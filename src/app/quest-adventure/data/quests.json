@@ -1,0 +1,153 @@
+{
+  "quests": [
+    {
+      "id": "guild_banner_quest",
+      "title": "O Estandarte da Guilda",
+      "description": "Aprenda a orquestrar a equipe de especialistas para criar um estandarte de boas-vindas para a guilda",
+      "objectives": [
+        {
+          "id": "talk_to_guide",
+          "text": "Fale com o Guia",
+          "type": "dialogue",
+          "target": "elder_guide",
+          "completed": false,
+          "current": true
+        },
+        {
+          "id": "talk_to_scribe",
+          "text": "Conheça o Escriba e peça um plano",
+          "type": "dialogue",
+          "target": "requirements_scribe",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "get_plan_from_scribe",
+          "text": "Obtenha o plano do estandarte",
+          "type": "item",
+          "target": "banner_plan",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "talk_to_artisan",
+          "text": "Leve o plano para a Artesã",
+          "type": "dialogue",
+          "target": "artisan",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "execute_with_artisan",
+          "text": "Observe a Artesã criar o estandarte",
+          "type": "creation",
+          "target": "guild_banner",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "talk_to_critic",
+          "text": "Mostre o estandarte para a Crítica",
+          "type": "dialogue",
+          "target": "critic",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "refine_with_critic",
+          "text": "Receba feedback e refine o trabalho",
+          "type": "refinement",
+          "target": "feedback_cycle",
+          "completed": false,
+          "current": false
+        },
+        {
+          "id": "return_to_guide",
+          "text": "Retorne ao Guia para completar a iniciação",
+          "type": "dialogue",
+          "target": "elder_guide",
+          "completed": false,
+          "current": false
+        }
+      ],
+      "rewards": {
+        "xp": 500,
+        "items": ["conductor_badge"],
+        "unlocks": ["open_world_mode", "all_basic_agents"],
+        "achievement": "first_orchestration"
+      },
+      "status": "active",
+      "nextQuest": null
+    }
+  ],
+  "achievements": [
+    {
+      "id": "first_orchestration",
+      "name": "Primeira Orquestração",
+      "description": "Complete sua primeira missão como Condutor",
+      "icon": "🎯",
+      "xp": 100
+    },
+    {
+      "id": "feedback_master",
+      "name": "Mestre do Feedback",
+      "description": "Aceite e implemente feedback de refinamento",
+      "icon": "🔄",
+      "xp": 50
+    },
+    {
+      "id": "team_player",
+      "name": "Trabalho em Equipe",
+      "description": "Interaja com todos os NPCs da guilda",
+      "icon": "🤝",
+      "xp": 75
+    },
+    {
+      "id": "conductor_initiate",
+      "name": "Condutor Iniciado",
+      "description": "Complete a transformação de Iniciado para Condutor",
+      "icon": "⭐",
+      "xp": 200
+    }
+  ],
+  "items": [
+    {
+      "id": "banner_plan",
+      "name": "Plano do Estandarte",
+      "description": "Um plano detalhado criado pelo Escriba",
+      "icon": "📋",
+      "type": "quest_item"
+    },
+    {
+      "id": "guild_banner_v1",
+      "name": "Estandarte da Guilda (v1)",
+      "description": "O estandarte original criado pela Artesã",
+      "icon": "🏳️",
+      "type": "quest_item"
+    },
+    {
+      "id": "guild_banner_v2",
+      "name": "Estandarte da Guilda (Refinado)",
+      "description": "O estandarte aperfeiçoado após feedback da Crítica",
+      "icon": "🏆",
+      "type": "quest_item"
+    },
+    {
+      "id": "conductor_badge",
+      "name": "Insígnia de Condutor",
+      "description": "Marca você como um verdadeiro Condutor",
+      "icon": "🎖️",
+      "type": "badge"
+    }
+  ],
+  "playerLevels": [
+    { "level": 1, "title": "Iniciado", "xpRequired": 0 },
+    { "level": 2, "title": "Aprendiz", "xpRequired": 100 },
+    { "level": 3, "title": "Praticante", "xpRequired": 300 },
+    { "level": 4, "title": "Orquestrador", "xpRequired": 600 },
+    { "level": 5, "title": "Condutor", "xpRequired": 1000 },
+    { "level": 6, "title": "Mestre Condutor", "xpRequired": 1500 },
+    { "level": 7, "title": "Grão-Mestre", "xpRequired": 2500 },
+    { "level": 8, "title": "Lenda", "xpRequired": 4000 }
+  ]
+}
