@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit, OnChanges, SimpleChanges, HostListener, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NPC, Position } from '../../models/quest.models';
 
@@ -18,12 +18,26 @@ import { NPC, Position } from '../../models/quest.models';
 
       <!-- Indicadores flutuantes -->
       <div class="canvas-overlays">
+        <!-- Indicador de exclamação -->
         <div *ngFor="let npc of npcs || []"
              class="npc-indicator"
              [class.visible]="npc.showIndicator"
              [style.left.px]="npc.position.x - 10"
              [style.top.px]="npc.position.y - 40">
           <span class="indicator-icon">!</span>
+        </div>
+
+        <!-- Labels de NPCs (HTML overlay) -->
+        <div *ngFor="let npc of npcs || []"
+             class="npc-label"
+             [class.locked]="!npc.unlocked"
+             [attr.data-npc-id]="npc.id"
+             [attr.data-npc-name]="npc.unlocked ? npc.name : '???'"
+             [attr.data-npc-title]="npc.unlocked ? npc.title : 'Desconhecido'"
+             [style.left.px]="npc.position.x"
+             [style.top.px]="npc.position.y - 30">
+          <div class="npc-name">{{ npc.unlocked ? npc.name : '???' }}</div>
+          <div class="npc-title">{{ npc.unlocked ? npc.title : 'Desconhecido' }}</div>
         </div>
       </div>
 
@@ -35,7 +49,7 @@ import { NPC, Position } from '../../models/quest.models';
   `,
   styleUrls: ['./quest-canvas.component.scss']
 })
-export class QuestCanvasComponent implements AfterViewInit, OnChanges {
+export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
 
   @Input() npcs: NPC[] | null = [];
@@ -45,11 +59,17 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges {
 
   @Output() onCanvasClick = new EventEmitter<Position>();
   @Output() onNpcInteract = new EventEmitter<string>();
+  @Output() onCanvasResize = new EventEmitter<{width: number, height: number}>();
 
   private ctx!: CanvasRenderingContext2D;
   canvasWidth = 1024;
   canvasHeight = 768;
   currentLocation = 'Salão da Guilda dos Condutores';
+
+  @HostListener('window:resize')
+  onWindowResize() {
+    this.adjustCanvasSize();
+  }
 
   // Sprites e imagens
   private hallBackground: HTMLImageElement | null = null;
@@ -98,21 +118,20 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges {
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const isMobile = window.innerWidth < 768;
 
-    if (isMobile) {
-      // Mobile: usa toda a largura disponível
-      this.canvasWidth = rect.width;
-      this.canvasHeight = rect.height * 0.6; // 60% da altura
-    } else {
-      // Desktop: mantém proporção 4:3
-      this.canvasWidth = Math.min(rect.width, 1024);
-      this.canvasHeight = (this.canvasWidth * 3) / 4;
-    }
+    // Usa toda a área disponível do navegador
+    this.canvasWidth = rect.width;
+    this.canvasHeight = rect.height;
 
     const canvas = this.canvasRef.nativeElement;
     canvas.width = this.canvasWidth;
     canvas.height = this.canvasHeight;
+
+    // Emite evento de redimensionamento
+    this.onCanvasResize.emit({
+      width: this.canvasWidth,
+      height: this.canvasHeight
+    });
   }
 
   private loadAssets() {
@@ -169,88 +188,126 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges {
       }
     }
 
-    // Círculo de invocação no centro
+    // Círculo de invocação no centro (melhorado)
     const centerX = this.canvasWidth / 2;
     const centerY = this.canvasHeight * 0.7;
 
+    // Gradiente de fundo do círculo
+    const circleGradient = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 100);
+    circleGradient.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
+    circleGradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.05)');
+    circleGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+    this.ctx.fillStyle = circleGradient;
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
-    this.ctx.strokeStyle = '#FFD700';
-    this.ctx.lineWidth = 2;
-    this.ctx.stroke();
+    this.ctx.fill();
 
-    // Runas ao redor do círculo
+    // Círculos concêntricos (efeito de runas gravadas)
+    for (let r = 40; r <= 100; r += 30) {
+      this.ctx.beginPath();
+      this.ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+      this.ctx.strokeStyle = r === 100 ? '#FFD700' : 'rgba(255, 215, 0, 0.4)';
+      this.ctx.lineWidth = r === 100 ? 3 : 1;
+      this.ctx.stroke();
+    }
+
+    // Runas ao redor do círculo externo
     const runeCount = 8;
+    const runeSymbols = ['✦', '◆', '✧', '◈', '✦', '◆', '✧', '◈'];
+    this.ctx.font = 'bold 16px Arial';
+    this.ctx.fillStyle = '#FFD700';
+    this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
+
     for (let i = 0; i < runeCount; i++) {
-      const angle = (i / runeCount) * Math.PI * 2;
+      const angle = (i / runeCount) * Math.PI * 2 - Math.PI / 2;
+      const runeX = centerX + Math.cos(angle) * 100;
+      const runeY = centerY + Math.sin(angle) * 100;
+
+      // Círculo de fundo para a runa
+      this.ctx.beginPath();
+      this.ctx.arc(runeX, runeY, 8, 0, Math.PI * 2);
+      this.ctx.fillStyle = 'rgba(42, 42, 62, 0.8)';
+      this.ctx.fill();
+      this.ctx.strokeStyle = '#FFD700';
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke();
+
+      // Símbolo da runa
+      this.ctx.fillStyle = '#FFD700';
+      this.ctx.fillText(runeSymbols[i], runeX, runeY);
+    }
+
+    // Estrela central (símbolo da guilda)
+    this.ctx.fillStyle = '#FFD700';
+    this.ctx.font = 'bold 24px Arial';
+    this.ctx.fillText('⭐', centerX, centerY);
+
+    // Linhas conectando o centro às runas
+    this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
+    this.ctx.lineWidth = 1;
+    for (let i = 0; i < runeCount; i++) {
+      const angle = (i / runeCount) * Math.PI * 2 - Math.PI / 2;
       const runeX = centerX + Math.cos(angle) * 100;
       const runeY = centerY + Math.sin(angle) * 100;
 
       this.ctx.beginPath();
-      this.ctx.arc(runeX, runeY, 5, 0, Math.PI * 2);
-      this.ctx.fillStyle = '#FFD700';
-      this.ctx.fill();
+      this.ctx.moveTo(centerX, centerY);
+      this.ctx.lineTo(runeX, runeY);
+      this.ctx.stroke();
     }
 
-    // Áreas dos NPCs
-    this.drawNPCStations();
-  }
-
-  private drawNPCStations() {
-    // Mesa do Escriba (esquerda)
-    this.ctx.fillStyle = '#8B4513';
-    this.ctx.fillRect(150, 250, 100, 60);
-    this.ctx.strokeStyle = '#654321';
-    this.ctx.strokeRect(150, 250, 100, 60);
-
-    // Forja da Artesã (direita)
-    this.ctx.fillStyle = '#696969';
-    this.ctx.fillRect(this.canvasWidth - 250, 250, 100, 80);
-    this.ctx.strokeStyle = '#FF4500';
-    this.ctx.strokeRect(this.canvasWidth - 250, 250, 100, 80);
-
-    // Galeria da Crítica (topo)
-    const galleryY = 100;
-    const galleryWidth = 200;
-    const galleryX = (this.canvasWidth - galleryWidth) / 2;
-
-    this.ctx.fillStyle = '#4B0082';
-    this.ctx.fillRect(galleryX, galleryY, galleryWidth, 60);
-    this.ctx.strokeStyle = '#9370DB';
-    this.ctx.strokeRect(galleryX, galleryY, galleryWidth, 60);
+    this.ctx.textAlign = 'start';
+    this.ctx.textBaseline = 'alphabetic';
   }
 
   private drawNPCs() {
     if (!this.npcs) return;
 
     this.npcs.forEach(npc => {
-      if (!npc.unlocked) return;
-
       const { x, y } = npc.position;
+
+      // Define opacidade baseado no estado
+      // NPCs bloqueados ficam mais visíveis (0.7) para sistema de descoberta
+      const isLocked = !npc.unlocked;
+      const alpha = isLocked ? 0.7 : 1.0;
 
       // Sombra
       this.ctx.beginPath();
       this.ctx.ellipse(x, y + 20, 15, 5, 0, 0, Math.PI * 2);
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      this.ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * alpha})`;
       this.ctx.fill();
 
       // NPC (emoji como placeholder)
+      this.ctx.save();
+      this.ctx.globalAlpha = alpha;
       this.ctx.font = '32px Arial';
       this.ctx.fillText(this.npcEmojis[npc.id] || '👤', x - 16, y + 8);
+      this.ctx.restore();
 
-      // Nome do NPC
-      this.ctx.fillStyle = 'white';
-      this.ctx.font = '12px Arial';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(npc.name, x, y - 25);
-      this.ctx.textAlign = 'start';
+      // Nome e título agora são renderizados via HTML overlay
+      // Removido daqui para evitar duplicação e permitir inspeção no DevTools
 
-      // Status indicator
-      if (npc.status === 'available') {
+      // Status indicator (apenas para NPCs desbloqueados)
+      if (!isLocked && npc.status === 'available') {
         this.ctx.beginPath();
         this.ctx.arc(x + 15, y - 15, 5, 0, Math.PI * 2);
         this.ctx.fillStyle = '#00FF00';
         this.ctx.fill();
+      }
+
+      // Indicador de interação (apenas para NPCs desbloqueados)
+      if (!isLocked && npc.currentIndicator === 'talk') {
+        // Círculo pulsante
+        const pulseTime = Date.now() % 1000;
+        const pulseScale = 1 + Math.sin(pulseTime / 1000 * Math.PI * 2) * 0.1;
+
+        this.ctx.save();
+        this.ctx.translate(x, y - 35);
+        this.ctx.scale(pulseScale, pulseScale);
+        this.ctx.font = '16px Arial';
+        this.ctx.fillText('💬', -8, 0);
+        this.ctx.restore();
       }
     });
   }
@@ -365,14 +422,9 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges {
 
     const position = { x: canvasX, y: canvasY };
 
-    // Verifica se clicou em um NPC
-    const clickedNPC = this.getNPCAtPosition(position);
-
-    if (clickedNPC) {
-      this.onNpcInteract.emit(clickedNPC.id);
-    } else {
-      this.onCanvasClick.emit(position);
-    }
+    // Sempre emite o clique para o componente pai decidir o que fazer
+    // (pode ser movimento normal ou interação com NPC)
+    this.onCanvasClick.emit(position);
   }
 
   handleTouchStart(event: TouchEvent) {
@@ -392,14 +444,8 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges {
 
     const position = { x: canvasX, y: canvasY };
 
-    // Verifica se tocou em um NPC
-    const touchedNPC = this.getNPCAtPosition(position);
-
-    if (touchedNPC) {
-      this.onNpcInteract.emit(touchedNPC.id);
-    } else {
-      this.onCanvasClick.emit(position);
-    }
+    // Sempre emite o toque para o componente pai decidir o que fazer
+    this.onCanvasClick.emit(position);
   }
 
   private getNPCAtPosition(position: Position): NPC | null {

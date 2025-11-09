@@ -2,16 +2,28 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  width: 280px;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(20, 20, 30, 0.9));
   border: 2px solid #FFD700;
   border-radius: 12px;
-  padding: 16px;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 215, 0, 0.2);
   backdrop-filter: blur(10px);
   z-index: 100;
+  transition: all 0.3s ease-in-out;
+
+  &.collapsed {
+    width: 50px;
+
+    .tracker-toggle {
+      border-radius: 12px;
+    }
+  }
+
+  &:not(.collapsed) {
+    width: 280px;
+    padding: 16px;
+  }
 
   // Mobile: bottom of screen, full width
   @media (max-width: 768px) {
@@ -19,10 +31,60 @@
     bottom: 0;
     left: 0;
     right: 0;
-    width: 100%;
     border-radius: 20px 20px 0 0;
-    padding: 12px 16px;
+
+    &:not(.collapsed) {
+      width: 100%;
+      padding: 12px 16px;
+    }
+
+    &.collapsed {
+      width: 60px;
+      border-radius: 12px 12px 0 0;
+    }
   }
+}
+
+.tracker-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+  transition: all 0.2s ease;
+  z-index: 101;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  .toggle-icon {
+    font-size: 12px;
+    color: #2c1810;
+    font-weight: bold;
+  }
+
+  @media (max-width: 768px) {
+    top: 8px;
+    right: 8px;
+  }
+}
+
+.tracker-content {
+  transition: all 0.3s ease-in-out;
 }
 
 .quest-header {

@@ -1,5 +1,7 @@
 .quest-canvas-container {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -8,6 +10,8 @@
 
 .quest-canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
   touch-action: none; // Previne scroll em mobile
   image-rendering: pixelated; // Para pixel art
@@ -43,6 +47,54 @@
     text-align: center;
     line-height: 20px;
     animation: pulse 1s ease-in-out infinite;
+  }
+}
+
+.npc-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  transition: all 0.3s ease;
+
+  .npc-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    text-shadow:
+      0 0 4px rgba(0, 0, 0, 0.8),
+      0 2px 4px rgba(0, 0, 0, 0.6);
+    margin-bottom: 2px;
+  }
+
+  .npc-title {
+    font-size: 11px;
+    color: #FFD700;
+    text-shadow:
+      0 0 4px rgba(0, 0, 0, 0.8),
+      0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+
+  .npc-status {
+    font-size: 10px;
+    color: #888888;
+    text-shadow:
+      0 0 4px rgba(0, 0, 0, 0.8),
+      0 1px 2px rgba(0, 0, 0, 0.6);
+  }
+
+  &.locked {
+    opacity: 0.6;
+
+    .npc-name {
+      color: #888888;
+    }
+  }
+
+  // Hover effect (mesmo com pointer-events: none, serve para debug)
+  &:hover {
+    opacity: 1;
   }
 }
 
@@ -85,11 +137,6 @@
 
 // Mobile responsivo
 @media (max-width: 768px) {
-  .quest-canvas {
-    width: 100%;
-    height: auto;
-  }
-
   .location-name {
     font-size: 12px;
     padding: 6px 15px;

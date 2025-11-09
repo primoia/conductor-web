@@ -22,6 +22,9 @@ export class QuestStateService {
     dialogueFlags: {}
   };
 
+  // NPC alvo para ser encontrado
+  private targetNpcToFind: string | null = null;
+
   // Quest Principal
   private mainQuest: Quest = {
     id: 'guild_banner',
@@ -406,5 +409,26 @@ export class QuestStateService {
   setFlag(flag: string, value: boolean = true) {
     this.playerState.dialogueFlags[flag] = value;
     this.saveState();
+  }
+
+  /**
+   * Define o NPC alvo a ser encontrado
+   */
+  setTargetNpcToFind(npcId: string) {
+    this.targetNpcToFind = npcId;
+  }
+
+  /**
+   * Obtém o NPC alvo a ser encontrado
+   */
+  getTargetNpcToFind(): string | null {
+    return this.targetNpcToFind;
+  }
+
+  /**
+   * Limpa o NPC alvo
+   */
+  clearTargetNpcToFind() {
+    this.targetNpcToFind = null;
   }
 }

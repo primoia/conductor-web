@@ -29,7 +29,7 @@ import { takeUntil } from 'rxjs/operators';
         [isPlayerMoving]="isMoving$ | async"
         [focusTarget]="focusTarget"
         (onCanvasClick)="handleCanvasClick($event)"
-        (onNpcInteract)="handleNpcInteract($event)">
+        (onCanvasResize)="handleCanvasResize($event)">
       </app-quest-canvas>
 
       <!-- Quest Tracker (Objetivos) -->
@@ -199,35 +199,164 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
     }
   }
 
+  handleCanvasResize(size: {width: number, height: number}) {
+    // Atualiza os limites de movimento do player
+    this.movement.updateMapBounds(size.width, size.height);
+
+    // Reposiciona NPCs nos cantos da tela
+    this.npcManager.repositionNPCs(size.width, size.height);
+  }
+
   handleCanvasClick(position: Position) {
     // Se tem diálogo ativo, ignora clicks no canvas
     if (this.dialogue.hasActiveDialogue()) {
       return;
     }
 
-    // Verifica se clicou em um NPC
+    // Verifica se clicou em um NPC (bloqueado ou não)
     const clickedNPC = this.npcManager.getNPCAtPosition(position);
 
-    if (clickedNPC && clickedNPC.unlocked) {
-      this.handleNpcInteract(clickedNPC.id);
+    if (clickedNPC) {
+      // Move o player até perto do NPC primeiro
+      this.moveToNPC(clickedNPC.id);
     } else {
-      // Move o player para a posição
+      // Move o player para a posição clicada
       this.movement.moveToPosition(position);
     }
   }
 
+  private moveToNPC(npcId: string) {
+    const npc = this.npcManager.getNPC(npcId);
+    if (!npc) return;
+
+    // Calcula posição próxima ao NPC (60 pixels de distância)
+    const playerPos = this.movement.getCurrentPosition();
+    const npcPos = npc.position;
+
+    // Vetor do player para o NPC
+    const dx = npcPos.x - playerPos.x;
+    const dy = npcPos.y - playerPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Se já está perto o suficiente (dentro do raio de interação)
+    const interactionRadius = 80;
+    if (distance <= interactionRadius) {
+      // Já está perto, tenta interagir
+      this.handleNpcInteract(npcId);
+      return;
+    }
+
+    // Calcula posição de destino (próxima ao NPC mas não em cima)
+    const targetDistance = 60; // Fica a 60px do NPC
+    const ratio = (distance - targetDistance) / distance;
+    const targetPos = {
+      x: playerPos.x + dx * ratio,
+      y: playerPos.y + dy * ratio
+    };
+
+    // Move até lá
+    this.movement.moveToPosition(targetPos);
+
+    // Aguarda chegar perto do NPC para iniciar diálogo (bloqueado ou não)
+    this.waitForPlayerReachNPC(npcId, npcPos, interactionRadius);
+  }
+
+  private waitForPlayerReachNPC(npcId: string, npcPos: Position, radius: number) {
+    const checkInterval = setInterval(() => {
+      const playerPos = this.movement.getCurrentPosition();
+      const dx = npcPos.x - playerPos.x;
+      const dy = npcPos.y - playerPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Se chegou perto o suficiente
+      if (distance <= radius) {
+        clearInterval(checkInterval);
+
+        // Para o movimento
+        this.movement.stop();
+
+        // Aguarda um frame para garantir que parou
+        setTimeout(() => {
+          this.handleNpcInteract(npcId);
+        }, 100);
+      }
+
+      // Se não está mais se movendo (cancelou movimento), cancela verificação
+      if (!this.movement.isCurrentlyMoving()) {
+        clearInterval(checkInterval);
+      }
+    }, 100); // Verifica a cada 100ms
+  }
+
   handleNpcInteract(npcId: string) {
     const npc = this.npcManager.getNPC(npcId);
-    if (!npc || !npc.unlocked) return;
+    if (!npc) return;
 
-    // Para movimento se estiver andando
-    this.movement.stop();
+    console.log(`[NPC Interact] NPC: ${npcId}, Locked: ${!npc.unlocked}, Target: ${this.questState.getTargetNpcToFind()}`);
 
-    // Inicia diálogo
+    // Se NPC está bloqueado
+    if (!npc.unlocked) {
+      // Verifica se é o NPC que deve ser encontrado
+      const targetNpc = this.questState.getTargetNpcToFind();
+
+      if (targetNpc === npcId) {
+        // Achou o NPC correto! Desbloqueia e inicia diálogo
+        console.log(`[NPC Found] Desbloqueando ${npcId}`);
+        this.npcManager.unlockNPC(npcId);
+        this.questState.clearTargetNpcToFind();
+
+        // Aguarda um momento para mostrar o nome aparecer e pega NPC atualizado
+        setTimeout(() => {
+          const unlockedNpc = this.npcManager.getNPC(npcId);
+          if (unlockedNpc) {
+            console.log(`[NPC Dialogue] Iniciando diálogo com ${npcId}, unlocked: ${unlockedNpc.unlocked}`);
+            this.dialogue.startDialogue(unlockedNpc);
+            this.questState.onNPCInteraction(npcId);
+          }
+        }, 500);
+      } else {
+        // NPC errado - mostra mensagem de que não é o NPC procurado
+        console.log(`[NPC Wrong] Esperava ${targetNpc}, encontrou ${npcId}`);
+        this.showWrongNPCMessage(npc, targetNpc);
+      }
+      return;
+    }
+
+    // NPC desbloqueado - inicia diálogo normal
+    console.log(`[NPC Unlocked] Diálogo normal com ${npcId}`);
     this.dialogue.startDialogue(npc);
-
-    // Atualiza progresso da quest
     this.questState.onNPCInteraction(npcId);
+  }
+
+  private showWrongNPCMessage(npc: NPC, targetNpcId: string | null) {
+    // Cria um NPC temporário anônimo
+    const anonymousNPC: NPC = {
+      ...npc,
+      name: '???',
+      unlocked: true
+    };
+
+    let message = 'Não sou quem você procura. Tente em outro lugar.';
+
+    if (targetNpcId) {
+      // Mensagens baseadas no NPC alvo
+      const targetMessages: { [key: string]: string } = {
+        'requirements_scribe': 'Não sou O Planejador. Procure em outro canto do salão.',
+        'artisan': 'Não sou A Executora. Continue procurando pelos cantos.',
+        'critic': 'Não sou A Refinadora. Ela deve estar em algum outro lugar.'
+      };
+      message = targetMessages[targetNpcId] || message;
+    }
+
+    // Cria diálogo temporário
+    this.dialogue['activeDialogue'] = {
+      npc: anonymousNPC,
+      message: message,
+      options: [],
+      isTyping: false
+    };
+
+    this.dialogue['activeDialogueSubject'].next(this.dialogue['activeDialogue']);
   }
 
   handleDialogueChoice(option: DialogueOption) {
@@ -250,6 +379,11 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
       case 'unlock_npc':
         this.npcManager.unlockNPC(action.target);
         this.focusTarget = action.target;
+        break;
+
+      case 'set_target_npc':
+        // Define o NPC alvo a ser encontrado
+        this.questState.setTargetNpcToFind(action.target);
         break;
 
       case 'give_item':

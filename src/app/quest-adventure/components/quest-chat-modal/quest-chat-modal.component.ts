@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { NPC, DialogueOption } from '../../models/quest.models';
@@ -25,9 +25,17 @@ interface ChatMessage {
               <span class="npc-title">{{ npc.title }}</span>
             </div>
           </div>
-          <button class="close-btn" (click)="onClose.emit()">
-            <span>×</span>
-          </button>
+          <div class="header-actions">
+            <button class="skip-btn"
+                    (click)="skipTyping()"
+                    *ngIf="isTyping"
+                    title="Pular digitação">
+              <span>⏭</span>
+            </button>
+            <button class="close-btn" (click)="onClose.emit()">
+              <span>×</span>
+            </button>
+          </div>
         </div>
 
         <!-- Área de Mensagens -->
@@ -111,7 +119,7 @@ interface ChatMessage {
     ])
   ]
 })
-export class QuestChatModalComponent implements OnInit {
+export class QuestChatModalComponent implements OnInit, OnChanges {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
 
   @Input() npc!: NPC;
@@ -126,9 +134,37 @@ export class QuestChatModalComponent implements OnInit {
   currentOptions: DialogueOption[] = [];
   showContinue = false;
   typingSpeed = 50; // ms por caractere
+  private lastMessage = '';
+  private shouldSkipTyping = false;
 
   ngOnInit() {
     this.startDialogue();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // Detecta quando uma nova mensagem é recebida
+    if (changes['message'] && !changes['message'].firstChange) {
+      const newMessage = changes['message'].currentValue;
+
+      // Só adiciona se for uma mensagem diferente
+      if (newMessage && newMessage !== this.lastMessage) {
+        this.lastMessage = newMessage;
+        this.addNpcMessage(newMessage);
+
+        // Reseta opções
+        this.currentOptions = [];
+        this.showContinue = false;
+
+        // Mostra novas opções ou botão continuar após delay
+        setTimeout(() => {
+          if (this.options.length > 0) {
+            this.currentOptions = this.options;
+          } else if (!this.isTyping) {
+            this.showContinue = true;
+          }
+        }, 1000);
+      }
+    }
   }
 
   private startDialogue() {
@@ -200,6 +236,13 @@ export class QuestChatModalComponent implements OnInit {
   private async typeMessage(message: ChatMessage, fullText: string) {
     // Efeito de digitação letra por letra
     for (let i = 0; i <= fullText.length; i++) {
+      // Se foi solicitado pular, mostra texto completo imediatamente
+      if (this.shouldSkipTyping) {
+        message.text = fullText;
+        this.shouldSkipTyping = false;
+        break;
+      }
+
       message.text = fullText.slice(0, i);
 
       // Adiciona cursor piscando
@@ -229,6 +272,11 @@ export class QuestChatModalComponent implements OnInit {
     if (event.target === event.currentTarget) {
       this.onClose.emit();
     }
+  }
+
+  skipTyping() {
+    // Ativa flag para pular a digitação
+    this.shouldSkipTyping = true;
   }
 
   // Método público para adicionar novas mensagens durante o diálogo

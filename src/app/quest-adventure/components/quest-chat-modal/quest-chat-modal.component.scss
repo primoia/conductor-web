@@ -111,6 +111,13 @@
     }
   }
 
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .skip-btn,
   .close-btn {
     width: 32px;
     height: 32px;
@@ -118,7 +125,7 @@
     border: 2px solid #8B4513;
     background: rgba(255, 255, 255, 0.8);
     color: #8B4513;
-    font-size: 24px;
+    font-size: 20px;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -128,7 +135,20 @@
     &:hover {
       background: #8B4513;
       color: white;
+    }
+  }
+
+  .close-btn {
+    font-size: 24px;
+
+    &:hover {
       transform: rotate(90deg);
+    }
+  }
+
+  .skip-btn {
+    &:hover {
+      transform: scale(1.1);
     }
   }
 }

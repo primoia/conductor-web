@@ -25,55 +25,51 @@ export class DialogueService {
   // Public Observable
   activeDialogue$ = this.activeDialogueSubject.asObservable();
 
+  // Contador de conversas com o Guia
+  private guideConversationCount = 0;
+
   // Árvores de diálogo (hardcoded por enquanto, depois virá de JSON)
   private dialogueTrees: Record<string, Record<string, DialogueNode>> = {
     'guide_intro': {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Bem-vindo ao Salão da Guilda, Iniciado. Eu sou o Guia, e estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade.',
+        text: 'Bem-vindo ao Salão da Guilda, Iniciado. Eu sou o Guia, e estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade. Vamos começar conhecendo O Planejador - ele será fundamental para organizar suas ideias.',
         emotion: 'neutral',
         options: [
           {
             id: 'opt1',
-            text: 'É uma honra estar aqui!',
-            next: 'explain_mission',
+            text: 'Obrigado! Vou falar com O Planejador.',
+            next: 'unlock_scribe',
             xp: 20
           },
           {
             id: 'opt2',
-            text: 'Que companheiros?',
-            next: 'explain_team',
+            text: 'O que O Planejador faz?',
+            next: 'explain_scribe',
             xp: 10
           }
         ]
       },
-      'explain_mission': {
-        id: 'explain_mission',
+      'explain_scribe': {
+        id: 'explain_scribe',
         speaker: 'npc',
-        text: 'Sua primeira missão como Iniciado é simples mas importante: Orquestre a equipe para criar um estandarte de boas-vindas para nossa guilda.',
+        text: 'O Planejador transforma caos em clareza. Ele ouvirá sua visão e criará um plano detalhado. Sem um bom planejamento, até as melhores ideias se perdem.',
+        next: 'unlock_scribe'
+      },
+      'unlock_scribe': {
+        id: 'unlock_scribe',
+        speaker: 'npc',
+        text: 'Procure O Planejador pelo salão. Ele gosta de ficar em um dos cantos, sempre organizando seus pergaminhos. Tente procurar nos cantos da sala!',
         emotion: 'happy',
-        next: 'explain_process'
-      },
-      'explain_team': {
-        id: 'explain_team',
-        speaker: 'npc',
-        text: 'Cada especialista tem sua função: O Escriba planeja, a Artesã constrói, a Crítica refina. Juntos, transformam ideias em realidade.',
-        next: 'explain_mission'
-      },
-      'explain_process': {
-        id: 'explain_process',
-        speaker: 'npc',
-        text: 'Todo grande projeto começa com um plano. Procure o Escriba - ele está em sua mesa de trabalho. Ele transformará sua visão em especificações.',
-        emotion: 'neutral',
         action: {
-          type: 'unlock_npc',
+          type: 'set_target_npc',
           target: 'requirements_scribe'
         },
         options: [
           {
             id: 'opt1',
-            text: 'Entendido! Vou falar com o Escriba.',
+            text: 'Vou procurá-lo!',
             next: 'end',
             xp: 30,
             action: {
@@ -86,7 +82,85 @@ export class DialogueService {
       'end': {
         id: 'end',
         speaker: 'npc',
-        text: 'Vá com sabedoria, jovem Iniciado. Lembre-se: a excelência nasce da colaboração.',
+        text: 'Boa sorte, Iniciado. Retorne quando tiver o plano.',
+        emotion: 'happy'
+      }
+    },
+    'guide_second': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'Ah, você retornou! Vejo que obteve um plano com O Planejador. Excelente! Agora precisamos de alguém que transforme esse plano em realidade. Conheça A Executora!',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Onde encontro A Executora?',
+            next: 'unlock_artisan',
+            xp: 20
+          }
+        ]
+      },
+      'unlock_artisan': {
+        id: 'unlock_artisan',
+        speaker: 'npc',
+        text: 'A Executora trabalha em sua forja. Procure por ela em um dos cantos do salão. Ouça com atenção - talvez você escute o som do martelo batendo!',
+        action: {
+          type: 'set_target_npc',
+          target: 'artisan'
+        },
+        options: [
+          {
+            id: 'opt1',
+            text: 'Vou procurá-la agora!',
+            next: 'end',
+            xp: 30
+          }
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'Que a criatividade guie seus passos!',
+        emotion: 'happy'
+      }
+    },
+    'guide_third': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'Vejo o brilho da criação em seus olhos! A Executora fez um excelente trabalho, não? Mas lembre-se: toda obra pode ser aprimorada. É hora de conhecer A Refinadora.',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'A Refinadora vai ajudar a melhorar?',
+            next: 'unlock_critic',
+            xp: 20
+          }
+        ]
+      },
+      'unlock_critic': {
+        id: 'unlock_critic',
+        speaker: 'npc',
+        text: 'Sim! A Refinadora tem o olhar refinado necessário para elevar o bom ao excelente. Procure por ela em algum canto do salão. Ela aprecia contemplar as obras em silêncio.',
+        action: {
+          type: 'set_target_npc',
+          target: 'critic'
+        },
+        options: [
+          {
+            id: 'opt1',
+            text: 'Vou procurá-la!',
+            next: 'end',
+            xp: 30
+          }
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'A excelência está ao seu alcance, Iniciado!',
         emotion: 'happy'
       }
     },
@@ -95,7 +169,7 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Ah, o novo Iniciado! Prazer em conhecê-lo. Eu sou o Escriba. Minha função é transformar o caos de uma ideia em um plano claro e estruturado.',
+        text: 'Ah, o novo Iniciado! Prazer em conhecê-lo. Eu sou O Planejador. Minha função é transformar o caos de uma ideia em um plano claro e estruturado.',
         options: [
           {
             id: 'opt1',
@@ -181,12 +255,12 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Finalmente! Ação! Estava ficando entediada! Eu sou a Artesã. O Escriba sonha, planeja, teoriza... Mas sou EU quem constrói!',
+        text: 'Finalmente! Ação! Estava ficando entediada! Eu sou A Executora. O Planejador sonha, planeja, teoriza... Mas sou EU quem constrói!',
         emotion: 'happy',
         options: [
           {
             id: 'opt1',
-            text: 'Aqui está o plano do Escriba.',
+            text: 'Aqui está o plano do Planejador.',
             next: 'review_plan',
             xp: 20
           }
@@ -246,11 +320,11 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Eu já estava esperando você, Iniciado. Eu sou a Crítica. Meu olhar garante que cada criação não seja apenas funcional, mas excelente.',
+        text: 'Eu já estava esperando você, Iniciado. Eu sou A Refinadora. Meu olhar garante que cada criação não seja apenas funcional, mas excelente.',
         options: [
           {
             id: 'opt1',
-            text: 'A Artesã criou este estandarte. O que acha?',
+            text: 'A Executora criou este estandarte. O que acha?',
             next: 'analyze',
             xp: 20
           }
@@ -259,7 +333,7 @@ export class DialogueService {
       'analyze': {
         id: 'analyze',
         speaker: 'npc',
-        text: '*observa cuidadosamente* Hmm... A execução técnica é impecável. A Artesã fez um trabalho admirável, como sempre. A estrela está perfeita, o gradiente harmonioso...',
+        text: '*observa cuidadosamente* Hmm... A execução técnica é impecável. A Executora fez um trabalho admirável, como sempre. A estrela está perfeita, o gradiente harmonioso...',
         emotion: 'thinking',
         next: 'critique'
       },
@@ -344,9 +418,26 @@ export class DialogueService {
    * Inicia um diálogo com um NPC
    */
   startDialogue(npc: NPC) {
-    const tree = this.dialogueTrees[npc.dialogueTreeId];
+    // Se for o Guia, escolhe o diálogo baseado no progresso
+    let treeId = npc.dialogueTreeId;
+
+    if (npc.id === 'elder_guide') {
+      // Verifica quais NPCs estão desbloqueados para determinar o progresso
+      const scribeUnlocked = this.npcManager.getNPC('requirements_scribe')?.unlocked;
+      const artisanUnlocked = this.npcManager.getNPC('artisan')?.unlocked;
+
+      if (!scribeUnlocked) {
+        treeId = 'guide_intro'; // Primeira conversa
+      } else if (!artisanUnlocked) {
+        treeId = 'guide_second'; // Segunda conversa
+      } else {
+        treeId = 'guide_third'; // Terceira conversa
+      }
+    }
+
+    const tree = this.dialogueTrees[treeId];
     if (!tree) {
-      console.error(`Dialogue tree not found: ${npc.dialogueTreeId}`);
+      console.error(`Dialogue tree not found: ${treeId}`);
       return;
     }
 

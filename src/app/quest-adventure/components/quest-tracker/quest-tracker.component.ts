@@ -8,65 +8,73 @@ import { QuestObjective } from '../../models/quest.models';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="quest-tracker" [@slideIn]>
-      <!-- Header da Quest -->
-      <div class="quest-header">
-        <span class="quest-icon">🎯</span>
-        <h3 class="quest-title">{{ questTitle }}</h3>
-      </div>
+    <div class="quest-tracker" [@slideIn] [class.collapsed]="isCollapsed">
+      <!-- Toggle Button -->
+      <button class="tracker-toggle" (click)="toggleCollapse()" [attr.aria-label]="isCollapsed ? 'Expandir rastreador' : 'Esconder rastreador'">
+        <span class="toggle-icon">{{ isCollapsed ? '▶' : '◀' }}</span>
+      </button>
 
-      <!-- Barra de Progresso da Quest -->
-      <div class="quest-progress">
-        <div class="progress-bar">
-          <div class="progress-fill"
-               [style.width.%]="progressPercent"
-               [@progressAnimation]>
-          </div>
-        </div>
-        <span class="progress-text">{{ completedCount }}/{{ totalCount }}</span>
-      </div>
-
-      <!-- Lista de Objetivos -->
-      <div class="quest-objectives">
-        <div *ngFor="let objective of objectives; trackBy: trackByObjectiveId"
-             class="objective-item"
-             [class.completed]="objective.completed"
-             [class.current]="objective.current"
-             [@taskAnimation]>
-          <span class="objective-checkbox">
-            <span *ngIf="objective.completed">✅</span>
-            <span *ngIf="!objective.completed && objective.current">⏳</span>
-            <span *ngIf="!objective.completed && !objective.current">☐</span>
-          </span>
-          <span class="objective-text">{{ objective.text }}</span>
-        </div>
-      </div>
-
-      <!-- Separador -->
-      <div class="tracker-separator"></div>
-
-      <!-- Display de XP e Nível -->
-      <div class="player-stats">
-        <div class="level-badge">
-          <span class="level-label">Nível</span>
-          <span class="level-number">{{ playerLevel ?? 1 }}</span>
+      <!-- Conteúdo do Tracker -->
+      <div class="tracker-content" [@collapseAnimation]="isCollapsed ? 'collapsed' : 'expanded'">
+        <!-- Header da Quest -->
+        <div class="quest-header">
+          <span class="quest-icon">🎯</span>
+          <h3 class="quest-title">{{ questTitle }}</h3>
         </div>
 
-        <div class="xp-section">
-          <div class="xp-bar">
-            <div class="xp-fill"
-                 [style.width.%]="xpPercent"
-                 [@xpAnimation]>
+        <!-- Barra de Progresso da Quest -->
+        <div class="quest-progress">
+          <div class="progress-bar">
+            <div class="progress-fill"
+                 [style.width.%]="progressPercent"
+                 [@progressAnimation]>
             </div>
-            <div class="xp-glow" [style.width.%]="xpPercent"></div>
           </div>
-          <span class="xp-text">{{ playerXP ?? 0 }}/{{ xpToNextLevel ?? 100 }} XP</span>
+          <span class="progress-text">{{ completedCount }}/{{ totalCount }}</span>
         </div>
-      </div>
 
-      <!-- Indicador de Nova Quest -->
-      <div class="new-quest-indicator" *ngIf="showNewQuestIndicator" [@pulseAnimation]>
-        <span>Nova Missão!</span>
+        <!-- Lista de Objetivos -->
+        <div class="quest-objectives">
+          <div *ngFor="let objective of objectives; trackBy: trackByObjectiveId"
+               class="objective-item"
+               [class.completed]="objective.completed"
+               [class.current]="objective.current"
+               [@taskAnimation]>
+            <span class="objective-checkbox">
+              <span *ngIf="objective.completed">✅</span>
+              <span *ngIf="!objective.completed && objective.current">⏳</span>
+              <span *ngIf="!objective.completed && !objective.current">☐</span>
+            </span>
+            <span class="objective-text">{{ objective.text }}</span>
+          </div>
+        </div>
+
+        <!-- Separador -->
+        <div class="tracker-separator"></div>
+
+        <!-- Display de XP e Nível -->
+        <div class="player-stats">
+          <div class="level-badge">
+            <span class="level-label">Nível</span>
+            <span class="level-number">{{ playerLevel ?? 1 }}</span>
+          </div>
+
+          <div class="xp-section">
+            <div class="xp-bar">
+              <div class="xp-fill"
+                   [style.width.%]="xpPercent"
+                   [@xpAnimation]>
+              </div>
+              <div class="xp-glow" [style.width.%]="xpPercent"></div>
+            </div>
+            <span class="xp-text">{{ playerXP ?? 0 }}/{{ xpToNextLevel ?? 100 }} XP</span>
+          </div>
+        </div>
+
+        <!-- Indicador de Nova Quest -->
+        <div class="new-quest-indicator" *ngIf="showNewQuestIndicator" [@pulseAnimation]>
+          <span>Nova Missão!</span>
+        </div>
       </div>
     </div>
   `,
@@ -76,6 +84,21 @@ import { QuestObjective } from '../../models/quest.models';
       transition(':enter', [
         style({ transform: 'translateX(-100%)' }),
         animate('300ms ease-out', style({ transform: 'translateX(0)' }))
+      ])
+    ]),
+    trigger('collapseAnimation', [
+      state('expanded', style({
+        opacity: 1,
+        width: '*',
+        overflow: 'visible'
+      })),
+      state('collapsed', style({
+        opacity: 0,
+        width: 0,
+        overflow: 'hidden'
+      })),
+      transition('expanded <=> collapsed', [
+        animate('300ms ease-in-out')
       ])
     ]),
     trigger('taskAnimation', [
@@ -129,6 +152,11 @@ export class QuestTrackerComponent implements OnChanges {
   progressPercent = 0;
   xpPercent = 0;
   showNewQuestIndicator = false;
+  isCollapsed = false;
+
+  toggleCollapse() {
+    this.isCollapsed = !this.isCollapsed;
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['objectives']) {

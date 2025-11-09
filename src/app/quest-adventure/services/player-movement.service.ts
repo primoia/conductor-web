@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, interval } from 'rxjs';
-import { takeWhile } from 'rxjs/operators';
+import { BehaviorSubject, Observable } from 'rxjs';
 import { Position } from '../models/quest.models';
 
 @Injectable({
@@ -27,8 +26,8 @@ export class PlayerMovementService {
   isMoving$ = this.isMovingSubject.asObservable();
   direction$ = this.directionSubject.asObservable();
 
-  // Limites do mapa
-  private readonly MAP_BOUNDS = {
+  // Limites do mapa (dinâmicos)
+  private MAP_BOUNDS = {
     minX: 50,
     maxX: 974,
     minY: 50,
@@ -36,6 +35,32 @@ export class PlayerMovementService {
   };
 
   constructor() {}
+
+  /**
+   * Atualiza os limites do mapa baseado no tamanho do canvas
+   */
+  updateMapBounds(canvasWidth: number, canvasHeight: number) {
+    this.MAP_BOUNDS = {
+      minX: 50,
+      maxX: canvasWidth - 50,
+      minY: 50,
+      maxY: canvasHeight - 50
+    };
+  }
+
+  /**
+   * Obtém a posição atual do player
+   */
+  getCurrentPosition(): Position {
+    return { ...this.position };
+  }
+
+  /**
+   * Verifica se o player está em movimento
+   */
+  isCurrentlyMoving(): boolean {
+    return this.isMoving;
+  }
 
   /**
    * Define a posição inicial do player
@@ -74,36 +99,44 @@ export class PlayerMovementService {
     // Determina direção
     this.updateDirection(startPos, endPos);
 
-    const startTime = Date.now();
-    const animationInterval = 16; // ~60 FPS
+    const startTime = performance.now();
+    let animationFrameId: number;
 
-    // Cria o path de movimento
-    const movePath = this.createPath(startPos, endPos);
-    let currentPathIndex = 0;
+    const animate = (currentTime: number) => {
+      if (!this.isMoving) return;
 
-    interval(animationInterval)
-      .pipe(
-        takeWhile(() => this.isMoving && Date.now() - startTime < duration)
-      )
-      .subscribe(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
 
-        // Interpolação linear simples
-        this.position.x = startPos.x + (endPos.x - startPos.x) * progress;
-        this.position.y = startPos.y + (endPos.y - startPos.y) * progress;
+      // Função de easing suave (ease-out)
+      const easedProgress = this.easeOutQuad(progress);
 
-        // Atualiza frame de animação
-        this.animationFrame = Math.floor((elapsed / 100) % 4);
+      // Interpolação suave com easing
+      this.position.x = startPos.x + (endPos.x - startPos.x) * easedProgress;
+      this.position.y = startPos.y + (endPos.y - startPos.y) * easedProgress;
 
-        // Emite nova posição
-        this.positionSubject.next({ ...this.position });
+      // Atualiza frame de animação
+      this.animationFrame = Math.floor((elapsed / 100) % 4);
 
-        // Verifica se chegou ao destino
-        if (progress >= 1) {
-          this.stopMovement();
-        }
-      });
+      // Emite nova posição (cria novo objeto para evitar mutação)
+      this.positionSubject.next({ x: this.position.x, y: this.position.y });
+
+      // Continua animação ou finaliza
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      } else {
+        this.stopMovement();
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Função de easing para movimento suave (ease-out quadrático)
+   */
+  private easeOutQuad(t: number): number {
+    return t * (2 - t);
   }
 
   /**

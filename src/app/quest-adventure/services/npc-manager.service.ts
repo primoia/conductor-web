@@ -132,6 +132,39 @@ export class NpcManagerService {
   }
 
   /**
+   * Reposiciona NPCs baseado no tamanho do canvas (nos cantos)
+   */
+  repositionNPCs(canvasWidth: number, canvasHeight: number) {
+    const margin = 150; // Margem das bordas
+
+    // Guia Ancião - Centro do mapa
+    const guide = this.getNPC('elder_guide');
+    if (guide) {
+      guide.position = { x: canvasWidth / 2, y: canvasHeight / 2 };
+    }
+
+    // Escriba - Canto superior esquerdo
+    const scribe = this.getNPC('requirements_scribe');
+    if (scribe) {
+      scribe.position = { x: margin, y: margin };
+    }
+
+    // Artesã - Canto inferior direito
+    const artisan = this.getNPC('artisan');
+    if (artisan) {
+      artisan.position = { x: canvasWidth - margin, y: canvasHeight - margin };
+    }
+
+    // Crítica - Canto superior direito
+    const critic = this.getNPC('critic');
+    if (critic) {
+      critic.position = { x: canvasWidth - margin, y: margin };
+    }
+
+    this.updateNPCs();
+  }
+
+  /**
    * Carrega NPCs (pode ser de arquivo JSON futuramente)
    */
   async loadNPCs(): Promise<void> {
@@ -171,11 +204,10 @@ export class NpcManagerService {
 
   /**
    * Verifica se uma posição está próxima de um NPC
+   * Agora permite cliques em NPCs bloqueados para o sistema de descoberta
    */
   getNPCAtPosition(position: Position): NPC | undefined {
     return this.npcs.find(npc => {
-      if (!npc.unlocked) return false;
-
       const distance = Math.sqrt(
         Math.pow(position.x - npc.position.x, 2) +
         Math.pow(position.y - npc.position.y, 2)
