@@ -2,27 +2,36 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(20, 20, 30, 0.9));
-  border: 2px solid #FFD700;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.75), rgba(20, 20, 30, 0.75));
+  border: 2px solid rgba(255, 215, 0, 0.6);
   border-radius: 12px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 215, 0, 0.2);
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 215, 0, 0.15);
   backdrop-filter: blur(10px);
   z-index: 100;
   transition: all 0.3s ease-in-out;
 
   &.collapsed {
-    width: 50px;
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    cursor: move;
+    user-select: none;
 
-    .tracker-toggle {
-      border-radius: 12px;
+    &:hover {
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 30, 0.85));
+      border-color: #FFD700;
     }
   }
 
   &:not(.collapsed) {
     width: 280px;
     padding: 16px;
+  }
+
+  &.has-notification {
+    animation: shake 0.5s ease-in-out;
   }
 
   // Mobile: bottom of screen, full width
@@ -43,6 +52,53 @@
       border-radius: 12px 12px 0 0;
     }
   }
+}
+
+// Drag Handle (ícone quando colapsado)
+.drag-handle {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: move;
+
+  .quest-icon-collapsed {
+    font-size: 32px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .notification-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #FF6B6B, #FF4757);
+    border-radius: 50%;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.6);
+    animation: pulse-notification 1.5s ease-in-out infinite;
+  }
+}
+
+// Botão de expandir (invisível, cobre toda a área quando colapsado)
+.expand-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  z-index: 1;
 }
 
 .tracker-toggle {
@@ -357,6 +413,29 @@
   }
 }
 
+@keyframes pulse-notification {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.6);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 4px 16px rgba(255, 71, 87, 0.9);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
 // Mobile adjustments
 @media (max-width: 768px) {
   .quest-tracker {
@@ -391,5 +470,34 @@
         }
       }
     }
+  }
+}
+
+// Botão de Reset
+.reset-button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.8), rgba(176, 42, 55, 0.8));
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 1), rgba(176, 42, 55, 1));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }

@@ -15,6 +15,7 @@ export class PlayerMovementService {
   // Sprites e animação
   private currentDirection: 'up' | 'down' | 'left' | 'right' | 'idle' = 'idle';
   private animationFrame = 0;
+  private currentAnimationFrameId: number | null = null;
 
   // Subjects
   private positionSubject = new BehaviorSubject<Position>(this.position);
@@ -100,7 +101,6 @@ export class PlayerMovementService {
     this.updateDirection(startPos, endPos);
 
     const startTime = performance.now();
-    let animationFrameId: number;
 
     const animate = (currentTime: number) => {
       if (!this.isMoving) return;
@@ -123,13 +123,13 @@ export class PlayerMovementService {
 
       // Continua animação ou finaliza
       if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
+        this.currentAnimationFrameId = requestAnimationFrame(animate);
       } else {
         this.stopMovement();
       }
     };
 
-    animationFrameId = requestAnimationFrame(animate);
+    this.currentAnimationFrameId = requestAnimationFrame(animate);
   }
 
   /**
@@ -147,6 +147,12 @@ export class PlayerMovementService {
   }
 
   private stopMovement() {
+    // Cancela animação em andamento
+    if (this.currentAnimationFrameId !== null) {
+      cancelAnimationFrame(this.currentAnimationFrameId);
+      this.currentAnimationFrameId = null;
+    }
+
     this.isMoving = false;
     this.isMovingSubject.next(false);
     this.targetPosition = null;

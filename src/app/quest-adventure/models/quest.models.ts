@@ -23,7 +23,7 @@ export interface NPC {
 }
 
 export interface NPCPersonality {
-  trait: 'wise' | 'methodical' | 'energetic' | 'refined';
+  trait: 'wise' | 'methodical' | 'energetic' | 'refined' | 'knowledgeable';
   greetingStyle: string;
   workingPhrases: string[];
   successPhrase: string;
@@ -39,7 +39,7 @@ export interface DialogueNode {
   id: string;
   speaker: 'npc' | 'player';
   text: string;
-  emotion?: 'neutral' | 'happy' | 'thinking' | 'proud';
+  emotion?: 'neutral' | 'happy' | 'thinking' | 'proud' | 'wise';
   options?: DialogueOption[];
   next?: string;
   action?: DialogueAction;

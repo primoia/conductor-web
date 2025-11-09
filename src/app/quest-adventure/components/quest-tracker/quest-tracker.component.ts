@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, HostListener, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { QuestObjective } from '../../models/quest.models';
@@ -8,10 +8,28 @@ import { QuestObjective } from '../../models/quest.models';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="quest-tracker" [@slideIn] [class.collapsed]="isCollapsed">
-      <!-- Toggle Button -->
-      <button class="tracker-toggle" (click)="toggleCollapse()" [attr.aria-label]="isCollapsed ? 'Expandir rastreador' : 'Esconder rastreador'">
-        <span class="toggle-icon">{{ isCollapsed ? '▶' : '◀' }}</span>
+    <div #trackerElement class="quest-tracker" [@slideIn]
+         [class.collapsed]="isCollapsed"
+         [class.has-notification]="hasNotification"
+         [style.left.px]="positionX"
+         [style.top.px]="positionY">
+
+      <!-- Drag Handle (apenas quando colapsado) -->
+      <div *ngIf="isCollapsed"
+           class="drag-handle"
+           (mousedown)="onDragStart($event)"
+           (touchstart)="onDragStart($event)">
+        <span class="quest-icon-collapsed">🎯</span>
+        <span class="notification-badge" *ngIf="hasNotification">!</span>
+      </div>
+
+      <!-- Toggle Button (apenas quando expandido) -->
+      <button *ngIf="!isCollapsed" class="tracker-toggle" (click)="toggleCollapse()" [attr.aria-label]="'Esconder rastreador'">
+        <span class="toggle-icon">◀</span>
+      </button>
+
+      <!-- Expand Button (apenas quando colapsado) -->
+      <button *ngIf="isCollapsed" class="expand-button" (click)="toggleCollapse()" [attr.aria-label]="'Expandir rastreador'">
       </button>
 
       <!-- Conteúdo do Tracker -->
@@ -75,6 +93,12 @@ import { QuestObjective } from '../../models/quest.models';
         <div class="new-quest-indicator" *ngIf="showNewQuestIndicator" [@pulseAnimation]>
           <span>Nova Missão!</span>
         </div>
+
+        <!-- Botão de Reset -->
+        <div class="tracker-separator"></div>
+        <button class="reset-button" (click)="resetProgress()" title="Recomeçar do início">
+          🔄 Recomeçar
+        </button>
       </div>
     </div>
   `,
@@ -141,11 +165,15 @@ import { QuestObjective } from '../../models/quest.models';
   ]
 })
 export class QuestTrackerComponent implements OnChanges {
+  @ViewChild('trackerElement') trackerElement!: ElementRef<HTMLDivElement>;
+
   @Input() questTitle = 'Quest';
   @Input() objectives: QuestObjective[] | null = [];
   @Input() playerLevel: number | null = 1;
   @Input() playerXP: number | null = 0;
   @Input() xpToNextLevel: number | null = 100;
+
+  @Output() onReset = new EventEmitter<void>();
 
   completedCount = 0;
   totalCount = 0;
@@ -153,13 +181,81 @@ export class QuestTrackerComponent implements OnChanges {
   xpPercent = 0;
   showNewQuestIndicator = false;
   isCollapsed = false;
+  hasNotification = false;
+
+  // Drag properties
+  isDragging = false;
+  positionX: number | null = null;
+  positionY: number | null = null;
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private elementStartX = 0;
+  private elementStartY = 0;
 
   toggleCollapse() {
     this.isCollapsed = !this.isCollapsed;
+
+    // Limpa notificação ao expandir
+    if (!this.isCollapsed) {
+      this.hasNotification = false;
+    }
+  }
+
+  resetProgress() {
+    if (confirm('Tem certeza que deseja recomeçar? Todo o progresso será perdido.')) {
+      this.onReset.emit();
+    }
+  }
+
+  onDragStart(event: MouseEvent | TouchEvent) {
+    if (!this.isCollapsed) return;
+
+    event.preventDefault();
+    this.isDragging = true;
+
+    // Pega a posição inicial do mouse/touch
+    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+
+    this.dragStartX = clientX;
+    this.dragStartY = clientY;
+
+    // Pega a posição atual do elemento
+    const rect = this.trackerElement.nativeElement.getBoundingClientRect();
+    this.elementStartX = rect.left;
+    this.elementStartY = rect.top;
+
+    // Se não tem posição definida ainda, usa a posição atual
+    if (this.positionX === null) {
+      this.positionX = this.elementStartX;
+      this.positionY = this.elementStartY;
+    }
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  @HostListener('document:touchmove', ['$event'])
+  onDrag(event: MouseEvent | TouchEvent) {
+    if (!this.isDragging) return;
+
+    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
+    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
+
+    const deltaX = clientX - this.dragStartX;
+    const deltaY = clientY - this.dragStartY;
+
+    this.positionX = this.elementStartX + deltaX;
+    this.positionY = this.elementStartY + deltaY;
+  }
+
+  @HostListener('document:mouseup')
+  @HostListener('document:touchend')
+  onDragEnd() {
+    this.isDragging = false;
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['objectives']) {
+      this.checkForCompletedObjective(changes['objectives']);
       this.updateProgress();
       this.checkForNewQuest(changes['objectives']);
     }
@@ -170,6 +266,25 @@ export class QuestTrackerComponent implements OnChanges {
 
     if (changes['playerLevel'] && !changes['playerLevel'].firstChange) {
       this.onLevelUp();
+    }
+  }
+
+  private checkForCompletedObjective(change: any) {
+    const oldObjectives = change.previousValue || [];
+    const newObjectives = change.currentValue || [];
+
+    // Verifica se algum objetivo foi completado agora
+    for (let i = 0; i < newObjectives.length; i++) {
+      const newObj = newObjectives[i];
+      const oldObj = oldObjectives[i];
+
+      if (oldObj && !oldObj.completed && newObj.completed) {
+        // Objetivo foi completado! Mostra notificação se estiver colapsado
+        if (this.isCollapsed) {
+          this.hasNotification = true;
+        }
+        break;
+      }
     }
   }
 

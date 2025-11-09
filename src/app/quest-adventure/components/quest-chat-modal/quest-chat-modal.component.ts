@@ -240,6 +240,7 @@ export class QuestChatModalComponent implements OnInit, OnChanges {
       if (this.shouldSkipTyping) {
         message.text = fullText;
         this.shouldSkipTyping = false;
+        this.scrollToBottomImmediate();
         break;
       }
 
@@ -250,8 +251,16 @@ export class QuestChatModalComponent implements OnInit, OnChanges {
         message.text += '|';
       }
 
+      // Scroll automático a cada poucos caracteres para acompanhar digitação
+      if (i % 5 === 0) {
+        this.scrollToBottomImmediate();
+      }
+
       await this.delay(this.typingSpeed);
     }
+
+    // Garante scroll final
+    this.scrollToBottomImmediate();
   }
 
   private delay(ms: number): Promise<void> {
@@ -265,6 +274,13 @@ export class QuestChatModalComponent implements OnInit, OnChanges {
         element.scrollTop = element.scrollHeight;
       }
     }, 100);
+  }
+
+  private scrollToBottomImmediate() {
+    if (this.messagesContainer) {
+      const element = this.messagesContainer.nativeElement;
+      element.scrollTop = element.scrollHeight;
+    }
   }
 
   handleOverlayClick(event: MouseEvent) {

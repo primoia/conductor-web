@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { QuestCanvasComponent } from './components/quest-canvas/quest-canvas.component';
 import { QuestChatModalComponent } from './components/quest-chat-modal/quest-chat-modal.component';
 import { QuestTrackerComponent } from './components/quest-tracker/quest-tracker.component';
@@ -16,6 +17,7 @@ import { takeUntil } from 'rxjs/operators';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     QuestCanvasComponent,
     QuestChatModalComponent,
     QuestTrackerComponent
@@ -27,6 +29,7 @@ import { takeUntil } from 'rxjs/operators';
         [npcs]="npcs$ | async"
         [playerPosition]="playerPosition$ | async"
         [isPlayerMoving]="isMoving$ | async"
+        [playerName]="playerName"
         [focusTarget]="focusTarget"
         (onCanvasClick)="handleCanvasClick($event)"
         (onCanvasResize)="handleCanvasResize($event)">
@@ -38,7 +41,8 @@ import { takeUntil } from 'rxjs/operators';
         [objectives]="questObjectives$ | async"
         [playerLevel]="playerLevel$ | async"
         [playerXP]="playerXP$ | async"
-        [xpToNextLevel]="xpToNextLevel$ | async">
+        [xpToNextLevel]="xpToNextLevel$ | async"
+        (onReset)="handleReset()">
       </app-quest-tracker>
 
       <!-- Chat Modal (Diálogos com NPCs) -->
@@ -53,15 +57,26 @@ import { takeUntil } from 'rxjs/operators';
       </app-quest-chat-modal>
 
       <!-- Overlay de Introdução (primeira vez) -->
-      <div class="intro-overlay" *ngIf="showIntro" (click)="skipIntro()">
-        <div class="intro-content">
+      <div class="intro-overlay" *ngIf="showIntro">
+        <div class="intro-content" (click)="$event.stopPropagation()">
           <h1 class="intro-title">A Jornada do Iniciado</h1>
           <p class="intro-subtitle">Conhecendo a Equipe</p>
           <div class="intro-text">
             <p>Você é um Iniciado chegando ao Salão da Guilda dos Condutores.</p>
             <p>Sua missão: aprender a orquestrar especialistas para transformar ideias em realidade.</p>
           </div>
-          <button class="intro-button" (click)="startQuest()">
+          <div class="intro-name-input">
+            <label for="playerName">Qual é o seu nome, Iniciado?</label>
+            <input
+              type="text"
+              id="playerName"
+              [(ngModel)]="playerName"
+              placeholder="Digite seu nome"
+              maxlength="20"
+              (keyup.enter)="startQuest()"
+              autofocus>
+          </div>
+          <button class="intro-button" (click)="startQuest()" [disabled]="!playerName.trim()">
             Começar Jornada
           </button>
         </div>
@@ -95,6 +110,7 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   isLoading = false;
   isMobile = false;
   focusTarget: string | null = null;
+  playerName = '';
 
   constructor(
     private questState: QuestStateService,
@@ -129,11 +145,18 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
     this.isLoading = true;
 
     try {
-      // Carrega estado salvo ou inicia novo
-      const hasSave = await this.questState.loadOrInitialize();
+      // Verifica se deve forçar a intro (após reset)
+      const forceIntro = sessionStorage.getItem('force_intro');
+      if (forceIntro) {
+        sessionStorage.removeItem('force_intro');
+        this.showIntro = true;
+      } else {
+        // Carrega estado salvo ou inicia novo
+        const hasSave = await this.questState.loadOrInitialize();
 
-      if (hasSave) {
-        this.showIntro = false;
+        if (hasSave) {
+          this.showIntro = false;
+        }
       }
 
       // Inicializa NPCs
@@ -153,8 +176,9 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
     // Posiciona player no centro
     this.movement.setPosition({ x: 512, y: 400 });
 
-    // Desbloqueia apenas o Guia inicialmente
+    // Desbloqueia o Guia e a Biblioteca inicialmente
     this.npcManager.unlockNPC('elder_guide');
+    this.npcManager.unlockNPC('librarian');
   }
 
   private setupEventListeners() {
@@ -437,6 +461,20 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
           this.focusTarget = null;
       }
     }
+  }
+
+  handleReset() {
+    // Limpa localStorage completamente
+    localStorage.clear();
+
+    // Limpa o nome do player
+    this.playerName = '';
+
+    // Força mostrar intro novamente
+    sessionStorage.setItem('force_intro', 'true');
+
+    // Recarrega a página
+    window.location.reload();
   }
 
   private checkMobileDevice() {

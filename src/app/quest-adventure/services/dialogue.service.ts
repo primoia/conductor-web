@@ -62,10 +62,6 @@ export class DialogueService {
         speaker: 'npc',
         text: 'Procure O Planejador pelo salão. Ele gosta de ficar em um dos cantos, sempre organizando seus pergaminhos. Tente procurar nos cantos da sala!',
         emotion: 'happy',
-        action: {
-          type: 'set_target_npc',
-          target: 'requirements_scribe'
-        },
         options: [
           {
             id: 'opt1',
@@ -73,8 +69,8 @@ export class DialogueService {
             next: 'end',
             xp: 30,
             action: {
-              type: 'complete_objective',
-              objective: 'talk_to_guide'
+              type: 'unlock_npc',
+              target: 'requirements_scribe'
             }
           }
         ]
@@ -83,7 +79,11 @@ export class DialogueService {
         id: 'end',
         speaker: 'npc',
         text: 'Boa sorte, Iniciado. Retorne quando tiver o plano.',
-        emotion: 'happy'
+        emotion: 'happy',
+        action: {
+          type: 'complete_objective',
+          objective: 'talk_to_guide'
+        }
       }
     },
     'guide_second': {
@@ -105,16 +105,16 @@ export class DialogueService {
         id: 'unlock_artisan',
         speaker: 'npc',
         text: 'A Executora trabalha em sua forja. Procure por ela em um dos cantos do salão. Ouça com atenção - talvez você escute o som do martelo batendo!',
-        action: {
-          type: 'set_target_npc',
-          target: 'artisan'
-        },
         options: [
           {
             id: 'opt1',
             text: 'Vou procurá-la agora!',
             next: 'end',
-            xp: 30
+            xp: 30,
+            action: {
+              type: 'unlock_npc',
+              target: 'artisan'
+            }
           }
         ]
       },
@@ -144,16 +144,16 @@ export class DialogueService {
         id: 'unlock_critic',
         speaker: 'npc',
         text: 'Sim! A Refinadora tem o olhar refinado necessário para elevar o bom ao excelente. Procure por ela em algum canto do salão. Ela aprecia contemplar as obras em silêncio.',
-        action: {
-          type: 'set_target_npc',
-          target: 'critic'
-        },
         options: [
           {
             id: 'opt1',
             text: 'Vou procurá-la!',
             next: 'end',
-            xp: 30
+            xp: 30,
+            action: {
+              type: 'unlock_npc',
+              target: 'critic'
+            }
           }
         ]
       },
@@ -405,6 +405,62 @@ export class DialogueService {
           type: 'complete_objective',
           objective: 'talk_to_critic'
         }
+      }
+    },
+
+    'librarian_intro': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'Bem-vindo à Biblioteca! Aqui guardamos todo o conhecimento da Guilda dos Condutores. Eu sou A Guardiã do Conhecimento.',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'O que posso aprender aqui?',
+            next: 'explain',
+            xp: 10
+          },
+          {
+            id: 'opt2',
+            text: 'Que tipo de conhecimento vocês guardam?',
+            next: 'archives',
+            xp: 10
+          }
+        ]
+      },
+      'explain': {
+        id: 'explain',
+        speaker: 'npc',
+        text: 'Cada tomo aqui registra as técnicas dos mestres Condutores. Documentação de projetos, estratégias de orquestração, padrões de comunicação entre especialistas...',
+        emotion: 'thinking',
+        next: 'wisdom'
+      },
+      'archives': {
+        id: 'archives',
+        speaker: 'npc',
+        text: 'Guardamos os registros de todos os projetos da Guilda. Cada sucesso, cada desafio superado, cada lição aprendida. O conhecimento não é apenas para ser usado, mas para ser compartilhado.',
+        emotion: 'wise',
+        next: 'wisdom'
+      },
+      'wisdom': {
+        id: 'wisdom',
+        speaker: 'npc',
+        text: 'Lembre-se: um bom Condutor não apenas coordena especialistas - ele aprende com cada um deles. A biblioteca está sempre aberta quando precisar de orientação.',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Obrigado, voltarei quando precisar!',
+            next: 'end',
+            xp: 20
+          }
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'Que o conhecimento ilumine sua jornada, Iniciado!',
+        emotion: 'happy'
       }
     }
   };

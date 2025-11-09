@@ -67,6 +67,43 @@
   }
 }
 
+.intro-name-input {
+  margin: 30px 0;
+  text-align: center;
+
+  label {
+    display: block;
+    font-size: 1.1rem;
+    color: #FFD700;
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+
+  input {
+    width: 100%;
+    max-width: 300px;
+    padding: 12px 20px;
+    font-size: 1.1rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 215, 0, 0.3);
+    border-radius: 25px;
+    color: #FFD700;
+    outline: none;
+    transition: all 0.3s ease;
+
+    &::placeholder {
+      color: rgba(255, 215, 0, 0.5);
+    }
+
+    &:focus {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #FFD700;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    }
+  }
+}
+
 .intro-button {
   padding: 15px 40px;
   font-size: 1.2rem;
@@ -86,6 +123,13 @@
 
   &:active {
     transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
   }
 }
 

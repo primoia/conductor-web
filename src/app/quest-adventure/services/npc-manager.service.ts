@@ -35,7 +35,7 @@ export class NpcManagerService {
     {
       id: 'requirements_scribe',
       name: 'Escriba',
-      emoji: '📋',
+      emoji: '👨‍💼',
       title: 'O Planejador',
       position: { x: 300, y: 300 },
       unlocked: false,
@@ -58,7 +58,7 @@ export class NpcManagerService {
     {
       id: 'artisan',
       name: 'Artesã',
-      emoji: '⚒️',
+      emoji: '👩‍🔧',
       title: 'A Executora',
       position: { x: 700, y: 300 },
       unlocked: false,
@@ -81,7 +81,7 @@ export class NpcManagerService {
     {
       id: 'critic',
       name: 'Crítica',
-      emoji: '🎨',
+      emoji: '👩‍🎨',
       title: 'A Refinadora',
       position: { x: 512, y: 200 },
       unlocked: false,
@@ -100,6 +100,29 @@ export class NpcManagerService {
       },
       currentIndicator: 'none',
       dialogueTreeId: 'critic_review'
+    },
+    {
+      id: 'librarian',
+      name: 'Bibliotecária',
+      emoji: '📚',
+      title: 'A Guardiã do Conhecimento',
+      position: { x: 150, y: 600 },
+      unlocked: true,
+      sprite: 'librarian',
+      agentId: 'Knowledge_Agent',
+      greeting: 'Bem-vindo à Biblioteca! Aqui guardamos todo o conhecimento da Guilda.',
+      personality: {
+        trait: 'knowledgeable',
+        greetingStyle: 'scholarly',
+        workingPhrases: [
+          'Deixe-me consultar os arquivos...',
+          'Há um tomo sobre isso...',
+          'Ah sim, está registrado aqui...'
+        ],
+        successPhrase: 'O conhecimento é poder, Iniciado!'
+      },
+      currentIndicator: 'none',
+      dialogueTreeId: 'librarian_intro'
     }
   ];
 
@@ -120,9 +143,9 @@ export class NpcManagerService {
    * Inicializa NPCs com estado padrão
    */
   private initializeNPCs() {
-    // Apenas o Guia começa desbloqueado
+    // Apenas o Guia e a Biblioteca começam desbloqueados
     this.npcs.forEach(npc => {
-      if (npc.id !== 'elder_guide') {
+      if (npc.id !== 'elder_guide' && npc.id !== 'librarian') {
         npc.unlocked = false;
         npc.currentIndicator = 'none';
       }
@@ -135,7 +158,13 @@ export class NpcManagerService {
    * Reposiciona NPCs baseado no tamanho do canvas (nos cantos)
    */
   repositionNPCs(canvasWidth: number, canvasHeight: number) {
-    const margin = 150; // Margem das bordas
+    // Detecta se é mobile baseado no tamanho do canvas
+    const isMobile = canvasWidth < 768;
+
+    // Define margem baseado no dispositivo
+    // Desktop: margem maior para evitar NPCs colados nas extremidades
+    // Mobile: margem menor e ajustada para evitar sobreposição
+    const margin = isMobile ? 80 : 200;
 
     // Guia Ancião - Centro do mapa
     const guide = this.getNPC('elder_guide');
@@ -146,19 +175,33 @@ export class NpcManagerService {
     // Escriba - Canto superior esquerdo
     const scribe = this.getNPC('requirements_scribe');
     if (scribe) {
-      scribe.position = { x: margin, y: margin };
+      // Em mobile, posiciona mais à direita para evitar ficar colado
+      const xPosition = isMobile ? margin + 30 : margin;
+      scribe.position = { x: xPosition, y: margin };
     }
 
     // Artesã - Canto inferior direito
     const artisan = this.getNPC('artisan');
     if (artisan) {
-      artisan.position = { x: canvasWidth - margin, y: canvasHeight - margin };
+      // Em mobile, adiciona offset para espaçamento
+      const xOffset = isMobile ? margin + 30 : margin;
+      artisan.position = { x: canvasWidth - xOffset, y: canvasHeight - margin };
     }
 
     // Crítica - Canto superior direito
     const critic = this.getNPC('critic');
     if (critic) {
-      critic.position = { x: canvasWidth - margin, y: margin };
+      // Em mobile, adiciona offset para espaçamento
+      const xOffset = isMobile ? margin + 30 : margin;
+      critic.position = { x: canvasWidth - xOffset, y: margin };
+    }
+
+    // Bibliotecária - Canto inferior esquerdo
+    const librarian = this.getNPC('librarian');
+    if (librarian) {
+      // Em mobile, posiciona mais à direita para evitar ficar colado
+      const xPosition = isMobile ? margin + 30 : margin;
+      librarian.position = { x: xPosition, y: canvasHeight - margin };
     }
 
     this.updateNPCs();

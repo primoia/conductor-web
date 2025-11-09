@@ -35,7 +35,7 @@ import { NPC, Position } from '../../models/quest.models';
              [attr.data-npc-name]="npc.unlocked ? npc.name : '???'"
              [attr.data-npc-title]="npc.unlocked ? npc.title : 'Desconhecido'"
              [style.left.px]="npc.position.x"
-             [style.top.px]="npc.position.y - 30">
+             [style.top.px]="npc.position.y - 40">
           <div class="npc-name">{{ npc.unlocked ? npc.name : '???' }}</div>
           <div class="npc-title">{{ npc.unlocked ? npc.title : 'Desconhecido' }}</div>
         </div>
@@ -55,6 +55,7 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   @Input() npcs: NPC[] | null = [];
   @Input() playerPosition: Position | null = null;
   @Input() isPlayerMoving: boolean | null = false;
+  @Input() playerName = '';
   @Input() focusTarget: string | null = null;
 
   @Output() onCanvasClick = new EventEmitter<Position>();
@@ -84,9 +85,10 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   // NPCs emojis como fallback
   private npcEmojis: { [key: string]: string } = {
     'elder_guide': '🧙‍♂️',
-    'requirements_scribe': '📋',
-    'artisan': '⚒️',
-    'critic': '🎨'
+    'requirements_scribe': '👨‍💼',
+    'artisan': '👩‍🔧',
+    'critic': '👩‍🎨',
+    'librarian': '📚'
   };
 
   ngAfterViewInit() {
@@ -170,99 +172,19 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   private drawGuildHall() {
-    // Fundo gradiente
+    // Fundo gradiente limpo
     const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvasHeight);
     gradient.addColorStop(0, '#2a2a3e');
     gradient.addColorStop(1, '#16161d');
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-
-    // Piso de pedra (pattern)
-    this.ctx.strokeStyle = '#444455';
-    this.ctx.lineWidth = 1;
-    const tileSize = 50;
-
-    for (let x = 0; x < this.canvasWidth; x += tileSize) {
-      for (let y = this.canvasHeight * 0.6; y < this.canvasHeight; y += tileSize) {
-        this.ctx.strokeRect(x, y, tileSize, tileSize);
-      }
-    }
-
-    // Círculo de invocação no centro (melhorado)
-    const centerX = this.canvasWidth / 2;
-    const centerY = this.canvasHeight * 0.7;
-
-    // Gradiente de fundo do círculo
-    const circleGradient = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 100);
-    circleGradient.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
-    circleGradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.05)');
-    circleGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
-    this.ctx.fillStyle = circleGradient;
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // Círculos concêntricos (efeito de runas gravadas)
-    for (let r = 40; r <= 100; r += 30) {
-      this.ctx.beginPath();
-      this.ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-      this.ctx.strokeStyle = r === 100 ? '#FFD700' : 'rgba(255, 215, 0, 0.4)';
-      this.ctx.lineWidth = r === 100 ? 3 : 1;
-      this.ctx.stroke();
-    }
-
-    // Runas ao redor do círculo externo
-    const runeCount = 8;
-    const runeSymbols = ['✦', '◆', '✧', '◈', '✦', '◆', '✧', '◈'];
-    this.ctx.font = 'bold 16px Arial';
-    this.ctx.fillStyle = '#FFD700';
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-
-    for (let i = 0; i < runeCount; i++) {
-      const angle = (i / runeCount) * Math.PI * 2 - Math.PI / 2;
-      const runeX = centerX + Math.cos(angle) * 100;
-      const runeY = centerY + Math.sin(angle) * 100;
-
-      // Círculo de fundo para a runa
-      this.ctx.beginPath();
-      this.ctx.arc(runeX, runeY, 8, 0, Math.PI * 2);
-      this.ctx.fillStyle = 'rgba(42, 42, 62, 0.8)';
-      this.ctx.fill();
-      this.ctx.strokeStyle = '#FFD700';
-      this.ctx.lineWidth = 1;
-      this.ctx.stroke();
-
-      // Símbolo da runa
-      this.ctx.fillStyle = '#FFD700';
-      this.ctx.fillText(runeSymbols[i], runeX, runeY);
-    }
-
-    // Estrela central (símbolo da guilda)
-    this.ctx.fillStyle = '#FFD700';
-    this.ctx.font = 'bold 24px Arial';
-    this.ctx.fillText('⭐', centerX, centerY);
-
-    // Linhas conectando o centro às runas
-    this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
-    this.ctx.lineWidth = 1;
-    for (let i = 0; i < runeCount; i++) {
-      const angle = (i / runeCount) * Math.PI * 2 - Math.PI / 2;
-      const runeX = centerX + Math.cos(angle) * 100;
-      const runeY = centerY + Math.sin(angle) * 100;
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(centerX, centerY);
-      this.ctx.lineTo(runeX, runeY);
-      this.ctx.stroke();
-    }
-
-    this.ctx.textAlign = 'start';
-    this.ctx.textBaseline = 'alphabetic';
   }
 
   private drawNPCs() {
     if (!this.npcs) return;
+
+    // Fator de escala dos personagens (deve ser o mesmo usado em drawAnimatedCharacter)
+    const scale = 0.75;
 
     this.npcs.forEach(npc => {
       const { x, y } = npc.position;
@@ -272,26 +194,32 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
       const isLocked = !npc.unlocked;
       const alpha = isLocked ? 0.7 : 1.0;
 
-      // Sombra
+      // Sombra (ajustada para o tamanho menor)
       this.ctx.beginPath();
-      this.ctx.ellipse(x, y + 20, 15, 5, 0, 0, Math.PI * 2);
+      this.ctx.ellipse(x, y + 20 * scale, 15 * scale, 5 * scale, 0, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * alpha})`;
       this.ctx.fill();
 
-      // NPC (emoji como placeholder)
+      // Cores por NPC
+      const npcColors: { [key: string]: string } = {
+        'elder_guide': '#9370DB',      // Roxo para o guia
+        'requirements_scribe': '#4682B4', // Azul para o planejador
+        'artisan': '#FF6347',          // Vermelho para a executora
+        'critic': '#FFB6C1',           // Rosa para a refinadora
+        'librarian': '#8B4513'         // Marrom para bibliotecária
+      };
+
+      // Desenha NPC animado (idle animation)
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
-      this.ctx.font = '32px Arial';
-      this.ctx.fillText(this.npcEmojis[npc.id] || '👤', x - 16, y + 8);
+      const color = npcColors[npc.id] || '#808080';
+      this.drawAnimatedCharacter(x, y, color, false, npc.id);
       this.ctx.restore();
-
-      // Nome e título agora são renderizados via HTML overlay
-      // Removido daqui para evitar duplicação e permitir inspeção no DevTools
 
       // Status indicator (apenas para NPCs desbloqueados)
       if (!isLocked && npc.status === 'available') {
         this.ctx.beginPath();
-        this.ctx.arc(x + 15, y - 15, 5, 0, Math.PI * 2);
+        this.ctx.arc(x + 15 * scale, y - 15 * scale, 5 * scale, 0, Math.PI * 2);
         this.ctx.fillStyle = '#00FF00';
         this.ctx.fill();
       }
@@ -303,8 +231,8 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
         const pulseScale = 1 + Math.sin(pulseTime / 1000 * Math.PI * 2) * 0.1;
 
         this.ctx.save();
-        this.ctx.translate(x, y - 35);
-        this.ctx.scale(pulseScale, pulseScale);
+        this.ctx.translate(x, y - 35 * scale);
+        this.ctx.scale(pulseScale * scale, pulseScale * scale);
         this.ctx.font = '16px Arial';
         this.ctx.fillText('💬', -8, 0);
         this.ctx.restore();
@@ -316,31 +244,23 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
     if (!this.playerPosition) return;
 
     const { x, y } = this.playerPosition;
+    const scale = 0.75; // Mesma escala usada nos NPCs
 
-    // Sombra do player
+    // Sombra do player (ajustada)
     this.ctx.beginPath();
-    this.ctx.ellipse(x, y + 20, 12, 4, 0, 0, Math.PI * 2);
+    this.ctx.ellipse(x, y + 20 * scale, 12 * scale, 4 * scale, 0, 0, Math.PI * 2);
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     this.ctx.fill();
 
-    // Player sprite (emoji temporário)
-    this.ctx.font = '28px Arial';
-    this.ctx.fillText('🧙', x - 14, y + 6);
+    // Desenha player animado estilo minion
+    const isMoving = this.isPlayerMoving || false;
+    this.drawAnimatedCharacter(x, y, '#4169E1', isMoving);
 
-    // Indicador de seleção
-    this.ctx.beginPath();
-    this.ctx.arc(x, y + 25, 20, 0, Math.PI * 2);
-    this.ctx.strokeStyle = '#4A90E2';
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([5, 5]);
-    this.ctx.stroke();
-    this.ctx.setLineDash([]);
-
-    // Nome "Você" ou "Iniciado"
+    // Nome do player (ajustado para a nova altura)
     this.ctx.fillStyle = '#FFD700';
-    this.ctx.font = 'bold 10px Arial';
+    this.ctx.font = 'bold 12px Arial';
     this.ctx.textAlign = 'center';
-    this.ctx.fillText('Iniciado', x, y - 20);
+    this.ctx.fillText(this.playerName || 'Iniciado', x, y - 35 * scale);
     this.ctx.textAlign = 'start';
   }
 
@@ -472,6 +392,254 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   private drawInitialScene() {
     // Desenha cena inicial estática
     this.drawScene();
+  }
+
+  /**
+   * Desenha personagem animado estilo robô tech com corpo, braços e pernas
+   */
+  private drawAnimatedCharacter(x: number, y: number, color: string, isWalking: boolean, id?: string) {
+    const time = Date.now();
+
+    // Fator de escala para reduzir o tamanho dos personagens (0.75 = 25% menor)
+    const scale = 0.75;
+
+    // Animação de caminhada ou idle
+    let armSwing = 0;
+    let legSwing = 0;
+    let bodyBounce = 0;
+    let antennaWave = 0;
+
+    if (isWalking) {
+      // Animação de caminhada
+      armSwing = Math.sin(time / 150) * 15;
+      legSwing = Math.sin(time / 150) * 20;
+      bodyBounce = Math.abs(Math.sin(time / 150)) * 2 * scale;
+      antennaWave = Math.sin(time / 200) * 8;
+    } else {
+      // Animação idle (respiração e movimento sutil)
+      const idleOffset = id ? this.getIdleOffset(id) : 0;
+      armSwing = Math.sin((time + idleOffset) / 1000) * 5;
+      bodyBounce = Math.sin((time + idleOffset) / 1500) * 1.5 * scale;
+      legSwing = Math.sin((time + idleOffset) / 2000) * 3;
+      antennaWave = Math.sin((time + idleOffset) / 1200) * 5;
+    }
+
+    const bodyY = y - bodyBounce;
+
+    this.ctx.save();
+
+    // Corpo (retângulo arredondado tech)
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+
+    // Corpo principal (reduzido)
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 12 * scale, bodyY - 10 * scale, 24 * scale, 28 * scale, 4 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Painel/Tela no peito (display tech)
+    const gradient = this.ctx.createLinearGradient(x - 8 * scale, bodyY, x + 8 * scale, bodyY + 10 * scale);
+    gradient.addColorStop(0, '#00FFFF');
+    gradient.addColorStop(1, '#0080FF');
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 8 * scale, bodyY, 16 * scale, 10 * scale, 2 * scale);
+    this.ctx.fill();
+
+    // Linhas de código no display (piscando)
+    this.ctx.strokeStyle = '#003366';
+    this.ctx.lineWidth = 1 * scale;
+    const lineOffset = (time % 1000) / 100;
+    for (let i = 0; i < 3; i++) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x - 6 * scale, bodyY + 2 * scale + i * 3 * scale);
+      this.ctx.lineTo(x + 6 * scale - (i === Math.floor(lineOffset) ? 4 * scale : 0), bodyY + 2 * scale + i * 3 * scale);
+      this.ctx.stroke();
+    }
+
+    // Juntas/Parafusos
+    this.ctx.fillStyle = '#333333';
+    [[-10, -8], [10, -8], [-10, 16], [10, 16]].forEach(([ox, oy]) => {
+      this.ctx.beginPath();
+      this.ctx.arc(x + ox * scale, bodyY + oy * scale, 2 * scale, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+
+    // Braço esquerdo (mecânico)
+    this.ctx.save();
+    this.ctx.translate(x - 12 * scale, bodyY);
+    this.ctx.rotate((armSwing * Math.PI) / 180);
+
+    // Braço superior
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.roundRect(-2 * scale, 0, 4 * scale, 12 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Articulação
+    this.ctx.fillStyle = '#666666';
+    this.ctx.beginPath();
+    this.ctx.arc(0, 6 * scale, 2.5 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Mão/Garra
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.beginPath();
+    this.ctx.arc(0, 12 * scale, 3 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Braço direito (mecânico)
+    this.ctx.save();
+    this.ctx.translate(x + 12 * scale, bodyY);
+    this.ctx.rotate((-armSwing * Math.PI) / 180);
+
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.roundRect(-2 * scale, 0, 4 * scale, 12 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    this.ctx.fillStyle = '#666666';
+    this.ctx.beginPath();
+    this.ctx.arc(0, 6 * scale, 2.5 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.beginPath();
+    this.ctx.arc(0, 12 * scale, 3 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Perna esquerda (mecânica)
+    this.ctx.save();
+    this.ctx.translate(x - 6 * scale, bodyY + 18 * scale);
+    this.ctx.rotate((-legSwing * Math.PI) / 180);
+
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.roundRect(-2 * scale, 0, 4 * scale, 10 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Pé (base retangular)
+    this.ctx.beginPath();
+    this.ctx.roundRect(-4 * scale, 10 * scale, 7 * scale, 3 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Perna direita (mecânica)
+    this.ctx.save();
+    this.ctx.translate(x + 6 * scale, bodyY + 18 * scale);
+    this.ctx.rotate((legSwing * Math.PI) / 180);
+
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.roundRect(-2 * scale, 0, 4 * scale, 10 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    this.ctx.beginPath();
+    this.ctx.roundRect(-3 * scale, 10 * scale, 7 * scale, 3 * scale, 1 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Cabeça (retângulo arredondado)
+    this.ctx.fillStyle = color;
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 10 * scale, bodyY - 30 * scale, 20 * scale, 18 * scale, 3 * scale);
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Viseira/Display dos olhos (efeito tech)
+    this.ctx.fillStyle = '#00FFFF';
+    this.ctx.beginPath();
+    this.ctx.roundRect(x - 8 * scale, bodyY - 26 * scale, 16 * scale, 8 * scale, 2 * scale);
+    this.ctx.fill();
+
+    // Olhos digitais (pontos brilhantes)
+    const eyeGlow = Math.sin(time / 300) * 0.3 + 0.7;
+    this.ctx.fillStyle = `rgba(0, 255, 255, ${eyeGlow})`;
+    this.ctx.shadowColor = '#00FFFF';
+    this.ctx.shadowBlur = 5 * scale;
+
+    const eyeDirection = isWalking ? Math.sin(time / 500) * 1.5 : 0;
+    this.ctx.beginPath();
+    this.ctx.arc(x - 4 * scale + eyeDirection, bodyY - 22 * scale, 2 * scale, 0, Math.PI * 2);
+    this.ctx.arc(x + 4 * scale + eyeDirection, bodyY - 22 * scale, 2 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    this.ctx.shadowBlur = 0;
+
+    // Antena no topo
+    this.ctx.save();
+    this.ctx.translate(x, bodyY - 30 * scale);
+    this.ctx.rotate((antennaWave * Math.PI) / 180);
+
+    // Haste da antena
+    this.ctx.strokeStyle = '#666666';
+    this.ctx.lineWidth = 1.5 * scale;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, 0);
+    this.ctx.lineTo(0, -8 * scale);
+    this.ctx.stroke();
+
+    // Luz piscante no topo
+    const blinkPhase = Math.floor((time / 500) % 2);
+    this.ctx.fillStyle = blinkPhase === 0 ? '#00FF00' : '#00AA00';
+    this.ctx.shadowColor = '#00FF00';
+    this.ctx.shadowBlur = blinkPhase === 0 ? 8 * scale : 3 * scale;
+    this.ctx.beginPath();
+    this.ctx.arc(0, -8 * scale, 3 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0;
+
+    this.ctx.restore();
+
+    // Indicador de status (LED no canto)
+    const statusColor = isWalking ? '#00FF00' : '#FFD700';
+    this.ctx.fillStyle = statusColor;
+    this.ctx.shadowColor = statusColor;
+    this.ctx.shadowBlur = 4 * scale;
+    this.ctx.beginPath();
+    this.ctx.arc(x + 8 * scale, bodyY - 28 * scale, 1.5 * scale, 0, Math.PI * 2);
+    this.ctx.fill();
+    this.ctx.shadowBlur = 0;
+
+    this.ctx.restore();
+  }
+
+  /**
+   * Retorna um offset único para cada NPC para sincronização de animação idle
+   */
+  private getIdleOffset(id: string): number {
+    const offsets: { [key: string]: number } = {
+      'elder_guide': 0,
+      'requirements_scribe': 500,
+      'artisan': 1000,
+      'critic': 1500,
+      'librarian': 2000
+    };
+    return offsets[id] || 0;
   }
 
   ngOnDestroy() {
