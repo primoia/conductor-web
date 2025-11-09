@@ -1,46 +1,61 @@
 .quest-tracker {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.75), rgba(20, 20, 30, 0.75));
-  border: 2px solid rgba(255, 215, 0, 0.6);
-  border-radius: 12px;
+  position: absolute;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.92), rgba(20, 20, 30, 0.92));
+  border: 3px solid rgba(255, 215, 0, 0.8);
+  border-radius: 20px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 215, 0, 0.15);
-  backdrop-filter: blur(10px);
-  z-index: 100;
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(255, 215, 0, 0.3),
+    inset 0 1px 0 rgba(255, 215, 0, 0.2);
+  backdrop-filter: blur(15px);
+  z-index: 1000;
   transition: all 0.3s ease-in-out;
+  animation: slideInFromRight 0.3s ease-out;
+  max-width: 350px;
+  max-height: 500px;
+  overflow-y: auto;
+  pointer-events: auto;
 
-  &.collapsed {
-    width: 60px;
-    height: 60px;
-    padding: 0;
-    cursor: move;
-    user-select: none;
+  width: 350px;
+  padding: 24px;
+
+  // Close Button
+  .close-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: rgba(255, 0, 0, 0.2);
+    color: #FF6B6B;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     &:hover {
-      background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 30, 0.85));
-      border-color: #FFD700;
+      background: rgba(255, 0, 0, 0.4);
+      color: #FF0000;
+      transform: rotate(90deg);
     }
-  }
 
-  &:not(.collapsed) {
-    width: 280px;
-    padding: 16px;
-  }
-
-  &.has-notification {
-    animation: shake 0.5s ease-in-out;
+    &:active {
+      transform: rotate(90deg) scale(0.9);
+    }
   }
 
   // Mobile: bottom of screen, full width
   @media (max-width: 768px) {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    border-radius: 20px 20px 0 0;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 20px;
 
     &:not(.collapsed) {
       width: 100%;
@@ -54,90 +69,6 @@
   }
 }
 
-// Drag Handle (ícone quando colapsado)
-.drag-handle {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  cursor: move;
-
-  .quest-icon-collapsed {
-    font-size: 32px;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  .notification-badge {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 20px;
-    height: 20px;
-    background: linear-gradient(135deg, #FF6B6B, #FF4757);
-    border-radius: 50%;
-    color: white;
-    font-size: 14px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(255, 71, 87, 0.6);
-    animation: pulse-notification 1.5s ease-in-out infinite;
-  }
-}
-
-// Botão de expandir (invisível, cobre toda a área quando colapsado)
-.expand-button {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  z-index: 1;
-}
-
-.tracker-toggle {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, #FFD700, #FFA500);
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
-  transition: all 0.2s ease;
-  z-index: 101;
-
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  .toggle-icon {
-    font-size: 12px;
-    color: #2c1810;
-    font-weight: bold;
-  }
-
-  @media (max-width: 768px) {
-    top: 8px;
-    right: 8px;
-  }
-}
 
 .tracker-content {
   transition: all 0.3s ease-in-out;
@@ -410,6 +341,28 @@
   }
   50% {
     transform: translateY(-5px) scale(1.05);
+  }
+}
+
+@keyframes slideInScale {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
   }
 }
 

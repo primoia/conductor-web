@@ -31,18 +31,25 @@ import { takeUntil } from 'rxjs/operators';
         [isPlayerMoving]="isMoving$ | async"
         [playerName]="playerName"
         [focusTarget]="focusTarget"
+        [hoveredNpcId]="hoveredNpcId"
         (onCanvasClick)="handleCanvasClick($event)"
+        (onPlayerClick)="handlePlayerClick()"
+        (onNpcInteract)="handleNpcClick($event)"
+        (onNpcHover)="handleNpcHover($event)"
         (onCanvasResize)="handleCanvasResize($event)">
       </app-quest-canvas>
 
-      <!-- Quest Tracker (Objetivos) -->
+      <!-- Quest Tracker (Objetivos) - Expansível -->
       <app-quest-tracker
+        *ngIf="showQuestTracker"
         [questTitle]="currentQuestTitle"
         [objectives]="questObjectives$ | async"
         [playerLevel]="playerLevel$ | async"
         [playerXP]="playerXP$ | async"
         [xpToNextLevel]="xpToNextLevel$ | async"
-        (onReset)="handleReset()">
+        [playerPosition]="playerPosition$ | async"
+        (onReset)="handleReset()"
+        (onClose)="handleQuestTrackerClose()">
       </app-quest-tracker>
 
       <!-- Chat Modal (Diálogos com NPCs) -->
@@ -55,6 +62,44 @@ import { takeUntil } from 'rxjs/operators';
         (onOptionSelect)="handleDialogueChoice($event)"
         (onClose)="closeDialogue()">
       </app-quest-chat-modal>
+
+      <!-- NPC Hover Modal (ao passar mouse) -->
+      <div class="npc-hover-modal"
+           *ngIf="showNpcHoverModal && npcHoverModalData && npcHoverPosition"
+           [class.mobile]="isMobile"
+           [style.left.px]="isMobile ? null : npcHoverPosition.x"
+           [style.top.px]="isMobile ? null : npcHoverPosition.y">
+        <div class="npc-hover-content">
+          <div class="npc-hover-header">
+            <span class="npc-hover-emoji">{{ npcHoverModalData.emoji }}</span>
+            <div class="npc-hover-info">
+              <div class="npc-hover-name">{{ npcHoverModalData.name }}</div>
+              <div class="npc-hover-title">{{ npcHoverModalData.title }}</div>
+            </div>
+          </div>
+
+          <div class="npc-hover-divider"></div>
+
+          <div class="npc-hover-description">{{ npcHoverModalData.description }}</div>
+
+          <div class="npc-hover-divider" *ngIf="npcHoverModalData.unlocked"></div>
+
+          <div class="npc-hover-greeting" *ngIf="npcHoverModalData.unlocked">
+            <span class="greeting-quote">"</span>{{ npcHoverModalData.greeting }}<span class="greeting-quote">"</span>
+          </div>
+
+          <div class="npc-hover-agent" *ngIf="npcHoverModalData.unlocked && npcHoverModalData.agentId">
+            <span class="agent-icon">🤖</span>
+            <span class="agent-label">Agente:</span>
+            <span class="agent-id">{{ npcHoverModalData.agentId }}</span>
+          </div>
+
+          <div class="npc-hover-hint" [class.in-range]="npcHoverModalData.isInRange">
+            <span class="hint-icon">{{ npcHoverModalData.isInRange ? '💬' : '👣' }}</span>
+            {{ npcHoverModalData.isInRange ? 'Clique para conversar' : 'Clique para se aproximar' }}
+          </div>
+        </div>
+      </div>
 
       <!-- Overlay de Introdução (primeira vez) -->
       <div class="intro-overlay" *ngIf="showIntro">
@@ -111,6 +156,11 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   isMobile = false;
   focusTarget: string | null = null;
   playerName = '';
+  showQuestTracker = false; // Tracker expandível ao clicar no player
+  showNpcHoverModal = false; // Modal ao passar mouse sobre NPC
+  npcHoverModalData: any = null; // Dados do NPC para hover
+  hoveredNpcId: string | null = null; // ID do NPC sob o mouse
+  npcHoverPosition: { x: number, y: number } | null = null; // Posição do NPC em hover
 
   constructor(
     private questState: QuestStateService,
@@ -237,16 +287,124 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Verifica se clicou em um NPC (bloqueado ou não)
-    const clickedNPC = this.npcManager.getNPCAtPosition(position);
+    // Move o player para a posição clicada (não verifica mais NPC aqui)
+    this.movement.moveToPosition(position);
+  }
 
-    if (clickedNPC) {
-      // Move o player até perto do NPC primeiro
-      this.moveToNPC(clickedNPC.id);
+  handleNpcClick(npcId: string) {
+    // Novo método para lidar com cliques em NPCs
+    const npc = this.npcManager.getNPC(npcId);
+    if (!npc) return;
+
+    const playerPos = this.movement.getCurrentPosition();
+    const npcPos = npc.position;
+
+    // Calcula distância
+    const dx = npcPos.x - playerPos.x;
+    const dy = npcPos.y - playerPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    const interactionRadius = 80; // Raio de interação
+
+    if (distance <= interactionRadius) {
+      // Player está perto o suficiente - inicia interação
+      this.handleNpcInteract(npcId);
     } else {
-      // Move o player para a posição clicada
-      this.movement.moveToPosition(position);
+      // Player está longe - move até o NPC
+      this.moveToNPC(npcId);
     }
+  }
+
+  handlePlayerClick() {
+    // Toggle do quest tracker ao clicar no player
+    this.showQuestTracker = !this.showQuestTracker;
+  }
+
+  handleQuestTrackerClose() {
+    // Fecha o quest tracker
+    this.showQuestTracker = false;
+  }
+
+  handleNpcHover(npcId: string | null) {
+    if (!npcId) {
+      // Mouse saiu do NPC
+      this.showNpcHoverModal = false;
+      this.npcHoverModalData = null;
+      this.hoveredNpcId = null;
+      this.npcHoverPosition = null;
+      return;
+    }
+
+    // Atualiza NPC em hover
+    this.hoveredNpcId = npcId;
+
+    // Mouse sobre NPC - mostra modal de hover
+    const npc = this.npcManager.getNPC(npcId);
+    if (!npc) return;
+
+    // Calcula posição da modal ao lado do NPC
+    // Em desktop, posiciona à direita do NPC
+    // Verifica se há espaço suficiente à direita, senão coloca à esquerda
+    const modalWidth = 400; // largura máxima da modal
+    const modalHeight = 350; // altura estimada da modal
+    const offsetX = 60; // distância do NPC
+    const padding = 20; // margem da tela
+
+    let modalX = npc.position.x + offsetX;
+    let modalY = npc.position.y - 20;
+
+    // Ajusta se a modal sair da tela à direita
+    if (modalX + modalWidth > window.innerWidth - padding) {
+      modalX = npc.position.x - offsetX - modalWidth;
+    }
+
+    // Ajusta se a modal sair da tela à esquerda
+    if (modalX < padding) {
+      modalX = padding;
+    }
+
+    // Ajusta se a modal sair da tela no topo
+    if (modalY < padding) {
+      modalY = padding;
+    }
+
+    // Ajusta se a modal sair da tela embaixo
+    if (modalY + modalHeight > window.innerHeight - padding) {
+      modalY = window.innerHeight - modalHeight - padding;
+    }
+
+    // Salva posição ajustada do NPC para posicionar a modal
+    this.npcHoverPosition = { x: modalX, y: modalY };
+
+    // Calcula distância do player ao NPC
+    const playerPos = this.movement.getCurrentPosition();
+    const npcPos = npc.position;
+    const dx = npcPos.x - playerPos.x;
+    const dy = npcPos.y - playerPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const interactionRadius = 80;
+    const isInRange = distance <= interactionRadius;
+
+    // Descrições detalhadas por NPC
+    const npcDescriptions: { [key: string]: string } = {
+      'elder_guide': 'Um sábio mentor que guia novos iniciados pelos caminhos da Guilda. Sua experiência é vasta e suas palavras são sempre precisas.',
+      'requirements_scribe': 'Meticuloso e organizado, este especialista transforma ideias vagas em planos estruturados e detalhados.',
+      'artisan': 'Com mãos habilidosas e paixão pelo trabalho, esta executora transforma planos em realidade tangível.',
+      'critic': 'Com olhar refinado e atenção aos detalhes, ela aprimora cada criação até atingir a excelência.',
+      'librarian': 'Guardiã do conhecimento ancestral da Guilda, ela preserva e compartilha a sabedoria acumulada ao longo dos séculos.'
+    };
+
+    this.npcHoverModalData = {
+      name: npc.unlocked ? npc.name : '???',
+      title: npc.unlocked ? npc.title : 'Desconhecido',
+      emoji: npc.emoji,
+      unlocked: npc.unlocked,
+      greeting: npc.unlocked ? npc.greeting : 'Aproxime-se para descobrir...',
+      description: npc.unlocked ? npcDescriptions[npc.id] : 'Uma figura misteriosa. Você precisa se aproximar para descobrir mais.',
+      agentId: npc.unlocked ? npc.agentId : undefined,
+      isInRange: isInRange
+    };
+    this.showNpcHoverModal = true;
   }
 
   private moveToNPC(npcId: string) {
@@ -270,6 +428,9 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // CONGELA o NPC para evitar que ele se mova enquanto o player vai até ele
+    this.npcManager.freezeNPC(npcId, 10000); // Congela por 10 segundos
+
     // Calcula posição de destino (próxima ao NPC mas não em cima)
     const targetDistance = 60; // Fica a 60px do NPC
     const ratio = (distance - targetDistance) / distance;
@@ -287,27 +448,44 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
 
   private waitForPlayerReachNPC(npcId: string, npcPos: Position, radius: number) {
     const checkInterval = setInterval(() => {
+      // Pega NPC atualizado
+      const npc = this.npcManager.getNPC(npcId);
+      if (!npc) {
+        clearInterval(checkInterval);
+        return;
+      }
+
       const playerPos = this.movement.getCurrentPosition();
-      const dx = npcPos.x - playerPos.x;
-      const dy = npcPos.y - playerPos.y;
+      const currentNpcPos = npc.position;
+      const dx = currentNpcPos.x - playerPos.x;
+      const dy = currentNpcPos.y - playerPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Se chegou perto o suficiente
+      // Se chegou perto o suficiente (dentro da zona de controle)
       if (distance <= radius) {
         clearInterval(checkInterval);
 
         // Para o movimento
         this.movement.stop();
 
-        // Aguarda um frame para garantir que parou
+        // Descongela o NPC
+        this.npcManager.unfreezeNPC(npcId);
+
+        // Aguarda um frame para garantir que parou e então abre o chat
         setTimeout(() => {
+          console.log(`[Zone Detection] Player entrou na zona de controle do NPC ${npcId}`);
           this.handleNpcInteract(npcId);
         }, 100);
+        return;
       }
 
-      // Se não está mais se movendo (cancelou movimento), cancela verificação
+      // Se não está mais se movendo (cancelou movimento)
       if (!this.movement.isCurrentlyMoving()) {
         clearInterval(checkInterval);
+        // Descongela o NPC após um pequeno delay
+        setTimeout(() => {
+          this.npcManager.unfreezeNPC(npcId);
+        }, 1000);
       }
     }, 100); // Verifica a cada 100ms
   }

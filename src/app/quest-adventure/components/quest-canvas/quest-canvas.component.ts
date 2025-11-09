@@ -13,6 +13,7 @@ import { NPC, Position } from '../../models/quest.models';
               [width]="canvasWidth"
               [height]="canvasHeight"
               (click)="handleCanvasClick($event)"
+              (mousemove)="handleMouseMove($event)"
               (touchstart)="handleTouchStart($event)">
       </canvas>
 
@@ -57,9 +58,12 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   @Input() isPlayerMoving: boolean | null = false;
   @Input() playerName = '';
   @Input() focusTarget: string | null = null;
+  @Input() hoveredNpcId: string | null = null;
 
   @Output() onCanvasClick = new EventEmitter<Position>();
   @Output() onNpcInteract = new EventEmitter<string>();
+  @Output() onPlayerClick = new EventEmitter<void>();
+  @Output() onNpcHover = new EventEmitter<string | null>();
   @Output() onCanvasResize = new EventEmitter<{width: number, height: number}>();
 
   private ctx!: CanvasRenderingContext2D;
@@ -81,6 +85,9 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   private animationFrame: number | null = null;
   private playerPath: Position[] = [];
   private playerAnimationStep = 0;
+
+  // Click effects (X marks)
+  private clickEffects: Array<{position: Position, timestamp: number}> = [];
 
   // NPCs emojis como fallback
   private npcEmojis: { [key: string]: string } = {
@@ -169,6 +176,9 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
     if (this.focusTarget) {
       this.drawFocusEffect();
     }
+
+    // Desenha efeitos de click (X marks)
+    this.drawClickEffects();
   }
 
   private drawGuildHall() {
@@ -178,6 +188,100 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
     gradient.addColorStop(1, '#16161d');
     this.ctx.fillStyle = gradient;
     this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+  }
+
+  /**
+   * Desenha a zona de controle ao redor de um NPC em hover
+   */
+  private drawControlZone(x: number, y: number) {
+    const currentTime = Date.now();
+    const interactionRadius = 80;
+
+    // Animação de pulsação
+    const pulsePhase = (currentTime % 2000) / 2000; // 0 a 1
+    const pulseRadius = interactionRadius + Math.sin(pulsePhase * Math.PI * 2) * 5;
+    const pulseAlpha = 0.15 + Math.sin(pulsePhase * Math.PI * 2) * 0.1;
+
+    // Círculo de zona de controle (preenchimento)
+    const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, pulseRadius);
+    gradient.addColorStop(0, `rgba(255, 215, 0, 0)`);
+    gradient.addColorStop(0.7, `rgba(255, 215, 0, ${pulseAlpha})`);
+    gradient.addColorStop(1, `rgba(255, 215, 0, 0)`);
+
+    this.ctx.fillStyle = gradient;
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+    this.ctx.fill();
+
+    // Círculo de borda pulsante
+    this.ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + pulseAlpha})`;
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+    this.ctx.lineDashOffset = -currentTime / 50; // Animação de movimento
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, pulseRadius, 0, Math.PI * 2);
+    this.ctx.stroke();
+    this.ctx.setLineDash([]); // Reset dash
+  }
+
+  /**
+   * Desenha indicador visual de NPC congelado
+   */
+  private drawFrozenIndicator(x: number, y: number) {
+    const currentTime = Date.now();
+    const scale = 0.75;
+
+    // Ícone de cristal de gelo acima do NPC
+    const iconY = y - 50 * scale;
+    const iconSize = 16;
+
+    // Animação de flutuação
+    const floatOffset = Math.sin(currentTime / 500) * 3;
+
+    // Brilho pulsante
+    const glowAlpha = 0.5 + Math.sin(currentTime / 400) * 0.3;
+
+    this.ctx.save();
+    this.ctx.translate(x, iconY + floatOffset);
+
+    // Sombra/brilho do ícone
+    this.ctx.shadowColor = `rgba(100, 200, 255, ${glowAlpha})`;
+    this.ctx.shadowBlur = 10;
+
+    // Desenha cristal de gelo (diamante com gradiente azul)
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, -iconSize / 2);
+    this.ctx.lineTo(iconSize / 2, 0);
+    this.ctx.lineTo(0, iconSize / 2);
+    this.ctx.lineTo(-iconSize / 2, 0);
+    this.ctx.closePath();
+
+    const gradient = this.ctx.createRadialGradient(0, 0, 0, 0, 0, iconSize);
+    gradient.addColorStop(0, 'rgba(200, 240, 255, 0.9)');
+    gradient.addColorStop(0.5, 'rgba(100, 200, 255, 0.8)');
+    gradient.addColorStop(1, 'rgba(50, 150, 255, 0.6)');
+
+    this.ctx.fillStyle = gradient;
+    this.ctx.fill();
+
+    // Borda do cristal
+    this.ctx.strokeStyle = 'rgba(150, 220, 255, 0.9)';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    // Linhas internas do cristal
+    this.ctx.strokeStyle = 'rgba(200, 240, 255, 0.5)';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, -iconSize / 2);
+    this.ctx.lineTo(0, iconSize / 2);
+    this.ctx.stroke();
+    this.ctx.beginPath();
+    this.ctx.moveTo(-iconSize / 2, 0);
+    this.ctx.lineTo(iconSize / 2, 0);
+    this.ctx.stroke();
+
+    this.ctx.restore();
   }
 
   private drawNPCs() {
@@ -194,6 +298,16 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
       const isLocked = !npc.unlocked;
       const alpha = isLocked ? 0.7 : 1.0;
 
+      // Desenha zona de controle se NPC está em hover
+      if (this.hoveredNpcId === npc.id) {
+        this.drawControlZone(x, y);
+      }
+
+      // Indicador visual de NPC congelado
+      if (npc.isFrozen) {
+        this.drawFrozenIndicator(x, y);
+      }
+
       // Sombra (ajustada para o tamanho menor)
       this.ctx.beginPath();
       this.ctx.ellipse(x, y + 20 * scale, 15 * scale, 5 * scale, 0, 0, Math.PI * 2);
@@ -209,11 +323,12 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
         'librarian': '#8B4513'         // Marrom para bibliotecária
       };
 
-      // Desenha NPC animado (idle animation)
+      // Desenha NPC animado (wandering ou idle animation)
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
       const color = npcColors[npc.id] || '#808080';
-      this.drawAnimatedCharacter(x, y, color, false, npc.id);
+      const isMoving = npc.isWandering || false;
+      this.drawAnimatedCharacter(x, y, color, isMoving, npc.id);
       this.ctx.restore();
 
       // Status indicator (apenas para NPCs desbloqueados)
@@ -245,23 +360,110 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
 
     const { x, y } = this.playerPosition;
     const scale = 0.75; // Mesma escala usada nos NPCs
+    const currentTime = Date.now();
 
-    // Sombra do player (ajustada)
+    // Aura pulsante ao redor do player (destaque)
+    const pulseSize = Math.sin(currentTime / 500) * 3 + 40;
+    const pulseOpacity = Math.sin(currentTime / 500) * 0.1 + 0.15;
+
+    const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, pulseSize);
+    gradient.addColorStop(0, `rgba(255, 215, 0, ${pulseOpacity})`);
+    gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+    this.ctx.fillStyle = gradient;
+    this.ctx.fillRect(x - pulseSize, y - pulseSize, pulseSize * 2, pulseSize * 2);
+
+    // Sombra do player (maior e mais visível que NPCs)
     this.ctx.beginPath();
-    this.ctx.ellipse(x, y + 20 * scale, 12 * scale, 4 * scale, 0, 0, Math.PI * 2);
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    this.ctx.ellipse(x, y + 20 * scale, 14 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     this.ctx.fill();
 
-    // Desenha player animado estilo minion
-    const isMoving = this.isPlayerMoving || false;
-    this.drawAnimatedCharacter(x, y, '#4169E1', isMoving);
+    // Círculo clean e sutil ao redor do player
+    const circleRadius = 35; // Um pouco menor
+    const pulsation = Math.sin(currentTime / 800) * 1.5; // Pulsação mais sutil
 
-    // Nome do player (ajustado para a nova altura)
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, circleRadius + pulsation, 0, Math.PI * 2);
+    this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.35)'; // Mais transparente e sutil
+    this.ctx.lineWidth = 1.5; // Linha mais fina
+    this.ctx.stroke();
+
+    // Desenha player animado com cor DOURADA para destaque
+    const isMoving = this.isPlayerMoving || false;
+    this.drawAnimatedCharacter(x, y, '#FFD700', isMoving);
+
+    // Nome do player (mais destacado)
     this.ctx.fillStyle = '#FFD700';
-    this.ctx.font = 'bold 12px Arial';
-    this.ctx.textAlign = 'center';
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 3;
+    this.ctx.font = 'bold 13px Arial';
+    this.ctx.strokeText(this.playerName || 'Iniciado', x, y - 35 * scale);
     this.ctx.fillText(this.playerName || 'Iniciado', x, y - 35 * scale);
     this.ctx.textAlign = 'start';
+
+    // Triângulo apontando para o próximo NPC da quest
+    this.drawQuestPointer(x, y);
+  }
+
+  /**
+   * Desenha triângulo apontando para o próximo NPC da quest
+   */
+  private drawQuestPointer(playerX: number, playerY: number) {
+    if (!this.focusTarget || !this.npcs) return;
+
+    const targetNPC = this.npcs.find(npc => npc.id === this.focusTarget);
+    if (!targetNPC) return;
+
+    const npcX = targetNPC.position.x;
+    const npcY = targetNPC.position.y;
+
+    // Calcula ângulo do player para o NPC
+    const angle = Math.atan2(npcY - playerY, npcX - playerX);
+
+    // Distância do player para desenhar o triângulo (na borda do círculo externo)
+    const currentTime = Date.now();
+    const circleRadius = 35;
+    const pulsation = Math.sin(currentTime / 800) * 1.5;
+    const distance = circleRadius + pulsation + 5; // +5 para ficar um pouco fora
+    const pointerX = playerX + Math.cos(angle) * distance;
+    const pointerY = playerY + Math.sin(angle) * distance;
+
+    // Tamanho do triângulo
+    const triangleSize = 12;
+
+    // Animação de pulsação
+    const pulse = Math.sin(currentTime / 300) * 0.2 + 1;
+    const size = triangleSize * pulse;
+
+    this.ctx.save();
+    this.ctx.translate(pointerX, pointerY);
+    this.ctx.rotate(angle);
+
+    // Desenha triângulo apontador
+    this.ctx.beginPath();
+    this.ctx.moveTo(size, 0);
+    this.ctx.lineTo(-size / 2, -size / 2);
+    this.ctx.lineTo(-size / 2, size / 2);
+    this.ctx.closePath();
+
+    // Sombra do triângulo
+    this.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)';
+    this.ctx.shadowBlur = 10;
+
+    // Preenchimento com gradiente
+    const gradient = this.ctx.createLinearGradient(-size, 0, size, 0);
+    gradient.addColorStop(0, '#FFA500');
+    gradient.addColorStop(1, '#FFD700');
+    this.ctx.fillStyle = gradient;
+    this.ctx.fill();
+
+    // Contorno
+    this.ctx.strokeStyle = '#FFFFFF';
+    this.ctx.lineWidth = 2;
+    this.ctx.stroke();
+
+    this.ctx.restore();
   }
 
   private drawFocusEffect() {
@@ -342,9 +544,64 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
 
     const position = { x: canvasX, y: canvasY };
 
+    // Verifica se clicou no player
+    if (this.playerPosition && this.isClickOnPlayer(position)) {
+      this.onPlayerClick.emit();
+      return;
+    }
+
+    // Verifica se clicou em NPC - NÃO move mais automaticamente
+    const clickedNPC = this.getNPCAtPosition(position);
+    if (clickedNPC) {
+      // Emite evento de interação com NPC (será tratado no componente pai)
+      this.onNpcInteract.emit(clickedNPC.id);
+      return;
+    }
+
+    // Adiciona efeito visual de X no local do click
+    this.clickEffects.push({
+      position: { x: canvasX, y: canvasY },
+      timestamp: Date.now()
+    });
+
     // Sempre emite o clique para o componente pai decidir o que fazer
-    // (pode ser movimento normal ou interação com NPC)
     this.onCanvasClick.emit(position);
+  }
+
+  /**
+   * Verifica se o clique foi no player
+   */
+  private isClickOnPlayer(clickPosition: Position): boolean {
+    if (!this.playerPosition) return false;
+
+    const dx = clickPosition.x - this.playerPosition.x;
+    const dy = clickPosition.y - this.playerPosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Raio de clique no player (um pouco maior para facilitar)
+    const clickRadius = 35;
+    return distance <= clickRadius;
+  }
+
+  handleMouseMove(event: MouseEvent) {
+    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Escala para coordenadas do canvas
+    const canvasX = (x / rect.width) * this.canvasWidth;
+    const canvasY = (y / rect.height) * this.canvasHeight;
+
+    const position = { x: canvasX, y: canvasY };
+
+    // Verifica se está sobre um NPC
+    const hoveredNPC = this.getNPCAtPosition(position);
+
+    if (hoveredNPC) {
+      this.onNpcHover.emit(hoveredNPC.id);
+    } else {
+      this.onNpcHover.emit(null);
+    }
   }
 
   handleTouchStart(event: TouchEvent) {
@@ -364,6 +621,12 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
 
     const position = { x: canvasX, y: canvasY };
 
+    // Verifica se clicou no player
+    if (this.playerPosition && this.isClickOnPlayer(position)) {
+      this.onPlayerClick.emit();
+      return;
+    }
+
     // Sempre emite o toque para o componente pai decidir o que fazer
     this.onCanvasClick.emit(position);
   }
@@ -371,11 +634,10 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   private getNPCAtPosition(position: Position): NPC | null {
     if (!this.npcs) return null;
 
-    const threshold = 30; // Raio de clique
+    const threshold = 40; // Raio de clique aumentado para facilitar
 
     for (const npc of this.npcs) {
-      if (!npc.unlocked) continue;
-
+      // Permite clicar em TODOS os NPCs (bloqueados e desbloqueados)
       const distance = Math.sqrt(
         Math.pow(position.x - npc.position.x, 2) +
         Math.pow(position.y - npc.position.y, 2)
@@ -392,6 +654,55 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
   private drawInitialScene() {
     // Desenha cena inicial estática
     this.drawScene();
+  }
+
+  /**
+   * Desenha efeitos de click (X marks que desaparecem)
+   */
+  private drawClickEffects() {
+    const now = Date.now();
+    const duration = 500; // 500ms para desaparecer
+
+    // Remove efeitos antigos e desenha os ativos
+    this.clickEffects = this.clickEffects.filter(effect => {
+      const age = now - effect.timestamp;
+
+      if (age > duration) {
+        return false; // Remove efeito expirado
+      }
+
+      // Calcula fade out
+      const progress = age / duration;
+      const alpha = 1 - progress;
+      const scale = 1 + progress * 0.5; // Cresce um pouco enquanto desaparece
+
+      // Desenha X
+      this.ctx.save();
+      this.ctx.globalAlpha = alpha;
+      this.ctx.translate(effect.position.x, effect.position.y);
+      this.ctx.scale(scale, scale);
+
+      // Linhas do X (mesmo tom do círculo)
+      this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.7)';
+      this.ctx.lineWidth = 2;
+      this.ctx.lineCap = 'round';
+
+      // Linha \ (diagonal esquerda-direita)
+      this.ctx.beginPath();
+      this.ctx.moveTo(-10, -10);
+      this.ctx.lineTo(10, 10);
+      this.ctx.stroke();
+
+      // Linha / (diagonal direita-esquerda)
+      this.ctx.beginPath();
+      this.ctx.moveTo(10, -10);
+      this.ctx.lineTo(-10, 10);
+      this.ctx.stroke();
+
+      this.ctx.restore();
+
+      return true; // Mantém efeito ativo
+    });
   }
 
   /**

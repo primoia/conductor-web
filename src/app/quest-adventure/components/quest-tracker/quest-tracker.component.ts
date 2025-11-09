@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, HostListener, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
-import { QuestObjective } from '../../models/quest.models';
+import { QuestObjective, Position } from '../../models/quest.models';
 
 @Component({
   selector: 'app-quest-tracker',
@@ -9,31 +9,16 @@ import { QuestObjective } from '../../models/quest.models';
   imports: [CommonModule],
   template: `
     <div #trackerElement class="quest-tracker" [@slideIn]
-         [class.collapsed]="isCollapsed"
-         [class.has-notification]="hasNotification"
          [style.left.px]="positionX"
          [style.top.px]="positionY">
 
-      <!-- Drag Handle (apenas quando colapsado) -->
-      <div *ngIf="isCollapsed"
-           class="drag-handle"
-           (mousedown)="onDragStart($event)"
-           (touchstart)="onDragStart($event)">
-        <span class="quest-icon-collapsed">🎯</span>
-        <span class="notification-badge" *ngIf="hasNotification">!</span>
-      </div>
-
-      <!-- Toggle Button (apenas quando expandido) -->
-      <button *ngIf="!isCollapsed" class="tracker-toggle" (click)="toggleCollapse()" [attr.aria-label]="'Esconder rastreador'">
-        <span class="toggle-icon">◀</span>
-      </button>
-
-      <!-- Expand Button (apenas quando colapsado) -->
-      <button *ngIf="isCollapsed" class="expand-button" (click)="toggleCollapse()" [attr.aria-label]="'Expandir rastreador'">
+      <!-- Close Button (X) -->
+      <button class="close-button" (click)="closeTracker()" [attr.aria-label]="'Fechar'">
+        ✕
       </button>
 
       <!-- Conteúdo do Tracker -->
-      <div class="tracker-content" [@collapseAnimation]="isCollapsed ? 'collapsed' : 'expanded'">
+      <div class="tracker-content">
         <!-- Header da Quest -->
         <div class="quest-header">
           <span class="quest-icon">🎯</span>
@@ -172,34 +157,20 @@ export class QuestTrackerComponent implements OnChanges {
   @Input() playerLevel: number | null = 1;
   @Input() playerXP: number | null = 0;
   @Input() xpToNextLevel: number | null = 100;
+  @Input() playerPosition: Position | null = null;
 
   @Output() onReset = new EventEmitter<void>();
+  @Output() onClose = new EventEmitter<void>();
 
   completedCount = 0;
   totalCount = 0;
   progressPercent = 0;
   xpPercent = 0;
   showNewQuestIndicator = false;
-  isCollapsed = false;
-  hasNotification = false;
 
-  // Drag properties
-  isDragging = false;
+  // Position properties
   positionX: number | null = null;
   positionY: number | null = null;
-  private dragStartX = 0;
-  private dragStartY = 0;
-  private elementStartX = 0;
-  private elementStartY = 0;
-
-  toggleCollapse() {
-    this.isCollapsed = !this.isCollapsed;
-
-    // Limpa notificação ao expandir
-    if (!this.isCollapsed) {
-      this.hasNotification = false;
-    }
-  }
 
   resetProgress() {
     if (confirm('Tem certeza que deseja recomeçar? Todo o progresso será perdido.')) {
@@ -207,50 +178,8 @@ export class QuestTrackerComponent implements OnChanges {
     }
   }
 
-  onDragStart(event: MouseEvent | TouchEvent) {
-    if (!this.isCollapsed) return;
-
-    event.preventDefault();
-    this.isDragging = true;
-
-    // Pega a posição inicial do mouse/touch
-    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
-    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
-
-    this.dragStartX = clientX;
-    this.dragStartY = clientY;
-
-    // Pega a posição atual do elemento
-    const rect = this.trackerElement.nativeElement.getBoundingClientRect();
-    this.elementStartX = rect.left;
-    this.elementStartY = rect.top;
-
-    // Se não tem posição definida ainda, usa a posição atual
-    if (this.positionX === null) {
-      this.positionX = this.elementStartX;
-      this.positionY = this.elementStartY;
-    }
-  }
-
-  @HostListener('document:mousemove', ['$event'])
-  @HostListener('document:touchmove', ['$event'])
-  onDrag(event: MouseEvent | TouchEvent) {
-    if (!this.isDragging) return;
-
-    const clientX = event instanceof MouseEvent ? event.clientX : event.touches[0].clientX;
-    const clientY = event instanceof MouseEvent ? event.clientY : event.touches[0].clientY;
-
-    const deltaX = clientX - this.dragStartX;
-    const deltaY = clientY - this.dragStartY;
-
-    this.positionX = this.elementStartX + deltaX;
-    this.positionY = this.elementStartY + deltaY;
-  }
-
-  @HostListener('document:mouseup')
-  @HostListener('document:touchend')
-  onDragEnd() {
-    this.isDragging = false;
+  closeTracker() {
+    this.onClose.emit();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -267,6 +196,21 @@ export class QuestTrackerComponent implements OnChanges {
     if (changes['playerLevel'] && !changes['playerLevel'].firstChange) {
       this.onLevelUp();
     }
+
+    if (changes['playerPosition'] && this.playerPosition) {
+      this.updatePositionNextToPlayer();
+    }
+  }
+
+  private updatePositionNextToPlayer() {
+    if (!this.playerPosition) return;
+
+    // Posiciona o tracker ao lado direito do player
+    const offsetX = 80; // Distância do player
+    const offsetY = -100; // Centraliza verticalmente em relação ao player
+
+    this.positionX = this.playerPosition.x + offsetX;
+    this.positionY = this.playerPosition.y + offsetY;
   }
 
   private checkForCompletedObjective(change: any) {
@@ -279,10 +223,7 @@ export class QuestTrackerComponent implements OnChanges {
       const oldObj = oldObjectives[i];
 
       if (oldObj && !oldObj.completed && newObj.completed) {
-        // Objetivo foi completado! Mostra notificação se estiver colapsado
-        if (this.isCollapsed) {
-          this.hasNotification = true;
-        }
+        // Objetivo foi completado!
         break;
       }
     }

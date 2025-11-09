@@ -215,6 +215,59 @@
     padding: 12px 30px;
     font-size: 1rem;
   }
+
+  // NPC Hover Modal em mobile - centralizada
+  .npc-hover-modal.mobile {
+    // Centralização já aplicada via classe .mobile no SCSS principal
+  }
+
+  .npc-hover-content {
+    min-width: 300px;
+    max-width: 90vw;
+    padding: 14px 18px;
+
+    .npc-hover-header {
+      gap: 10px;
+
+      .npc-hover-emoji {
+        font-size: 36px;
+      }
+
+      .npc-hover-info {
+        .npc-hover-name {
+          font-size: 16px;
+        }
+
+        .npc-hover-title {
+          font-size: 11px;
+        }
+      }
+    }
+
+    .npc-hover-description {
+      font-size: 12px;
+      padding: 8px 10px;
+    }
+
+    .npc-hover-greeting {
+      font-size: 12px;
+      padding: 8px 10px;
+    }
+
+    .npc-hover-agent {
+      font-size: 10px;
+      padding: 5px 8px;
+
+      .agent-id {
+        font-size: 9px;
+      }
+    }
+
+    .npc-hover-hint {
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+  }
 }
 
 // Tablet
@@ -225,5 +278,206 @@
 
   .intro-title {
     font-size: 2.5rem;
+  }
+}
+
+// NPC Hover Modal (ao passar mouse sobre NPC)
+.npc-hover-modal {
+  position: fixed;
+  z-index: 1500;
+  animation: slideIn 0.2s ease-out;
+  pointer-events: none;
+  transform-origin: left center;
+
+  // Desktop: ao lado do NPC (posicionamento via inline styles)
+  // As posições left e top são definidas dinamicamente no template
+
+  // Mobile: centralizada
+  &.mobile {
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.npc-hover-content {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(30, 30, 45, 0.95));
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(255, 215, 0, 0.15);
+  backdrop-filter: blur(12px);
+  min-width: 320px;
+  max-width: 400px;
+
+  .npc-hover-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    .npc-hover-emoji {
+      font-size: 48px;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+      animation: npcEmojiPulse 2s ease-in-out infinite;
+    }
+
+    .npc-hover-info {
+      flex: 1;
+
+      .npc-hover-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #FFD700;
+        margin-bottom: 3px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .npc-hover-title {
+        font-size: 13px;
+        color: rgba(255, 215, 0, 0.7);
+        font-style: italic;
+      }
+    }
+  }
+
+  .npc-hover-divider {
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 215, 0, 0.3),
+      transparent
+    );
+    margin: 12px 0;
+  }
+
+  .npc-hover-description {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    border-left: 3px solid rgba(100, 150, 255, 0.4);
+  }
+
+  .npc-hover-greeting {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 215, 0, 0.05);
+    border-radius: 6px;
+    border-left: 3px solid rgba(255, 215, 0, 0.3);
+    font-style: italic;
+
+    .greeting-quote {
+      color: rgba(255, 215, 0, 0.5);
+      font-size: 16px;
+      font-weight: bold;
+    }
+  }
+
+  .npc-hover-agent {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(100, 150, 255, 0.8);
+    padding: 6px 10px;
+    background: rgba(100, 150, 255, 0.05);
+    border-radius: 6px;
+    border: 1px solid rgba(100, 150, 255, 0.2);
+    margin-bottom: 12px;
+
+    .agent-icon {
+      font-size: 14px;
+    }
+
+    .agent-label {
+      font-weight: bold;
+      color: rgba(100, 150, 255, 0.9);
+    }
+
+    .agent-id {
+      color: rgba(255, 255, 255, 0.7);
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+    }
+  }
+
+  .npc-hover-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 215, 0, 0.8);
+    padding: 8px 12px;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    transition: all 0.2s ease;
+
+    &.in-range {
+      background: rgba(0, 255, 100, 0.1);
+      border-color: rgba(0, 255, 100, 0.3);
+      color: rgba(0, 255, 100, 0.9);
+    }
+
+    .hint-icon {
+      font-size: 16px;
+      animation: hintIconBounce 1s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+// Animação específica para mobile
+.npc-hover-modal.mobile {
+  animation: slideInMobile 0.2s ease-out;
+}
+
+@keyframes slideInMobile {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes npcEmojiPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes hintIconBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
   }
 }

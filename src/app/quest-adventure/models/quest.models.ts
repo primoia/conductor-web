@@ -20,6 +20,16 @@ export interface NPC {
   dialogueTreeId: string;
   showIndicator?: boolean;
   status?: 'available' | 'unavailable' | 'busy';
+  // Wandering behavior
+  homePosition?: Position; // Posição inicial/base do NPC
+  wanderRadius?: number; // Raio máximo de movimento
+  wanderSpeed?: number; // Velocidade de movimento (pixels/frame)
+  wanderDelay?: number; // Delay entre movimentos (ms)
+  currentTarget?: Position; // Posição alvo atual do movimento
+  nextWanderTime?: number; // Timestamp do próximo movimento
+  isWandering?: boolean; // Se está em movimento
+  isFrozen?: boolean; // Se o NPC está temporariamente congelado (não se move)
+  freezeTimer?: any; // Timer para descongelar automaticamente
 }
 
 export interface NPCPersonality {
