@@ -42,10 +42,10 @@ import { NPC, Position } from '../../models/quest.models';
         </div>
       </div>
 
-      <!-- Nome do local atual -->
-      <div class="location-name" *ngIf="currentLocation">
+      <!-- Nome do local atual (oculto) -->
+      <!-- <div class="location-name" *ngIf="currentLocation">
         {{ currentLocation }}
-      </div>
+      </div> -->
     </div>
   `,
   styleUrls: ['./quest-canvas.component.scss']
@@ -627,7 +627,21 @@ export class QuestCanvasComponent implements AfterViewInit, OnChanges, OnDestroy
       return;
     }
 
-    // Sempre emite o toque para o componente pai decidir o que fazer
+    // Verifica se clicou em NPC (IGUAL AO MOUSE)
+    const clickedNPC = this.getNPCAtPosition(position);
+    if (clickedNPC) {
+      // Emite evento de interação com NPC
+      this.onNpcInteract.emit(clickedNPC.id);
+      return;
+    }
+
+    // Adiciona efeito visual de X no local do toque
+    this.clickEffects.push({
+      position: { x: canvasX, y: canvasY },
+      timestamp: Date.now()
+    });
+
+    // Se não clicou em nada específico, emite toque no canvas
     this.onCanvasClick.emit(position);
   }
 
