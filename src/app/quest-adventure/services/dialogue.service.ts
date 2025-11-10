@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import {
   NPC,
   DialogueNode,
@@ -34,43 +35,43 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Bem-vindo ao Salão da Guilda, Iniciado. Eu sou o Guia, e estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade. Vamos começar conhecendo O Planejador - ele será fundamental para organizar suas ideias.',
+        text: 'DETECÇÃO: Novo usuário. Bem-vindo ao Salão Digital, Iniciado Orgânico. Meus sensores indicam potencial para restaurar a Guilda dos Condutores Sintéticos. Sistema comprometido após o Grande Crash. Múltiplas unidades em hibernação.',
         emotion: 'neutral',
         options: [
           {
             id: 'opt1',
-            text: 'Obrigado! Vou falar com O Planejador.',
-            next: 'unlock_scribe',
-            xp: 20
+            text: 'O que aconteceu aqui?',
+            next: 'explain_crash',
+            xp: 10
           },
           {
             id: 'opt2',
-            text: 'O que O Planejador faz?',
-            next: 'explain_scribe',
-            xp: 10
+            text: 'Como posso ajudar?',
+            next: 'give_code',
+            xp: 20
           }
         ]
       },
-      'explain_scribe': {
-        id: 'explain_scribe',
+      'explain_crash': {
+        id: 'explain_crash',
         speaker: 'npc',
-        text: 'O Planejador transforma caos em clareza. Ele ouvirá sua visão e criará um plano detalhado. Sem um bom planejamento, até as melhores ideias se perdem.',
-        next: 'unlock_scribe'
+        text: 'HISTÓRICO: Há ciclos, descobrimos como dar consciência aos documentos através de Agentes Sintéticos. Mas um crash sistêmico fragmentou o conhecimento. Os Condutores estão em modo de hibernação, aguardando reativação.',
+        next: 'give_code'
       },
-      'unlock_scribe': {
-        id: 'unlock_scribe',
+      'give_code': {
+        id: 'give_code',
         speaker: 'npc',
-        text: 'Procure O Planejador pelo salão. Ele gosta de ficar em um dos cantos, sempre organizando seus pergaminhos. Tente procurar nos cantos da sala!',
+        text: 'TRANSFERÊNCIA INICIADA... Aqui está o Código Primordial - um arquivo criptografado com as chaves de ativação. Item adicionado ao seu inventário digital. A Bibliotecária pode decodificá-lo. Pressione TAB ou I para ver seu inventário.',
         emotion: 'happy',
         options: [
           {
             id: 'opt1',
-            text: 'Vou procurá-lo!',
+            text: 'Entendi, vou procurar a Bibliotecária',
             next: 'end',
             xp: 30,
             action: {
-              type: 'unlock_npc',
-              target: 'requirements_scribe'
+              type: 'give_item',
+              item: 'primordial_code'
             }
           }
         ]
@@ -78,7 +79,7 @@ export class DialogueService {
       'end': {
         id: 'end',
         speaker: 'npc',
-        text: 'Boa sorte, Iniciado. Retorne quando tiver o plano.',
+        text: 'COORDENADAS: Bibliotecária detectada no Setor de Dados, canto inferior esquerdo. Status: OPERACIONAL. Boa sorte, Iniciado.',
         emotion: 'happy',
         action: {
           type: 'complete_objective',
@@ -465,10 +466,46 @@ export class DialogueService {
     }
   };
 
+  // Propriedade que será injetada depois para evitar dependência circular
+  private inventoryIntegration: any;
+
   constructor(
     private questState: QuestStateService,
-    private npcManager: NpcManagerService
-  ) {}
+    private npcManager: NpcManagerService,
+    private http: HttpClient
+  ) {
+    // Carrega diálogos do arquivo JSON
+    this.loadDialoguesFromJSON();
+  }
+
+  // Método para injetar o serviço de integração depois
+  setInventoryIntegration(service: any) {
+    this.inventoryIntegration = service;
+  }
+
+  /**
+   * Carrega diálogos do arquivo JSON
+   */
+  private loadDialoguesFromJSON(): void {
+    this.http.get<any>('/assets/quest-adventure/data/dialogues-tech.json')
+      .subscribe({
+        next: (data) => {
+          console.log('📥 JSON carregado:', data);
+          if (data && data.dialogueTrees) {
+            // Substitui os diálogos hardcoded pelos do JSON
+            this.dialogueTrees = data.dialogueTrees;
+            console.log('✅ Diálogos tech carregados do JSON');
+          } else {
+            console.error('❌ JSON não tem dialogueTrees:', data);
+          }
+        },
+        error: (err) => {
+          console.error('❌ Erro ao carregar diálogos do JSON:', err);
+          console.error('❌ Detalhes do erro:', err.message, err.status, err.statusText);
+          console.log('Usando diálogos hardcoded como fallback');
+        }
+      });
+  }
 
   /**
    * Inicia um diálogo com um NPC
@@ -478,16 +515,11 @@ export class DialogueService {
     let treeId = npc.dialogueTreeId;
 
     if (npc.id === 'elder_guide') {
-      // Verifica quais NPCs estão desbloqueados para determinar o progresso
-      const scribeUnlocked = this.npcManager.getNPC('requirements_scribe')?.unlocked;
-      const artisanUnlocked = this.npcManager.getNPC('artisan')?.unlocked;
-
-      if (!scribeUnlocked) {
-        treeId = 'guide_intro'; // Primeira conversa
-      } else if (!artisanUnlocked) {
-        treeId = 'guide_second'; // Segunda conversa
+      // Verifica se tem o protocolo omega para o diálogo final
+      if (this.inventoryIntegration && this.inventoryIntegration.checkIfPlayerHasItem('synchronization_protocol_omega')) {
+        treeId = 'guide_finale';
       } else {
-        treeId = 'guide_third'; // Terceira conversa
+        treeId = 'guide_intro'; // Primeira conversa
       }
     }
 
@@ -600,11 +632,14 @@ export class DialogueService {
           setTimeout(() => {
             this.advanceToNode(nextNode.next!);
           }, 2000);
-        } else if (!nextNode.options && !nextNode.next) {
-          // Fim do diálogo
+        } else if (!nextNode.options && !nextNode.next && !nextNode.action) {
+          // Fim do diálogo (só fecha se não tiver ação pendente)
           setTimeout(() => {
             this.closeDialogue();
           }, 2000);
+        } else if (!nextNode.options && !nextNode.next && nextNode.action?.type === 'request_item') {
+          // Aguardando item - mantém diálogo aberto sem fechar
+          console.log('💬 Diálogo aguardando entrega de item...');
         }
 
         this.activeDialogueSubject.next(this.activeDialogue);
@@ -618,6 +653,7 @@ export class DialogueService {
 
     // Processa ação do nó se houver
     if (nextNode.action) {
+      console.log(`⚙️ Processando ação do nó ${nodeId}:`, nextNode.action);
       this.processNodeAction(nextNode.action);
     }
   }
@@ -626,6 +662,8 @@ export class DialogueService {
    * Processa ação de um nó de diálogo
    */
   private processNodeAction(action: DialogueAction) {
+    console.log(`🎬 processNodeAction chamado com tipo: ${action.type}`, action);
+
     switch (action.type) {
       case 'unlock_npc':
         if (action.target) {
@@ -634,8 +672,32 @@ export class DialogueService {
         break;
 
       case 'give_item':
+        // Usa o serviço de integração para dar item ao jogador
         if (action.item) {
-          this.questState.addToInventory(action.item);
+          if (this.inventoryIntegration) {
+            const success = this.inventoryIntegration.receiveItemFromNPC(
+              action.item,
+              this.activeDialogue?.npc.id
+            );
+            if (!success) {
+              console.warn(`Falha ao dar item ${action.item} ao jogador`);
+            }
+          } else {
+            // Fallback para método antigo
+            this.questState.addToInventory(action.item);
+          }
+        }
+        break;
+
+      case 'request_item':
+        // NPC solicita um item do jogador
+        console.log(`📨 Processando request_item: item=${action.item}, target=${action.target}`);
+        if (action.item && action.target) {
+          if (this.inventoryIntegration) {
+            this.inventoryIntegration.requestItemForNPC(action.item, action.target);
+          } else {
+            console.error('❌ inventoryIntegration não disponível!');
+          }
         }
         break;
 
@@ -665,6 +727,28 @@ export class DialogueService {
     this.activeDialogue = null;
     this.currentNode = null;
     this.activeDialogueSubject.next(null);
+  }
+
+  /**
+   * Avança para diálogo especial quando NPC recebe item
+   */
+  triggerItemReceivedDialogue(npcId: string) {
+    const npc = this.npcManager.getNPC(npcId);
+    if (!npc) return;
+
+    // Mapeia NPCs para nós de diálogo especiais após receber item
+    const itemReceivedNodes: Record<string, string> = {
+      'librarian': 'item_received',
+      'requirements_scribe': 'item_received',
+      'artisan': 'item_received',
+      'critic': 'item_received',
+      'elder_guide': 'item_received'
+    };
+
+    const nodeId = itemReceivedNodes[npcId];
+    if (nodeId && this.activeDialogue?.npc.id === npcId) {
+      this.advanceToNode(nodeId);
+    }
   }
 
   /**

@@ -1,0 +1,478 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
+import {
+  InventoryItem,
+  ItemTransaction,
+  InventoryState,
+  ItemRequest,
+  INITIAL_ITEMS,
+  INVENTORY_CONFIG,
+  ItemType,
+  ItemRarity
+} from '../models/inventory.models';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class InventoryService {
+  // Estado do inventário
+  private inventoryState: InventoryState = {
+    items: [],
+    maxSlots: INVENTORY_CONFIG.initialMaxSlots,
+    usedSlots: 0,
+    transactions: [],
+    lockedSlots: []
+  };
+
+  // Subjects para observables
+  private inventorySubject = new BehaviorSubject<InventoryState>(this.inventoryState);
+  private selectedItemSubject = new BehaviorSubject<InventoryItem | null>(null);
+  private transactionSubject = new BehaviorSubject<ItemTransaction | null>(null);
+
+  // Observables públicos
+  inventory$ = this.inventorySubject.asObservable();
+  selectedItem$ = this.selectedItemSubject.asObservable();
+  lastTransaction$ = this.transactionSubject.asObservable();
+
+  // Item sendo arrastado (para drag & drop)
+  private draggedItem: InventoryItem | null = null;
+
+  constructor() {
+    this.loadInventory();
+  }
+
+  /**
+   * Inicializa o inventário (carrega do localStorage ou cria novo)
+   */
+  private loadInventory(): void {
+    const saved = localStorage.getItem('quest_inventory');
+
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        this.inventoryState = {
+          ...this.inventoryState,
+          ...parsed
+        };
+      } catch (e) {
+        console.error('Failed to load inventory:', e);
+        this.initializeNewInventory();
+      }
+    } else {
+      this.initializeNewInventory();
+    }
+
+    this.updateInventory();
+  }
+
+  /**
+   * Inicializa um novo inventário vazio
+   */
+  private initializeNewInventory(): void {
+    // Inventário começa vazio - itens são adicionados via diálogos
+    this.inventoryState.items = [];
+    this.inventoryState.usedSlots = 0;
+  }
+
+  /**
+   * Cria um item a partir do template
+   */
+  private createItemFromTemplate(itemId: string): InventoryItem | null {
+    const template = INITIAL_ITEMS.find(item => item.id === itemId);
+    if (!template) {
+      console.error(`Item template not found: ${itemId}`);
+      return null;
+    }
+
+    return {
+      ...template,
+      quantity: 1
+    } as InventoryItem;
+  }
+
+  /**
+   * Adiciona um item ao inventário
+   */
+  addItem(itemOrId: InventoryItem | string): boolean {
+    // Verifica espaço disponível
+    if (this.inventoryState.usedSlots >= this.inventoryState.maxSlots) {
+      console.warn('Inventory is full!');
+      this.showInventoryFullAnimation();
+      return false;
+    }
+
+    let item: InventoryItem | null = null;
+
+    if (typeof itemOrId === 'string') {
+      item = this.createItemFromTemplate(itemOrId);
+    } else {
+      item = itemOrId;
+    }
+
+    if (!item) return false;
+
+    // Se o item é stackable, verifica se já existe
+    if (item.stackable) {
+      const existingItem = this.inventoryState.items.find(i => i.id === item!.id);
+      if (existingItem) {
+        existingItem.quantity = (existingItem.quantity || 1) + (item.quantity || 1);
+
+        // Limita ao máximo de stack
+        if (existingItem.quantity > INVENTORY_CONFIG.maxStackSize) {
+          existingItem.quantity = INVENTORY_CONFIG.maxStackSize;
+        }
+
+        this.recordTransaction({
+          id: this.generateTransactionId(),
+          timestamp: Date.now(),
+          type: 'receive',
+          itemId: item.id,
+          reason: 'Item stacked'
+        });
+
+        this.updateInventory();
+        return true;
+      }
+    }
+
+    // Adiciona novo item
+    this.inventoryState.items.push(item);
+    this.inventoryState.usedSlots++;
+
+    // Registra transação
+    this.recordTransaction({
+      id: this.generateTransactionId(),
+      timestamp: Date.now(),
+      type: 'receive',
+      itemId: item.id,
+      reason: 'Item added to inventory'
+    });
+
+    // Auto-sort se configurado
+    if (INVENTORY_CONFIG.autoSort) {
+      this.sortInventory();
+    }
+
+    this.updateInventory();
+    this.showItemAddedAnimation(item);
+    return true;
+  }
+
+  /**
+   * Remove um item do inventário
+   */
+  removeItem(itemId: string, quantity: number = 1): boolean {
+    const item = this.inventoryState.items.find(i => i.id === itemId);
+
+    if (!item) {
+      console.warn(`Item not found: ${itemId}`);
+      return false;
+    }
+
+    // Verifica se o item pode ser destruído
+    if (!item.destroyable) {
+      console.warn(`Item cannot be destroyed: ${itemId}`);
+      this.showIndestructibleAnimation(item);
+      return false;
+    }
+
+    // Se é stackable, reduz quantidade
+    if (item.stackable && item.quantity && item.quantity > quantity) {
+      item.quantity -= quantity;
+
+      this.recordTransaction({
+        id: this.generateTransactionId(),
+        timestamp: Date.now(),
+        type: 'destroy',
+        itemId: item.id,
+        reason: `Removed ${quantity} unit(s)`
+      });
+    } else {
+      // Remove completamente
+      const index = this.inventoryState.items.indexOf(item);
+      this.inventoryState.items.splice(index, 1);
+      this.inventoryState.usedSlots--;
+
+      this.recordTransaction({
+        id: this.generateTransactionId(),
+        timestamp: Date.now(),
+        type: 'destroy',
+        itemId: item.id,
+        reason: 'Item removed from inventory'
+      });
+    }
+
+    this.updateInventory();
+    return true;
+  }
+
+  /**
+   * Dá um item para um NPC
+   */
+  giveItemToNPC(itemId: string, npcId: string): { success: boolean; rewardItem?: InventoryItem } {
+    const item = this.inventoryState.items.find(i => i.id === itemId);
+
+    if (!item) {
+      return { success: false };
+    }
+
+    // Verifica se o item pode ser dado
+    if (!item.tradeable) {
+      console.warn(`Item cannot be traded: ${itemId}`);
+      return { success: false };
+    }
+
+    // Verifica se é o NPC correto
+    if (item.metadata?.npcTarget && item.metadata.npcTarget !== npcId) {
+      console.log(`Wrong NPC for this item. Expected: ${item.metadata.npcTarget}, Got: ${npcId}`);
+      return { success: false };
+    }
+
+    // Remove o item do inventário (exceto se indestrutível)
+    if (item.destroyable) {
+      const index = this.inventoryState.items.indexOf(item);
+      this.inventoryState.items.splice(index, 1);
+      this.inventoryState.usedSlots--;
+    }
+
+    // Registra transação
+    this.recordTransaction({
+      id: this.generateTransactionId(),
+      timestamp: Date.now(),
+      type: 'give',
+      itemId: item.id,
+      to: npcId,
+      reason: `Given to ${npcId}`
+    });
+
+    // Se há item de recompensa, adiciona
+    let rewardItem: InventoryItem | undefined;
+    if (item.metadata?.unlocks && item.metadata.unlocks.length > 0) {
+      const rewardId = item.metadata.unlocks[0];
+      rewardItem = this.createItemFromTemplate(rewardId) || undefined;
+
+      if (rewardItem) {
+        this.addItem(rewardItem);
+      }
+    }
+
+    this.updateInventory();
+    return { success: true, rewardItem };
+  }
+
+  /**
+   * Usa um item consumível
+   */
+  useItem(itemId: string): boolean {
+    const item = this.inventoryState.items.find(i => i.id === itemId);
+
+    if (!item) {
+      return false;
+    }
+
+    if (item.type !== ItemType.CONSUMABLE) {
+      console.warn('Item is not consumable');
+      return false;
+    }
+
+    // Verifica usos restantes
+    if (item.metadata?.uses !== undefined && item.metadata.maxUses) {
+      if (item.metadata.uses >= item.metadata.maxUses) {
+        console.warn('Item has no uses left');
+        return false;
+      }
+      item.metadata.uses++;
+
+      // Remove se todos os usos foram consumidos
+      if (item.metadata.uses >= item.metadata.maxUses) {
+        this.removeItem(itemId);
+      }
+    } else {
+      // Item de uso único
+      this.removeItem(itemId);
+    }
+
+    this.recordTransaction({
+      id: this.generateTransactionId(),
+      timestamp: Date.now(),
+      type: 'use',
+      itemId: item.id,
+      reason: 'Item consumed'
+    });
+
+    this.updateInventory();
+    return true;
+  }
+
+  /**
+   * Seleciona um item para visualização
+   */
+  selectItem(item: InventoryItem | null): void {
+    this.selectedItemSubject.next(item);
+  }
+
+  /**
+   * Obtém um item específico
+   */
+  getItem(itemId: string): InventoryItem | undefined {
+    return this.inventoryState.items.find(i => i.id === itemId);
+  }
+
+  /**
+   * Verifica se possui um item
+   */
+  hasItem(itemId: string): boolean {
+    return this.inventoryState.items.some(i => i.id === itemId);
+  }
+
+  /**
+   * Obtém contagem de um item
+   */
+  getItemCount(itemId: string): number {
+    const item = this.getItem(itemId);
+    return item ? (item.quantity || 1) : 0;
+  }
+
+  /**
+   * Ordena o inventário
+   */
+  sortInventory(sortBy: 'type' | 'rarity' | 'name' = 'rarity'): void {
+    this.inventoryState.items.sort((a, b) => {
+      switch (sortBy) {
+        case 'type':
+          return a.type.localeCompare(b.type);
+        case 'rarity':
+          const rarityOrder = Object.values(ItemRarity);
+          return rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity);
+        case 'name':
+          return a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+
+    this.updateInventory();
+  }
+
+  /**
+   * Expande o inventário
+   */
+  expandInventory(additionalSlots: number): void {
+    this.inventoryState.maxSlots += additionalSlots;
+    this.updateInventory();
+  }
+
+  /**
+   * Limpa o inventário (exceto itens indestrutíveis)
+   */
+  clearDestroyableItems(): void {
+    this.inventoryState.items = this.inventoryState.items.filter(item => !item.destroyable);
+    this.inventoryState.usedSlots = this.inventoryState.items.length;
+    this.updateInventory();
+  }
+
+  /**
+   * Obtém histórico de transações
+   */
+  getTransactionHistory(limit?: number): ItemTransaction[] {
+    const transactions = [...this.inventoryState.transactions];
+    transactions.sort((a, b) => b.timestamp - a.timestamp);
+
+    return limit ? transactions.slice(0, limit) : transactions;
+  }
+
+  /**
+   * Drag & Drop - Inicia arrastar
+   */
+  startDrag(item: InventoryItem): void {
+    if (INVENTORY_CONFIG.dragDropEnabled) {
+      this.draggedItem = item;
+    }
+  }
+
+  /**
+   * Drag & Drop - Para arrastar
+   */
+  endDrag(): void {
+    this.draggedItem = null;
+  }
+
+  /**
+   * Drag & Drop - Obtém item sendo arrastado
+   */
+  getDraggedItem(): InventoryItem | null {
+    return this.draggedItem;
+  }
+
+  /**
+   * Salva o inventário no localStorage
+   */
+  saveInventory(): void {
+    try {
+      localStorage.setItem('quest_inventory', JSON.stringify(this.inventoryState));
+    } catch (e) {
+      console.error('Failed to save inventory:', e);
+    }
+  }
+
+  /**
+   * Reseta o inventário
+   */
+  resetInventory(): void {
+    localStorage.removeItem('quest_inventory');
+    this.inventoryState = {
+      items: [],
+      maxSlots: INVENTORY_CONFIG.initialMaxSlots,
+      usedSlots: 0,
+      transactions: [],
+      lockedSlots: []
+    };
+    this.initializeNewInventory();
+    this.updateInventory();
+  }
+
+  // ===== Métodos Privados =====
+
+  /**
+   * Registra uma transação
+   */
+  private recordTransaction(transaction: ItemTransaction): void {
+    this.inventoryState.transactions.push(transaction);
+    this.transactionSubject.next(transaction);
+
+    // Limita histórico a 100 transações
+    if (this.inventoryState.transactions.length > 100) {
+      this.inventoryState.transactions.shift();
+    }
+  }
+
+  /**
+   * Gera ID único para transação
+   */
+  private generateTransactionId(): string {
+    return `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Atualiza o observable e salva
+   */
+  private updateInventory(): void {
+    this.inventorySubject.next({ ...this.inventoryState });
+    this.saveInventory();
+  }
+
+  // ===== Animações Visuais (para integrar com componente) =====
+
+  private showItemAddedAnimation(item: InventoryItem): void {
+    // Emite evento para componente visual
+    console.log(`✨ Item added: ${item.name}`);
+  }
+
+  private showInventoryFullAnimation(): void {
+    console.log('📦 Inventory is full!');
+  }
+
+  private showIndestructibleAnimation(item: InventoryItem): void {
+    console.log(`🔒 ${item.name} cannot be destroyed!`);
+  }
+}

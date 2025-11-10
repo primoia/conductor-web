@@ -1,0 +1,231 @@
+<div class="inventory-panel" [class.minimized]="isMinimized">
+  <!-- Header -->
+  <div class="inventory-header">
+    <div class="header-left">
+      <span class="inventory-title">
+        <span class="icon">🎒</span>
+        Inventário Digital
+      </span>
+      <span class="inventory-count" *ngIf="inventoryState">
+        {{ inventoryState.usedSlots }}/{{ inventoryState.maxSlots }}
+      </span>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-icon" (click)="toggleDetails()" title="Alternar detalhes">
+        <span>{{ showDetails ? '📋' : '📦' }}</span>
+      </button>
+      <button class="btn-icon" (click)="toggleSort()" title="Ordenar ({{ sortBy }})">
+        <span>🔀</span>
+      </button>
+      <button class="btn-icon" (click)="toggleMinimize()" title="{{ isMinimized ? 'Maximizar' : 'Minimizar' }}">
+        <span>{{ isMinimized ? '⬆' : '⬇' }}</span>
+      </button>
+      <button class="btn-icon btn-close" (click)="close()" title="Fechar">
+        <span>✖</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Content (hidden when minimized) -->
+  <div class="inventory-content" *ngIf="!isMinimized">
+    <!-- Grid View -->
+    <div class="inventory-grid" *ngIf="!showDetails">
+      <div
+        class="inventory-slot"
+        *ngFor="let item of inventoryGrid; let i = index"
+        [class.occupied]="item !== null"
+        [class.selected]="item === selectedItem"
+        [class.drag-over]="i === dragOverSlot"
+        (click)="selectItem(item)"
+        (mouseenter)="onItemHover(item)"
+        (mouseleave)="onItemHover(null)"
+        (dragover)="onDragOver($event, i)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event, i)">
+
+        <!-- Item -->
+        <div
+          class="item"
+          *ngIf="item"
+          [class]="getRarityClass(item)"
+          [class.animated]="isAnimated(item.id)"
+          [class]="getItemAnimation(item.id)"
+          [draggable]="true"
+          (dragstart)="onDragStart($event, item)"
+          (dragend)="onDragEnd($event)"
+          [title]="getItemTooltip(item)">
+
+          <!-- Item Icon -->
+          <div class="item-icon" [style.text-shadow]="'0 0 10px ' + getRarityColor(item)">
+            {{ item.icon }}
+          </div>
+
+          <!-- Quantity Badge -->
+          <span class="item-quantity" *ngIf="formatQuantity(item)">
+            {{ formatQuantity(item) }}
+          </span>
+
+          <!-- Indestructible Badge -->
+          <span class="item-locked" *ngIf="!item.destroyable" title="Indestrutível">
+            🔒
+          </span>
+
+          <!-- Visual Effects -->
+          <div class="item-effects" *ngIf="item.visualEffect">
+            <div class="glow-effect" *ngIf="item.visualEffect.glow"
+                 [style.background]="'radial-gradient(circle, ' + item.visualEffect.glow + '40, transparent)'">
+            </div>
+            <div class="pulse-effect" *ngIf="item.visualEffect.pulse"></div>
+            <div class="rotation-effect" *ngIf="item.visualEffect.rotation">
+              <span class="rotating-ring"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty Slot -->
+        <div class="empty-slot" *ngIf="!item">
+          <span class="slot-number">{{ i + 1 }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- List View (Details) -->
+    <div class="inventory-list" *ngIf="showDetails && inventoryState">
+      <div class="item-list-container">
+        <div
+          class="item-row"
+          *ngFor="let item of inventoryState.items"
+          [class.selected]="item === selectedItem"
+          (click)="selectItem(item)">
+
+          <!-- Item Icon -->
+          <div class="item-col-icon">
+            <span class="item-icon" [style.color]="getRarityColor(item)">
+              {{ item.icon }}
+            </span>
+          </div>
+
+          <!-- Item Info -->
+          <div class="item-col-info">
+            <div class="item-name" [style.color]="getRarityColor(item)">
+              {{ item.name }}
+              <span class="item-locked-inline" *ngIf="!item.destroyable">🔒</span>
+            </div>
+            <div class="item-description">
+              {{ item.description }}
+            </div>
+            <div class="item-metadata" *ngIf="item.metadata">
+              <span class="metadata-tag" *ngIf="item.metadata.npcTarget">
+                👤 {{ item.metadata.npcTarget }}
+              </span>
+              <span class="metadata-tag" *ngIf="item.metadata.questId">
+                📜 {{ item.metadata.questId }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Item Actions -->
+          <div class="item-col-actions">
+            <button
+              class="btn-action use"
+              *ngIf="item.type === 'consumable'"
+              (click)="useItem(item); $event.stopPropagation()"
+              title="Usar">
+              ⚡
+            </button>
+            <button
+              class="btn-action destroy"
+              *ngIf="item.destroyable"
+              (click)="destroyItem(item); $event.stopPropagation()"
+              title="Destruir">
+              🗑️
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="inventoryState.items.length === 0">
+          <span class="empty-icon">📭</span>
+          <p>Inventário vazio</p>
+          <small>Colete itens durante sua jornada</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Item Detail -->
+    <div class="selected-item-detail" *ngIf="selectedItem">
+      <div class="detail-header">
+        <span class="detail-icon" [style.color]="getRarityColor(selectedItem)">
+          {{ selectedItem.icon }}
+        </span>
+        <div class="detail-info">
+          <h3 [style.color]="getRarityColor(selectedItem)">{{ selectedItem.name }}</h3>
+          <span class="detail-type">{{ selectedItem.type }} • {{ selectedItem.rarity }}</span>
+        </div>
+      </div>
+
+      <div class="detail-description">
+        {{ selectedItem.description }}
+      </div>
+
+      <div class="detail-properties">
+        <div class="property" *ngIf="!selectedItem.destroyable">
+          <span class="property-icon">🔒</span>
+          <span>Indestrutível</span>
+        </div>
+        <div class="property" *ngIf="selectedItem.tradeable">
+          <span class="property-icon">🤝</span>
+          <span>Pode ser entregue</span>
+        </div>
+        <div class="property" *ngIf="selectedItem.stackable">
+          <span class="property-icon">📚</span>
+          <span>Empilhável ({{ selectedItem.quantity || 1 }})</span>
+        </div>
+      </div>
+
+      <!-- Give Item Button -->
+      <div class="detail-actions" *ngIf="selectedItem.tradeable">
+        <button class="btn-give-item" (click)="giveItemToNPC(selectedItem)">
+          <span class="btn-icon">🤝</span>
+          <span class="btn-text">Dar Item</span>
+        </button>
+      </div>
+
+      <div class="detail-metadata" *ngIf="selectedItem.metadata">
+        <h4>Informações Adicionais</h4>
+        <div class="metadata-item" *ngIf="selectedItem.metadata.npcTarget">
+          <strong>Destinatário:</strong> {{ selectedItem.metadata.npcTarget }}
+        </div>
+        <div class="metadata-item" *ngIf="selectedItem.metadata.unlocks">
+          <strong>Desbloqueia:</strong> {{ selectedItem.metadata.unlocks.join(', ') }}
+        </div>
+        <div class="metadata-item" *ngIf="selectedItem.metadata.uses !== undefined">
+          <strong>Usos:</strong> {{ selectedItem.metadata.uses }}/{{ selectedItem.metadata.maxUses }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hover Tooltip -->
+  <div class="item-tooltip" *ngIf="hoveredItem && !showDetails"
+       [style.display]="'block'">
+    <div class="tooltip-header">
+      <span class="tooltip-icon" [style.color]="getRarityColor(hoveredItem)">
+        {{ hoveredItem.icon }}
+      </span>
+      <span class="tooltip-name" [style.color]="getRarityColor(hoveredItem)">
+        {{ hoveredItem.name }}
+      </span>
+    </div>
+    <div class="tooltip-description">
+      {{ hoveredItem.description }}
+    </div>
+    <div class="tooltip-footer">
+      <span class="tooltip-type">{{ hoveredItem.type }}</span>
+      <span class="tooltip-rarity" [style.color]="getRarityColor(hoveredItem)">
+        {{ hoveredItem.rarity }}
+      </span>
+    </div>
+  </div>
+</div>

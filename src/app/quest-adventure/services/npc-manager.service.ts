@@ -35,91 +35,91 @@ export class NpcManagerService implements OnDestroy {
     {
       id: 'requirements_scribe',
       name: 'Escriba',
-      emoji: '👨‍💼',
-      title: 'O Planejador',
-      position: { x: 300, y: 300 },
+      emoji: '🤖',
+      title: 'Condutor de Planejamento',
+      position: { x: 150, y: 150 },
       unlocked: false,
       sprite: 'scribe',
       agentId: 'RequirementsAnalyst_Agent',
-      greeting: 'Ah, o novo Iniciado! Prazer em conhecê-lo.',
+      greeting: 'MODO HIBERNAÇÃO... zzz... DETECÇÃO DE SINAL...',
       personality: {
         trait: 'methodical',
         greetingStyle: 'professional',
         workingPhrases: [
-          'Analisando os requisitos...',
-          'Estruturando o plano...',
-          'Documentando cada detalhe...'
+          'PROCESSANDO REQUISITOS...',
+          'ESTRUTURANDO SCREENPLAY...',
+          'DOCUMENTANDO PARÂMETROS...'
         ],
-        successPhrase: 'O plano está perfeitamente estruturado!'
+        successPhrase: 'SCREENPLAY GERADO COM SUCESSO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'scribe_plan'
+      dialogueTreeId: 'scribe_boot'
     },
     {
       id: 'artisan',
       name: 'Artesã',
-      emoji: '👩‍🔧',
-      title: 'A Executora',
-      position: { x: 700, y: 300 },
+      emoji: '⚙️',
+      title: 'Condutor de Execução',
+      position: { x: 750, y: 600 },
       unlocked: false,
       sprite: 'artisan',
       agentId: 'BackendDeveloper_Agent',
-      greeting: 'Finalmente! Ação! Estava ficando entediada!',
+      greeting: 'MODO SEGURANÇA ATIVO... Energia baixa...',
       personality: {
         trait: 'energetic',
         greetingStyle: 'enthusiastic',
         workingPhrases: [
-          'Mãos à obra!',
-          'Isso vai ficar incrível!',
-          'Forjando com paixão!'
+          'COMPILANDO CÓDIGO...',
+          'EXECUTANDO FUNÇÃO...',
+          'BUILD EM PROGRESSO...'
         ],
-        successPhrase: 'BOOM! Feito! Olha essa beleza!'
+        successPhrase: 'EXECUÇÃO COMPLETA! CÓDIGO RODANDO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'artisan_create'
+      dialogueTreeId: 'artisan_activation'
     },
     {
       id: 'critic',
       name: 'Crítica',
-      emoji: '👩‍🎨',
-      title: 'A Refinadora',
-      position: { x: 512, y: 200 },
+      emoji: '🔍',
+      title: 'Condutor de Otimização',
+      position: { x: 750, y: 150 },
       unlocked: false,
       sprite: 'critic',
       agentId: 'CodeReviewer_Agent',
-      greeting: 'Eu já estava esperando você, Iniciado.',
+      greeting: 'ANÁLISE VISUAL: Novo visitante detectado...',
       personality: {
         trait: 'refined',
         greetingStyle: 'elegant',
         workingPhrases: [
-          'Hmm, deixe-me observar...',
-          'Analisando cada detalhe...',
-          'Considerando as possibilidades...'
+          'ANALISANDO PADRÕES...',
+          'OTIMIZANDO PERFORMANCE...',
+          'REFINANDO ALGORITMO...'
         ],
-        successPhrase: 'Agora sim! Isto é digno da nossa Guilda!'
+        successPhrase: 'ANÁLISE COMPLETA! CÓDIGO OTIMIZADO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'critic_review'
+      dialogueTreeId: 'critic_calibration'
     },
     {
       id: 'librarian',
       name: 'Bibliotecária',
-      emoji: '📚',
-      title: 'A Guardiã do Conhecimento',
+      emoji: '💾',
+      title: 'Unidade de Armazenamento',
       position: { x: 150, y: 600 },
       unlocked: true,
       sprite: 'librarian',
       agentId: 'Knowledge_Agent',
-      greeting: 'Bem-vindo à Biblioteca! Aqui guardamos todo o conhecimento da Guilda.',
+      greeting: 'PROCESSANDO... Detecto assinatura digital do Guia.',
       personality: {
         trait: 'knowledgeable',
         greetingStyle: 'scholarly',
         workingPhrases: [
-          'Deixe-me consultar os arquivos...',
-          'Há um tomo sobre isso...',
-          'Ah sim, está registrado aqui...'
+          'ACESSANDO BANCO DE DADOS...',
+          'RECUPERANDO ARQUIVO...',
+          'DECODIFICANDO INFORMAÇÃO...'
         ],
-        successPhrase: 'O conhecimento é poder, Iniciado!'
+        successPhrase: 'TRANSFERÊNCIA COMPLETA!'
       },
       currentIndicator: 'none',
       dialogueTreeId: 'librarian_intro'

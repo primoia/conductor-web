@@ -1,14 +1,19 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
 import { QuestCanvasComponent } from './components/quest-canvas/quest-canvas.component';
 import { QuestChatModalComponent } from './components/quest-chat-modal/quest-chat-modal.component';
 import { QuestTrackerComponent } from './components/quest-tracker/quest-tracker.component';
+import { InventoryPanelComponent } from './components/inventory-panel/inventory-panel.component';
 import { QuestStateService } from './services/quest-state.service';
 import { NpcManagerService } from './services/npc-manager.service';
 import { PlayerMovementService } from './services/player-movement.service';
 import { DialogueService } from './services/dialogue.service';
+import { InventoryService } from './services/inventory.service';
+import { InventoryQuestIntegrationService } from './services/inventory-quest-integration.service';
 import { NPC, Position, QuestObjective, DialogueOption } from './models/quest.models';
+import { InventoryItem } from './models/inventory.models';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -18,9 +23,19 @@ import { takeUntil } from 'rxjs/operators';
   imports: [
     CommonModule,
     FormsModule,
+    HttpClientModule,
     QuestCanvasComponent,
     QuestChatModalComponent,
-    QuestTrackerComponent
+    QuestTrackerComponent,
+    InventoryPanelComponent
+  ],
+  providers: [
+    QuestStateService,
+    NpcManagerService,
+    PlayerMovementService,
+    DialogueService,
+    InventoryService,
+    InventoryQuestIntegrationService
   ],
   template: `
     <div class="quest-container" [class.mobile]="isMobile">
@@ -62,6 +77,14 @@ import { takeUntil } from 'rxjs/operators';
         (onOptionSelect)="handleDialogueChoice($event)"
         (onClose)="closeDialogue()">
       </app-quest-chat-modal>
+
+      <!-- Inventory Panel -->
+      <app-inventory-panel
+        *ngIf="showInventory"
+        (closed)="closeInventory()"
+        (itemSelected)="onInventoryItemSelected($event)"
+        (itemGiven)="onInventoryItemGiven($event)">
+      </app-inventory-panel>
 
       <!-- NPC Hover Modal (ao passar mouse) -->
       <div class="npc-hover-modal"
@@ -161,12 +184,15 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   npcHoverModalData: any = null; // Dados do NPC para hover
   hoveredNpcId: string | null = null; // ID do NPC sob o mouse
   npcHoverPosition: { x: number, y: number } | null = null; // Posição do NPC em hover
+  showInventory = false; // Estado do inventário
 
   constructor(
     private questState: QuestStateService,
     private npcManager: NpcManagerService,
     private movement: PlayerMovementService,
-    private dialogue: DialogueService
+    private dialogue: DialogueService,
+    private inventoryService: InventoryService,
+    private inventoryIntegration: InventoryQuestIntegrationService
   ) {
     // Inicializa observables após as dependências estarem disponíveis
     this.npcs$ = this.npcManager.npcs$;
@@ -540,8 +566,15 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
 
     let message = 'Não sou quem você procura. Tente em outro lugar.';
 
-    if (targetNpcId) {
-      // Mensagens baseadas no NPC alvo
+    // Mensagens específicas baseadas no NPC bloqueado e contexto
+    if (npc.id === 'requirements_scribe') {
+      message = 'MODO HIBERNAÇÃO... zzz... *sistemas offline* ... Requer chave de ativação... A Bibliotecária possui os códigos de desbloqueio...';
+    } else if (npc.id === 'artisan') {
+      message = 'ENERGIA INSUFICIENTE... *sistemas em standby* ... Aguardando núcleo de execução do Escriba...';
+    } else if (npc.id === 'critic') {
+      message = 'SENSORES DESCALIBRADOS... *análise impossível* ... Necessita módulo de otimização da Artesã...';
+    } else if (targetNpcId) {
+      // Mensagens baseadas no NPC alvo quando está procurando outro
       const targetMessages: { [key: string]: string } = {
         'requirements_scribe': 'Não sou O Planejador. Procure em outro canto do salão.',
         'artisan': 'Não sou A Executora. Continue procurando pelos cantos.',
@@ -642,16 +675,23 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   }
 
   handleReset() {
-    // Limpa localStorage completamente
+    // Força mostrar intro novamente (deve ser definido ANTES de limpar)
+    sessionStorage.setItem('force_intro', 'true');
+
+    // Limpa TUDO do localStorage primeiro
     localStorage.clear();
+
+    // Limpa sessionStorage também (exceto force_intro)
+    const forceIntro = sessionStorage.getItem('force_intro');
+    sessionStorage.clear();
+    if (forceIntro) {
+      sessionStorage.setItem('force_intro', forceIntro);
+    }
 
     // Limpa o nome do player
     this.playerName = '';
 
-    // Força mostrar intro novamente
-    sessionStorage.setItem('force_intro', 'true');
-
-    // Recarrega a página
+    // Recarrega a página (que vai carregar estado limpo)
     window.location.reload();
   }
 
@@ -668,5 +708,51 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   onBeforeUnload(event: any) {
     // Salva estado antes de sair
     this.questState.saveState();
+  }
+
+  // ===== Métodos do Inventário =====
+
+  @HostListener('window:keydown', ['$event'])
+  handleKeyDown(event: KeyboardEvent) {
+    // Tecla I ou Tab para abrir/fechar inventário
+    if (event.key === 'i' || event.key === 'I' || event.key === 'Tab') {
+      event.preventDefault();
+      this.toggleInventory();
+    }
+
+    // ESC para fechar inventário
+    if (event.key === 'Escape' && this.showInventory) {
+      this.closeInventory();
+    }
+  }
+
+  toggleInventory() {
+    this.showInventory = !this.showInventory;
+
+    if (this.showInventory) {
+      console.log('🎒 Inventário aberto');
+      // Pausa movimento do player quando inventário está aberto
+      this.movement.stop();
+    }
+  }
+
+  closeInventory() {
+    this.showInventory = false;
+    console.log('🎒 Inventário fechado');
+  }
+
+  onInventoryItemSelected(item: InventoryItem) {
+    console.log('📦 Item selecionado:', item.name);
+
+    // Se estamos esperando entregar um item a um NPC
+    const npcWaiting = this.inventoryIntegration.getNPCWaitingForItem();
+    if (npcWaiting) {
+      this.inventoryIntegration.attemptItemDelivery(item.id);
+    }
+  }
+
+  onInventoryItemGiven(event: { item: InventoryItem, npcId: string }) {
+    console.log(`📦 Entregando ${event.item.name} para ${event.npcId}`);
+    this.inventoryIntegration.attemptItemDelivery(event.item.id);
   }
 }

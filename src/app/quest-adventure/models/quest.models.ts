@@ -66,7 +66,7 @@ export interface DialogueOption {
 }
 
 export interface DialogueAction {
-  type: 'unlock_npc' | 'give_item' | 'complete_objective' | 'start_creation' | 'set_flag' | 'set_target_npc';
+  type: 'unlock_npc' | 'give_item' | 'request_item' | 'complete_objective' | 'start_creation' | 'set_flag' | 'set_target_npc';
   target?: string;
   item?: string;
   objective?: string;
