@@ -4,11 +4,51 @@
   <meta charset="utf-8">
   <title>ConductorApp</title>
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+  <!-- 🔥 Viewport otimizado para Samsung e outros dispositivos -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, minimum-scale=1, user-scalable=yes, viewport-fit=cover">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <!-- 🔥 Meta tags específicas para Samsung Internet Browser -->
+  <meta name="format-detection" content="telephone=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="theme-color" content="#667eea">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- 🔥 Detecção de mobile via JavaScript (fallback para Samsung S20 e similares) -->
+  <script>
+    (function() {
+      // Detecta se é mobile de múltiplas formas
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                      ('ontouchstart' in window) ||
+                      (navigator.maxTouchPoints > 0) ||
+                      (window.innerWidth <= 768);
+
+      const isPortrait = window.innerHeight > window.innerWidth;
+
+      // Se for mobile em portrait, adiciona classe no body
+      if (isMobile && isPortrait) {
+        document.documentElement.classList.add('force-mobile-layout');
+        // Log para debug
+        console.log('🔥 Mobile detectado via JS:', {
+          userAgent: navigator.userAgent,
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+          orientation: isPortrait ? 'portrait' : 'landscape'
+        });
+      }
+
+      // Re-verifica quando orientação muda
+      window.addEventListener('orientationchange', function() {
+        setTimeout(function() {
+          const newIsPortrait = window.innerHeight > window.innerWidth;
+          if (isMobile && newIsPortrait) {
+            document.documentElement.classList.add('force-mobile-layout');
+          } else {
+            document.documentElement.classList.remove('force-mobile-layout');
+          }
+        }, 100);
+      });
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

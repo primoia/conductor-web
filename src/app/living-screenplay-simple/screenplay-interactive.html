@@ -1,4 +1,4 @@
-    <div class="screenplay-layout">
+    <div class="screenplay-layout" [class.screenplay-modal-active]="screenplayModalOpen">
       <div class="screenplay-container" [style.width.%]="screenplayWidth" [class.first-column-hidden]="!firstColumnVisible">
         <!-- Coluna 1: Sistema de Abas -->
         <div class="first-column">
@@ -251,6 +251,22 @@
         </div>
       </div>
     </div>
+
+    <!-- 🔥 NOVO: FAB (Floating Action Button) para abrir screenplay em mobile -->
+    <button
+      class="fab-screenplay"
+      (click)="openScreenplayModal()"
+      title="Abrir Roteiro">
+      📝
+    </button>
+
+    <!-- 🔥 NOVO: Botão fechar modal de screenplay (mobile) -->
+    <button
+      class="close-screenplay-modal"
+      (click)="closeScreenplayModal()"
+      title="Fechar Roteiro">
+      ✕
+    </button>
 
     <!-- Delete Confirmation Modal -->
     <div class="modal-backdrop" *ngIf="showDeleteConfirmModal" (click)="closeDeleteConfirmModal()">

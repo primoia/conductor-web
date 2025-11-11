@@ -1012,6 +1012,250 @@ body, html {
     padding: 4px 6px;
   }
 }
+
+/* 🔥 NOVO: Mobile Portrait - Chat First (Opção 1) */
+/* Múltiplas queries para garantir detecção em Samsung S20 e outros */
+
+/* Query 1: Width-based (padrão) */
+@media (max-width: 768px) and (orientation: portrait) {
+  /* DEFAULT: Esconder screenplay e roteiros */
+  .screenplay-container {
+    display: none !important;
+  }
+
+  .first-column {
+    display: none !important;
+  }
+
+  /* Chat ocupa 100% da tela */
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+
+  .screenplay-layout {
+    flex-direction: column;
+  }
+
+  /* FAB - Floating Action Button para abrir screenplay */
+  .fab-screenplay {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+    cursor: pointer;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .fab-screenplay:active {
+    transform: scale(0.95);
+  }
+
+  .fab-screenplay:hover {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    transform: scale(1.05);
+  }
+
+  /* MODAL: Screenplay full-screen quando ativado */
+  .screenplay-modal-active .screenplay-container {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    height: 100vh;
+    z-index: 10000;
+    background: white;
+    animation: slideInUp 0.3s ease-out;
+  }
+
+  @keyframes slideInUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Esconder FAB quando modal está aberto */
+  .screenplay-modal-active .fab-screenplay {
+    display: none;
+  }
+
+  /* Esconder chat quando modal está aberto */
+  .screenplay-modal-active .third-column {
+    display: none;
+  }
+
+  /* Botão fechar modal */
+  .close-screenplay-modal {
+    display: none; /* Escondido por padrão */
+  }
+
+  .screenplay-modal-active .close-screenplay-modal {
+    display: flex;
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #333;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 10001;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .close-screenplay-modal:active {
+    transform: scale(0.95);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Ajustar canvas no modal para ocupar toda tela */
+  .screenplay-modal-active .screenplay-canvas {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  /* Toolbar mais visível no modal */
+  .screenplay-modal-active .editor-toolbar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .screenplay-modal-active .toolbar-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+
+  .screenplay-modal-active .toolbar-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* 🔥 Query 2: Device-width based (para Samsung S20 e similares com zoom/scaling) */
+@media (max-device-width: 768px) and (orientation: portrait) {
+  .screenplay-container {
+    display: none !important;
+  }
+  .first-column {
+    display: none !important;
+  }
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+  .screenplay-layout {
+    flex-direction: column;
+  }
+  .fab-screenplay {
+    display: flex !important;
+  }
+}
+
+/* 🔥 Query 3: Touch-based detection (qualquer dispositivo com tela touch em portrait) */
+@media (pointer: coarse) and (orientation: portrait) and (max-width: 900px) {
+  .screenplay-container {
+    display: none !important;
+  }
+  .first-column {
+    display: none !important;
+  }
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+  .screenplay-layout {
+    flex-direction: column;
+  }
+  .fab-screenplay {
+    display: flex !important;
+  }
+}
+
+/* 🔥 Query 4: No-hover detection (dispositivos sem hover = mobile) */
+@media (hover: none) and (orientation: portrait) and (max-width: 900px) {
+  .screenplay-container {
+    display: none !important;
+  }
+  .first-column {
+    display: none !important;
+  }
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+  .screenplay-layout {
+    flex-direction: column;
+  }
+  .fab-screenplay {
+    display: flex !important;
+  }
+}
+
+/* 🔥 FALLBACK FINAL: Forçar via JavaScript (Samsung S20 e casos edge) */
+/* Esta classe é adicionada via JavaScript quando detecta mobile */
+.force-mobile-layout .screenplay-container {
+  display: none !important;
+}
+
+.force-mobile-layout .first-column {
+  display: none !important;
+}
+
+.force-mobile-layout .third-column {
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+.force-mobile-layout .screenplay-layout {
+  flex-direction: column !important;
+}
+
+.force-mobile-layout .fab-screenplay {
+  display: flex !important;
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 20px !important;
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  color: white !important;
+  font-size: 24px !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5) !important;
+  cursor: pointer !important;
+  z-index: 999 !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 /* Working Directory Modal - Standardized to match conductor-chat modals */
 .modal-content.working-dir-modal {
   background: white;

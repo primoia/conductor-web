@@ -156,6 +156,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // First column toggle state
   firstColumnVisible = true;
 
+  // 🔥 NOVO: Mobile screenplay modal state
+  screenplayModalOpen = false;
+
   // Estado da aplicação
   agents: AgentConfig[] = [];
   availableEmojis: EmojiInfo[] = [];
@@ -491,6 +494,16 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   closePromoteCouncilorModal(): void {
     this.showPromoteCouncilorModal = false;
     this.selectedAgentForPromotion = null;
+  }
+
+  /**
+   * 🔥 NOVO: Close conflict resolution modal
+   */
+  closeConflictModal(): void {
+    this.showConflictModal = false;
+    this.conflictExistingScreenplay = null;
+    this.conflictNewContent = '';
+    this.conflictNewFileName = '';
   }
 
   async handlePromoteCouncilor(request: any): Promise<void> {
@@ -1104,10 +1117,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Reset conflict state
-    this.showConflictModal = false;
-    this.conflictExistingScreenplay = null;
-    this.conflictNewContent = '';
-    this.conflictNewFileName = '';
+    this.closeConflictModal();
   }
 
   /**
@@ -1797,6 +1807,24 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    */
   toggleFirstColumn(): void {
     this.firstColumnVisible = !this.firstColumnVisible;
+  }
+
+  /**
+   * 🔥 NOVO: Open screenplay modal (mobile portrait)
+   */
+  openScreenplayModal(): void {
+    this.screenplayModalOpen = true;
+    // Prevenir scroll do body quando modal está aberto
+    document.body.style.overflow = 'hidden';
+  }
+
+  /**
+   * 🔥 NOVO: Close screenplay modal (mobile portrait)
+   */
+  closeScreenplayModal(): void {
+    this.screenplayModalOpen = false;
+    // Restaurar scroll do body
+    document.body.style.overflow = '';
   }
 
   /**
@@ -4130,7 +4158,74 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
-    // Close working directory modal if open
+    // 🔥 CORRIGIDO: Ordem de prioridade para fechar modais com ESC
+    // Modais mais específicos/importantes primeiro
+
+    // 1. Mobile screenplay modal (priority for mobile UX)
+    if (this.screenplayModalOpen) {
+      this.closeScreenplayModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 2. Conflict resolution modal (important decision)
+    if (this.showConflictModal) {
+      this.closeConflictModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 3. Delete confirmation modal (important action)
+    if (this.showDeleteConfirmModal) {
+      this.closeDeleteConfirmModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 4. Promote councilor modal (specific action)
+    if (this.showPromoteCouncilorModal) {
+      this.closePromoteCouncilorModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 5. Report modal (viewing results)
+    if (this.showReportModal) {
+      this.closeReportModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 6. Investigation modal (analysis tool)
+    if (this.showInvestigationModal) {
+      this.closeInvestigation();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 7. Screenplay manager modal (main management)
+    if (this.showScreenplayManager) {
+      this.closeScreenplayManager();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 8. Export modal (export action)
+    if (this.showExportModal) {
+      this.closeExportModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // 9. Working directory modal (configuration)
     if (this.showWorkingDirModal) {
       this.closeWorkingDirModal();
       event.preventDefault();
@@ -4138,17 +4233,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Close screenplay info modal if open
+    // 10. Screenplay info modal (informational)
     if (this.showScreenplayInfoModal) {
       this.closeScreenplayInfoModal();
       event.preventDefault();
-      return;
-    }
-
-    // Close delete confirmation modal if open
-    if (this.showDeleteConfirmModal) {
-      this.closeDeleteConfirmModal();
-      event.preventDefault();
+      event.stopPropagation();
       return;
     }
 
