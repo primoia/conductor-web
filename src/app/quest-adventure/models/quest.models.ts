@@ -58,7 +58,7 @@ export interface DialogueNode {
 export interface DialogueOption {
   id: string;
   text: string;
-  next: string; // ID do próximo nó
+  next?: string; // ID do próximo nó (opcional quando a opção só tem action)
   condition?: string; // Condição para aparecer
   xp?: number; // XP ganho ao escolher
   flag?: string; // Flag setada ao escolher
@@ -96,7 +96,7 @@ export interface Quest {
 export interface QuestObjective {
   id: string;
   text: string;
-  type: 'talk' | 'create' | 'refine' | 'complete';
+  type: 'talk' | 'create' | 'refine' | 'complete' | 'deliver';
   target?: string;
   completed: boolean;
   optional?: boolean;

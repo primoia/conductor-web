@@ -133,6 +133,13 @@ export class InventoryService {
         this.updateInventory();
         return true;
       }
+    } else {
+      // Se o item NÃO é stackable, verifica se já existe (evita duplicação)
+      const existingItem = this.inventoryState.items.find(i => i.id === item!.id);
+      if (existingItem) {
+        console.log(`⚠️ [INVENTORY] Item ${item.id} já existe no inventário (não-stackable), ignorando duplicação`);
+        return false; // Não adiciona duplicado
+      }
     }
 
     // Adiciona novo item
@@ -210,29 +217,42 @@ export class InventoryService {
    * Dá um item para um NPC
    */
   giveItemToNPC(itemId: string, npcId: string): { success: boolean; rewardItem?: InventoryItem } {
+    console.log(`🎁 [INVENTORY] ========== GIVE ITEM TO NPC ==========`);
+    console.log(`🎁 [INVENTORY] Item ID: ${itemId}`);
+    console.log(`🎁 [INVENTORY] NPC ID: ${npcId}`);
+    console.log(`🎁 [INVENTORY] Inventário atual:`, this.inventoryState.items.map(i => i.id));
+
     const item = this.inventoryState.items.find(i => i.id === itemId);
+    console.log(`🎁 [INVENTORY] Item encontrado:`, item);
 
     if (!item) {
+      console.error(`❌ [INVENTORY] Item não encontrado no inventário!`);
       return { success: false };
     }
 
     // Verifica se o item pode ser dado
     if (!item.tradeable) {
-      console.warn(`Item cannot be traded: ${itemId}`);
+      console.warn(`❌ [INVENTORY] Item não pode ser trocado: ${itemId}, tradeable=${item.tradeable}`);
       return { success: false };
     }
+    console.log(`✅ [INVENTORY] Item é trocável (tradeable=true)`);
 
     // Verifica se é o NPC correto
     if (item.metadata?.npcTarget && item.metadata.npcTarget !== npcId) {
-      console.log(`Wrong NPC for this item. Expected: ${item.metadata.npcTarget}, Got: ${npcId}`);
+      console.log(`❌ [INVENTORY] NPC incorreto. Esperado: ${item.metadata.npcTarget}, Recebido: ${npcId}`);
       return { success: false };
     }
+    console.log(`✅ [INVENTORY] NPC correto ou sem restrição de NPC`);
+    console.log(`🎁 [INVENTORY] Item metadata:`, item.metadata);
 
     // Remove o item do inventário (exceto se indestrutível)
     if (item.destroyable) {
+      console.log(`🗑️ [INVENTORY] Removendo item do inventário (destroyable=true)`);
       const index = this.inventoryState.items.indexOf(item);
       this.inventoryState.items.splice(index, 1);
       this.inventoryState.usedSlots--;
+    } else {
+      console.log(`🔒 [INVENTORY] Item é indestrutível, mantendo no inventário (destroyable=false)`);
     }
 
     // Registra transação
@@ -244,19 +264,30 @@ export class InventoryService {
       to: npcId,
       reason: `Given to ${npcId}`
     });
+    console.log(`📝 [INVENTORY] Transação registrada`);
 
     // Se há item de recompensa, adiciona
     let rewardItem: InventoryItem | undefined;
     if (item.metadata?.unlocks && item.metadata.unlocks.length > 0) {
+      console.log(`🎁 [INVENTORY] Item tem recompensas:`, item.metadata.unlocks);
       const rewardId = item.metadata.unlocks[0];
+      console.log(`🎁 [INVENTORY] Criando item de recompensa: ${rewardId}`);
       rewardItem = this.createItemFromTemplate(rewardId) || undefined;
 
       if (rewardItem) {
+        console.log(`✅ [INVENTORY] Recompensa criada:`, rewardItem);
         this.addItem(rewardItem);
+        console.log(`✅ [INVENTORY] Recompensa adicionada ao inventário`);
+      } else {
+        console.error(`❌ [INVENTORY] Falha ao criar item de recompensa: ${rewardId}`);
       }
+    } else {
+      console.log(`ℹ️ [INVENTORY] Item não tem recompensas`);
     }
 
     this.updateInventory();
+    console.log(`💾 [INVENTORY] Inventário atualizado`);
+    console.log(`🎁 [INVENTORY] ========== FIM GIVE ITEM ==========`);
     return { success: true, rewardItem };
   }
 

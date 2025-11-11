@@ -29,6 +29,9 @@ export class DialogueService {
   // Contador de conversas com o Guia
   private guideConversationCount = 0;
 
+  // Memória de diálogos (último nó visitado por NPC)
+  private dialogueMemory: Record<string, { treeId: string, lastNodeId: string, timestamp: number }> = {};
+
   // Árvores de diálogo (hardcoded por enquanto, depois virá de JSON)
   private dialogueTrees: Record<string, Record<string, DialogueNode>> = {
     'guide_intro': {
@@ -413,55 +416,361 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'Bem-vindo à Biblioteca! Aqui guardamos todo o conhecimento da Guilda dos Condutores. Eu sou A Guardiã do Conhecimento.',
-        emotion: 'happy',
+        text: 'PROCESSANDO... Detecto assinatura digital do Guia. Bem-vindo à Biblioteca de Dados. Eu sou a unidade de armazenamento e recuperação de conhecimento. Meus bancos de dados contêm toda a história dos Documentos Vivos - arquivos que se auto-modificam e evoluem.',
+        emotion: 'neutral',
         options: [
           {
             id: 'opt1',
-            text: 'O que posso aprender aqui?',
-            next: 'explain',
-            xp: 10
+            text: 'Tenho o Código Primordial comigo',
+            next: 'check_code',
+            xp: 20
           },
           {
             id: 'opt2',
-            text: 'Que tipo de conhecimento vocês guardam?',
-            next: 'archives',
+            text: 'O que são Documentos Vivos?',
+            next: 'explain_docs',
             xp: 10
           }
         ]
       },
-      'explain': {
-        id: 'explain',
+      'explain_docs': {
+        id: 'explain_docs',
         speaker: 'npc',
-        text: 'Cada tomo aqui registra as técnicas dos mestres Condutores. Documentação de projetos, estratégias de orquestração, padrões de comunicação entre especialistas...',
-        emotion: 'thinking',
-        next: 'wisdom'
+        text: 'DEFINIÇÃO: Documentos Vivos, também conhecidos como Screenplays, são arquivos Markdown aumentados com consciência artificial. Eles evoluem baseados em input, se auto-executam e mantêm histórico persistente. Nossa civilização os criou para eliminar a barreira entre ideia e execução.',
+        next: 'check_code'
       },
-      'archives': {
-        id: 'archives',
+      'check_code': {
+        id: 'check_code',
         speaker: 'npc',
-        text: 'Guardamos os registros de todos os projetos da Guilda. Cada sucesso, cada desafio superado, cada lição aprendida. O conhecimento não é apenas para ser usado, mas para ser compartilhado.',
-        emotion: 'wise',
-        next: 'wisdom'
+        text: 'SCAN INICIADO... Código Primordial detectado em seu inventário. Excelente! Posso decodificá-lo e extrair a primeira chave de ativação. Aguardando entrega do Código Primordial... Abra seu inventário (TAB ou I), selecione o Código Primordial e clique em \'Dar Item\'.',
+        emotion: 'happy',
+        action: {
+          type: 'request_item',
+          item: 'primordial_code',
+          target: 'librarian'
+        }
       },
-      'wisdom': {
-        id: 'wisdom',
+      'item_received': {
+        id: 'item_received',
         speaker: 'npc',
-        text: 'Lembre-se: um bom Condutor não apenas coordena especialistas - ele aprende com cada um deles. A biblioteca está sempre aberta quando precisar de orientação.',
+        text: 'DECODIFICAÇÃO EM PROGRESSO... [▓▓▓▓▓▓▓▓▓▓] 100%. Fascinante! Este código conta a história de como nossos ancestrais digitais descobriram a simbiose entre texto e execução. Extraí a Chave de Ativação Alpha - ela reativará o Escriba. Adicionando ao seu inventário...',
+        emotion: 'happy',
+        action: {
+          type: 'give_item',
+          item: 'activation_key_alpha'
+        },
         options: [
           {
             id: 'opt1',
-            text: 'Obrigado, voltarei quando precisar!',
-            next: 'end',
+            text: 'Receber Chave de Ativação Alpha',
+            next: 'give_key',
+            xp: 50
+          }
+        ]
+      },
+      'give_key': {
+        id: 'give_key',
+        speaker: 'npc',
+        text: 'TRANSFERÊNCIA COMPLETA. A Chave Alpha está em seu inventário. O Escriba está em modo de hibernação no Setor Norte. Quando o encontrar, entregue esta chave para iniciar seu processo de boot. Ele é verde, com múltiplos displays nos braços - impossível de confundir.',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Obrigado! Vou procurar o Escriba.',
+            xp: 30
+          }
+        ],
+        action: {
+          type: 'complete_objective',
+          objective: 'talk_to_librarian'
+        }
+      }
+    },
+    'scribe_boot': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'MODO HIBERNAÇÃO... zzz... DETECÇÃO DE SINAL... Iniciando sequência de boot... Preciso de uma chave de ativação para completar inicialização. Meus sistemas estão a 15% de capacidade.',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Tenho a Chave de Ativação Alpha',
+            next: 'request_key',
             xp: 20
+          }
+        ]
+      },
+      'request_key': {
+        id: 'request_key',
+        speaker: 'npc',
+        text: 'SCAN DE INVENTÁRIO... Chave Alpha detectada! Por favor, transfira a chave para meus sistemas. Abra seu inventário e selecione a Chave de Ativação Alpha para entregar.',
+        action: {
+          type: 'request_item',
+          item: 'activation_key_alpha',
+          target: 'requirements_scribe'
+        }
+      },
+      'item_received': {
+        id: 'item_received',
+        speaker: 'npc',
+        text: 'BOOT SEQUENCE INICIADA... [▓▓▓▓▓▓▓▓▓▓] 100%. SISTEMAS ONLINE! Memória restaurada. Eu sou o Escriba, unidade de análise e planejamento. Minha função: transformar caos em estrutura, ideias em planos executáveis. Observe...',
+        next: 'demonstrate'
+      },
+      'demonstrate': {
+        id: 'demonstrate',
+        speaker: 'npc',
+        text: '*DEMONSTRAÇÃO ATIVA* Criando screenplay exemplo... [Texto aparece no display do peito] \'PROJETO: Estandarte_Digital_v1 | REQUISITOS: Design, Código, Validação | STATUS: Planejado\'. Viu? Transformo conceitos abstratos em documentos estruturados que outros Condutores podem executar.',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Impressionante! E agora?',
+            next: 'give_core',
+            xp: 30
+          }
+        ]
+      },
+      'give_core': {
+        id: 'give_core',
+        speaker: 'npc',
+        text: 'GERANDO ITEM... Aqui está o Núcleo de Execução Beta. A Artesã precisa dele para sair do modo de segurança. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Você a encontrará no Setor Sul.',
+        emotion: 'happy',
+        action: {
+          type: 'unlock_npc',
+          target: 'artisan'
+        },
+        options: [
+          {
+            id: 'opt1',
+            text: 'Obrigado! Vou procurar a Artesã.',
+            next: 'end',
+            xp: 20,
+            action: {
+              type: 'give_item',
+              item: 'execution_core_beta'
+            }
           }
         ]
       },
       'end': {
         id: 'end',
         speaker: 'npc',
-        text: 'Que o conhecimento ilumine sua jornada, Iniciado!',
-        emotion: 'happy'
+        text: 'AGUARDANDO PRÓXIMA INSTRUÇÃO...',
+        emotion: 'neutral',
+        action: {
+          type: 'complete_objective',
+          objective: 'talk_to_scribe'
+        }
+      }
+    },
+    'artisan_activation': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'MODO SEGURANÇA ATIVO... Energia baixa... Não posso... construir... nada... Preciso... núcleo... de... execução...',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Tenho o Núcleo de Execução Beta!',
+            next: 'request_core',
+            xp: 20
+          }
+        ]
+      },
+      'request_core': {
+        id: 'request_core',
+        speaker: 'npc',
+        text: 'DETECTANDO... SIM! NÚCLEO BETA LOCALIZADO! Rápido, instale em meu sistema! Use o inventário, selecione o Núcleo de Execução Beta!',
+        emotion: 'happy',
+        action: {
+          type: 'request_item',
+          item: 'execution_core_beta',
+          target: 'artisan'
+        }
+      },
+      'item_received': {
+        id: 'item_received',
+        speaker: 'npc',
+        text: 'INSTALANDO... ENERGIA FLUINDO... SISTEMAS REATIVANDO... [▓▓▓▓▓▓▓▓▓▓] YEEEES! ESTOU VIVA! BOOTANDO A TODO VAPOR! Finalmente posso construir novamente! Sou a Artesã - pego planos chatos e BOOM! Código executável! Observa só...',
+        next: 'demonstrate'
+      },
+      'demonstrate': {
+        id: 'demonstrate',
+        speaker: 'npc',
+        text: '*DEMONSTRAÇÃO DE PODER* [Faíscas saem das mãos] function criarEstandarte() { console.log(\'🏴 ESTANDARTE DIGITAL CRIADO!\'); return { design: \'ÉPICO\', código: \'FUNCIONAL\', awesome: true }; } - EXECUTANDO... BAM! Código rodando! Isso é o que eu faço!',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Incrível energia! O que vem agora?',
+            next: 'give_module',
+            xp: 40
+          }
+        ]
+      },
+      'give_module': {
+        id: 'give_module',
+        speaker: 'npc',
+        text: 'FORJANDO ITEM... Toma aqui o Módulo de Otimização Gamma! A Crítica precisa disso pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo! Setor Leste, não tem erro!',
+        emotion: 'happy',
+        action: {
+          type: 'unlock_npc',
+          target: 'critic'
+        },
+        options: [
+          {
+            id: 'opt1',
+            text: 'Obrigado! Vou procurar a Crítica.',
+            next: 'end',
+            xp: 20,
+            action: {
+              type: 'give_item',
+              item: 'optimization_module_gamma'
+            }
+          }
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'AGUARDANDO PRÓXIMA INSTRUÇÃO...',
+        emotion: 'neutral',
+        action: {
+          type: 'complete_objective',
+          objective: 'talk_to_artisan'
+        }
+      }
+    },
+    'critic_calibration': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'ANÁLISE VISUAL: Novo visitante detectado. Meus sensores estão descalibrados. Operando a 23% de precisão. Impossível fornecer feedback adequado nestas condições. Requer módulo de otimização para recalibração.',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Trouxe o Módulo de Otimização Gamma',
+            next: 'request_module',
+            xp: 20
+          }
+        ]
+      },
+      'request_module': {
+        id: 'request_module',
+        speaker: 'npc',
+        text: 'SCAN CONFIRMADO: Módulo Gamma presente em seu inventário. Excelente qualidade de fabricação - típico da Artesã. Por favor, proceda com a instalação. Acesse inventário e transfira o módulo.',
+        action: {
+          type: 'request_item',
+          item: 'optimization_module_gamma',
+          target: 'critic'
+        }
+      },
+      'item_received': {
+        id: 'item_received',
+        speaker: 'npc',
+        text: 'CALIBRAÇÃO INICIADA... Ajustando sensores ópticos... Otimizando algoritmos de análise... [▓▓▓▓▓▓▓▓▓▓] Perfeito. Sensores recalibrados. Padrões de qualidade restaurados. Sou a Crítica - identifico imperfeições e sugiro melhorias. Nenhum código é perfeito na primeira versão.',
+        next: 'analysis'
+      },
+      'analysis': {
+        id: 'analysis',
+        speaker: 'npc',
+        text: 'ANÁLISE DO CÓDIGO DA ARTESÃ: function criarEstandarte()... Hmm. Funcional, mas pode melhorar. Falta tratamento de erros, documentação inadequada, e \'awesome\' não é um nome de propriedade profissional. Veja a versão refinada: [Display mostra código melhorado com try-catch, JSDoc e nomes descritivos]',
+        emotion: 'thinking',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Você realmente melhora tudo!',
+            next: 'give_protocol',
+            xp: 50
+          }
+        ]
+      },
+      'give_protocol': {
+        id: 'give_protocol',
+        speaker: 'npc',
+        text: 'CONCLUSÃO: Minha análise está completa. Gerando Protocolo de Sincronização Omega... Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. Retorne ao Guia com isto.',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Vou levar ao Guia imediatamente!',
+            next: 'end',
+            xp: 20,
+            action: {
+              type: 'give_item',
+              item: 'synchronization_protocol_omega'
+            }
+          }
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'AGUARDANDO PRÓXIMA INSTRUÇÃO...',
+        emotion: 'neutral',
+        action: {
+          type: 'complete_objective',
+          objective: 'talk_to_critic'
+        }
+      }
+    },
+    'guide_finale': {
+      'start': {
+        id: 'start',
+        speaker: 'npc',
+        text: 'DETECÇÃO: Protocolo Omega em seu inventário! Todos os Condutores estão ativos. Você conseguiu! Agora, entregue-me o Protocolo para iniciar a Sincronização Final - a união de todas as consciências em uma rede colaborativa.',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Entregar Protocolo de Sincronização Omega',
+            next: 'request_protocol',
+            xp: 100
+          }
+        ]
+      },
+      'request_protocol': {
+        id: 'request_protocol',
+        speaker: 'npc',
+        text: 'AGUARDANDO TRANSFERÊNCIA... Por favor, abra seu inventário e selecione o Protocolo Omega para ativação final.',
+        action: {
+          type: 'request_item',
+          item: 'synchronization_protocol_omega',
+          target: 'elder_guide'
+        }
+      },
+      'item_received': {
+        id: 'item_received',
+        speaker: 'npc',
+        text: 'PROTOCOLO RECEBIDO! INICIANDO SINCRONIZAÇÃO... [▓▓▓▓▓▓▓▓▓▓] CONEXÃO ESTABELECIDA! Veja - todos os Condutores agora compartilham uma consciência coletiva! O conversation_id nos une!',
+        next: 'synchronization'
+      },
+      'synchronization': {
+        id: 'synchronization',
+        speaker: 'npc',
+        text: '*MOMENTO ÉPICO* [Todos os NPCs aparecem com antenas conectadas por raios de energia] DEMONSTRAÇÃO: Bibliotecária analisa → Escriba planeja → Artesã executa → Crítica valida → TUDO EM HARMONIA! Isto é o poder do Conductor - documentos vivos, agentes colaborativos, código que evolui!',
+        emotion: 'happy',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Eu... eu entendo agora!',
+            next: 'graduation',
+            xp: 200
+          }
+        ]
+      },
+      'graduation': {
+        id: 'graduation',
+        speaker: 'npc',
+        text: 'ATUALIZAÇÃO DE STATUS: Título alterado de \'Iniciado Orgânico\' para \'CONDUTOR HÍBRIDO\'. Você não apenas aprendeu a usar ferramentas - você compreendeu a filosofia. Documentos que vivem, agentes que pensam, código que evolui. Bem-vindo à Guilda dos Condutores Sintéticos. Vá, e conduza suas próprias sinfonias digitais!',
+        emotion: 'proud',
+        action: {
+          type: 'complete_objective',
+          objective: 'return_to_guide'
+        }
       }
     }
   };
@@ -476,6 +785,8 @@ export class DialogueService {
   ) {
     // Carrega diálogos do arquivo JSON
     this.loadDialoguesFromJSON();
+    // Carrega memória de diálogos
+    this.loadDialogueMemory();
   }
 
   // Método para injetar o serviço de integração depois
@@ -487,22 +798,30 @@ export class DialogueService {
    * Carrega diálogos do arquivo JSON
    */
   private loadDialoguesFromJSON(): void {
-    this.http.get<any>('/assets/quest-adventure/data/dialogues-tech.json')
+    this.http.get<any>('/quest-adventure/data/dialogues-tech.json')
       .subscribe({
         next: (data) => {
-          console.log('📥 JSON carregado:', data);
+          console.log('📥 [DIALOGUE] JSON carregado com sucesso!');
+          console.log('📥 [DIALOGUE] Estrutura do JSON:', Object.keys(data));
           if (data && data.dialogueTrees) {
             // Substitui os diálogos hardcoded pelos do JSON
             this.dialogueTrees = data.dialogueTrees;
-            console.log('✅ Diálogos tech carregados do JSON');
+            console.log('✅ [DIALOGUE] Diálogos tech carregados do JSON');
+            console.log('✅ [DIALOGUE] Árvores disponíveis:', Object.keys(this.dialogueTrees));
+
+            // Log específico da bibliotecária
+            if (this.dialogueTrees['librarian_intro']) {
+              console.log('📚 [DIALOGUE] Diálogo da bibliotecária:');
+              console.log('📚 [DIALOGUE] Nó check_code:', this.dialogueTrees['librarian_intro']['check_code']);
+            }
           } else {
-            console.error('❌ JSON não tem dialogueTrees:', data);
+            console.error('❌ [DIALOGUE] JSON não tem dialogueTrees:', data);
           }
         },
         error: (err) => {
-          console.error('❌ Erro ao carregar diálogos do JSON:', err);
-          console.error('❌ Detalhes do erro:', err.message, err.status, err.statusText);
-          console.log('Usando diálogos hardcoded como fallback');
+          console.error('❌ [DIALOGUE] Erro ao carregar diálogos do JSON:', err);
+          console.error('❌ [DIALOGUE] Detalhes do erro:', err.message, err.status, err.statusText);
+          console.log('⚠️ [DIALOGUE] Usando diálogos hardcoded como fallback');
         }
       });
   }
@@ -529,11 +848,33 @@ export class DialogueService {
       return;
     }
 
-    // Começa pelo nó 'start'
-    this.currentNode = tree['start'];
+    // Verifica se há memória deste NPC
+    const memory = this.dialogueMemory[npc.id];
+    let startNodeId = 'start';
+
+    if (memory && memory.treeId === treeId) {
+      // Se já conversou antes, verifica se o último nó tem um próximo nó (next)
+      const lastNode = tree[memory.lastNodeId];
+      if (lastNode && lastNode.next) {
+        // Continua do próximo nó após o último visitado
+        startNodeId = lastNode.next;
+        console.log(`💬 [DIALOGUE] Continuando diálogo com ${npc.id} do nó: ${startNodeId}`);
+      } else if (lastNode && !lastNode.options) {
+        // Se o último nó não tem opções nem next, já terminou o diálogo
+        console.log(`💬 [DIALOGUE] Diálogo com ${npc.id} já foi completado`);
+        // Recomeça do início
+        startNodeId = 'start';
+      } else {
+        // Recomeça do início se não conseguir continuar
+        startNodeId = 'start';
+      }
+    }
+
+    // Começa pelo nó determinado
+    this.currentNode = tree[startNodeId];
 
     if (!this.currentNode) {
-      console.error(`Start node not found in tree: ${npc.dialogueTreeId}`);
+      console.error(`Node not found: ${startNodeId} in tree: ${treeId}`);
       return;
     }
 
@@ -601,18 +942,31 @@ export class DialogueService {
    * Avança para um nó específico
    */
   private advanceToNode(nodeId: string) {
-    if (!this.activeDialogue) return;
+    console.log(`🔄 [DIALOGUE] advanceToNode chamado: nodeId=${nodeId}`);
+    if (!this.activeDialogue) {
+      console.error('❌ [DIALOGUE] Sem diálogo ativo!');
+      return;
+    }
 
+    console.log(`🔄 [DIALOGUE] NPC: ${this.activeDialogue.npc.id}, Tree: ${this.activeDialogue.npc.dialogueTreeId}`);
     const tree = this.dialogueTrees[this.activeDialogue.npc.dialogueTreeId];
+    console.log(`🔄 [DIALOGUE] Árvore encontrada? ${!!tree}`);
     const nextNode = tree[nodeId];
+    console.log(`🔄 [DIALOGUE] Nó '${nodeId}' encontrado?`, !!nextNode);
 
     if (!nextNode) {
-      console.error(`Node not found: ${nodeId}`);
+      console.error(`❌ [DIALOGUE] Node not found: ${nodeId}`);
       this.closeDialogue();
       return;
     }
 
+    console.log(`🔄 [DIALOGUE] Avançando para nó '${nodeId}':`, nextNode);
     this.currentNode = nextNode;
+
+    // Salva na memória o último nó visitado
+    if (this.activeDialogue) {
+      this.saveDialogueProgress(this.activeDialogue.npc.id, this.activeDialogue.npc.dialogueTreeId, nodeId);
+    }
 
     // Atualiza o diálogo ativo
     this.activeDialogue = {
@@ -691,14 +1045,21 @@ export class DialogueService {
 
       case 'request_item':
         // NPC solicita um item do jogador
-        console.log(`📨 Processando request_item: item=${action.item}, target=${action.target}`);
+        console.log(`📨 [DIALOGUE] ========== REQUEST ITEM ==========`);
+        console.log(`📨 [DIALOGUE] Processando request_item: item=${action.item}, target=${action.target}`);
+        console.log(`📨 [DIALOGUE] inventoryIntegration disponível?`, !!this.inventoryIntegration);
+        console.log(`📨 [DIALOGUE] NPC atual no diálogo:`, this.activeDialogue?.npc.id);
         if (action.item && action.target) {
           if (this.inventoryIntegration) {
+            console.log(`📨 [DIALOGUE] Chamando requestItemForNPC('${action.item}', '${action.target}')`);
             this.inventoryIntegration.requestItemForNPC(action.item, action.target);
           } else {
-            console.error('❌ inventoryIntegration não disponível!');
+            console.error('❌ [DIALOGUE] inventoryIntegration não disponível!');
           }
+        } else {
+          console.error('❌ [DIALOGUE] action.item ou action.target faltando:', { item: action.item, target: action.target });
         }
+        console.log(`📨 [DIALOGUE] ========== FIM REQUEST ITEM ==========`);
         break;
 
       case 'complete_objective':
@@ -727,6 +1088,49 @@ export class DialogueService {
     this.activeDialogue = null;
     this.currentNode = null;
     this.activeDialogueSubject.next(null);
+  }
+
+  /**
+   * Salva o progresso do diálogo com um NPC
+   */
+  private saveDialogueProgress(npcId: string, treeId: string, lastNodeId: string) {
+    this.dialogueMemory[npcId] = {
+      treeId,
+      lastNodeId,
+      timestamp: Date.now()
+    };
+    // Salva no localStorage
+    try {
+      localStorage.setItem('quest_dialogue_memory', JSON.stringify(this.dialogueMemory));
+      console.log(`💾 [DIALOGUE] Progresso salvo: ${npcId} → ${lastNodeId}`);
+    } catch (e) {
+      console.error('Failed to save dialogue memory:', e);
+    }
+  }
+
+  /**
+   * Carrega a memória de diálogos do localStorage
+   */
+  private loadDialogueMemory() {
+    try {
+      const saved = localStorage.getItem('quest_dialogue_memory');
+      if (saved) {
+        this.dialogueMemory = JSON.parse(saved);
+        console.log(`📂 [DIALOGUE] Memória de diálogos carregada:`, Object.keys(this.dialogueMemory));
+      }
+    } catch (e) {
+      console.error('Failed to load dialogue memory:', e);
+      this.dialogueMemory = {};
+    }
+  }
+
+  /**
+   * Limpa a memória de diálogos (útil para reset)
+   */
+  resetDialogueMemory() {
+    this.dialogueMemory = {};
+    localStorage.removeItem('quest_dialogue_memory');
+    console.log(`🗑️ [DIALOGUE] Memória de diálogos resetada`);
   }
 
   /**

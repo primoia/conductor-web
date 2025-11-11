@@ -117,6 +117,8 @@
     align-items: center;
   }
 
+  .hide-btn,
+  .toggle-btn,
   .skip-btn,
   .close-btn {
     width: 32px;
@@ -135,6 +137,28 @@
     &:hover {
       background: #8B4513;
       color: white;
+    }
+  }
+
+  .hide-btn {
+    background: #f3e8ff;
+    border-color: #d8b4fe;
+    color: #7c3aed;
+    font-weight: 700;
+    font-size: 16px;
+
+    &:hover {
+      background: #e9d5ff;
+      border-color: #a78bfa;
+      color: #7c3aed;
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+      transform: scale(1.1);
+    }
+  }
+
+  .toggle-btn {
+    &:hover {
+      transform: scale(1.1);
     }
   }
 
@@ -339,6 +363,89 @@
     &:hover .continue-arrow {
       transform: translateX(5px);
     }
+  }
+}
+
+// Estado escondido
+.quest-chat-overlay.hidden {
+  background: transparent;
+  pointer-events: none;
+}
+
+.quest-chat-modal.hidden {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+
+  @media (max-width: 767px) {
+    transform: translateY(100%);
+  }
+}
+
+// Botão flutuante quando escondido
+.floating-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #d8b4fe;
+  background: #f3e8ff;
+  color: #7c3aed;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  pointer-events: auto;
+
+  &:hover {
+    background: #e9d5ff;
+    border-color: #a78bfa;
+    transform: scale(1.15);
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+  }
+
+  &:active {
+    transform: scale(1.05);
+  }
+
+  // Mobile: posicionamento ajustado
+  @media (max-width: 767px) {
+    bottom: 80px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+}
+
+// Transições suaves para esconder/mostrar
+.quest-chat-modal {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.quest-chat-overlay {
+  transition: background 0.3s ease;
+}
+
+// Estado minimizado (mantém funcionalidade existente)
+.quest-chat-modal.minimized {
+  height: auto;
+
+  .chat-messages,
+  .chat-options,
+  .chat-continue {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
+    height: auto;
   }
 }
 

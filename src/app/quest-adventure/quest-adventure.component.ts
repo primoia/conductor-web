@@ -655,9 +655,14 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
     const currentObjective = objectives.find(o => !o.completed);
 
     if (currentObjective) {
+      console.log('🎯 Atualizando foco para objetivo:', currentObjective.id, currentObjective.text);
       switch (currentObjective.id) {
         case 'talk_to_guide':
           this.focusTarget = 'elder_guide';
+          break;
+        case 'talk_to_librarian':
+          this.focusTarget = 'librarian';
+          console.log('📚 Foco alterado para: librarian');
           break;
         case 'talk_to_scribe':
           this.focusTarget = 'requirements_scribe';
@@ -671,6 +676,7 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
         default:
           this.focusTarget = null;
       }
+      console.log('🎯 FocusTarget definido como:', this.focusTarget);
     }
   }
 

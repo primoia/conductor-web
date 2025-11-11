@@ -51,7 +51,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
   template: `
     <div class="conductor-chat-container">
       <!-- 🔥 NOVO: Sidebar com lista de conversas -->
-      <div class="conversation-sidebar" *ngIf="environment.features?.useConversationModel">
+      <div class="conversation-sidebar" [class.hidden]="!isSidebarVisible" *ngIf="environment.features?.useConversationModel">
         <app-conversation-list
           [activeConversationId]="activeConversationId"
           [screenplayId]="activeScreenplayId"
@@ -230,6 +230,23 @@ Erro: 'invalid_token' na response..."
               (click)="onDeleteAgentClick()"
               title="Excluir Agente Selecionado">
               🗑️
+            </button>
+
+            <!-- 🔥 NOVO: Toggle Sidebar Button -->
+            <button
+              class="dock-action-btn toggle-sidebar-btn"
+              (click)="onToggleSidebarClick()"
+              [title]="isSidebarVisible ? 'Esconder conversas' : 'Mostrar conversas'"
+              *ngIf="environment.features?.useConversationModel">
+              {{ isSidebarVisible ? '◀' : '▶' }}
+            </button>
+
+            <!-- 🔥 NOVO: Toggle First Column Button -->
+            <button
+              class="dock-action-btn toggle-first-column-btn"
+              (click)="onToggleFirstColumnClick()"
+              [title]="firstColumnVisible ? 'Esconder menu lateral' : 'Mostrar menu lateral'">
+              {{ firstColumnVisible ? '◀' : '▶' }}
             </button>
 
             <!-- Settings Button -->
@@ -500,6 +517,17 @@ Erro: 'invalid_token' na response..."
       background: #f8f9fa;
       border-right: 1px solid #dee2e6;
       overflow: hidden;
+      transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, opacity 0.3s ease;
+    }
+
+    /* 🔥 NOVO: Esconde a sidebar quando hidden */
+    .conversation-sidebar.hidden {
+      width: 0;
+      min-width: 0;
+      max-width: 0;
+      opacity: 0;
+      border-right: none;
+      overflow: hidden;
     }
 
     /* Chat principal */
@@ -659,6 +687,28 @@ Erro: 'invalid_token' na response..."
     .delete-agent-btn:hover:not(:disabled) {
       background: #ffcdd2;
       border-color: #ef9a9a;
+    }
+
+    .toggle-sidebar-btn {
+      background: #e3f2fd;
+      border-color: #90caf9;
+    }
+
+    .toggle-sidebar-btn:hover {
+      background: #bbdefb;
+      border-color: #64b5f6;
+    }
+
+    .toggle-first-column-btn {
+      background: #f3e8ff;
+      border-color: #d8b4fe;
+      color: #7c3aed;
+      font-weight: 700;
+    }
+
+    .toggle-first-column-btn:hover {
+      background: #e9d5ff;
+      border-color: #a78bfa;
     }
 
     .settings-btn {
@@ -1834,11 +1884,13 @@ Erro: 'invalid_token' na response..."
 export class ConductorChatComponent implements OnInit, OnDestroy {
   @Input() contextualAgents: any[] = [];
   @Input() screenplayWorkingDirectory: string | null = null; // Working directory do screenplay para herança
+  @Input() firstColumnVisible: boolean = true; // 🔥 NOVO: Estado do menu lateral
   @Output() addAgentRequested = new EventEmitter<void>();
   @Output() deleteAgentRequested = new EventEmitter<void>();
   @Output() agentDockClicked = new EventEmitter<any>();
   @Output() activeConversationChanged = new EventEmitter<string | null>(); // 🔥 NOVO: Notifica mudança de conversa
   @Output() agentOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de agentes
+  @Output() toggleFirstColumnRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita toggle do menu lateral
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
   @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
@@ -1882,6 +1934,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   isRecording: boolean = false;
   speechSupported: boolean = false;
   showPersonaModal: boolean = false;
+  isSidebarVisible: boolean = true; // 🔥 NOVO: Controla visibilidade da sidebar
   private messageContent: string = ''; // Content from editor
 
   // ✅ SOLUÇÃO BUG PARALELISMO: Mapa de históricos isolados por agente
@@ -2862,6 +2915,20 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onDeleteAgentClick(): void {
     this.deleteAgentRequested.emit();
+  }
+
+  /**
+   * 🔥 NOVO: Toggle visibility da sidebar de conversas
+   */
+  onToggleSidebarClick(): void {
+    this.isSidebarVisible = !this.isSidebarVisible;
+  }
+
+  /**
+   * 🔥 NOVO: Solicita toggle da primeira coluna (menu lateral)
+   */
+  onToggleFirstColumnClick(): void {
+    this.toggleFirstColumnRequested.emit();
   }
 
   /**

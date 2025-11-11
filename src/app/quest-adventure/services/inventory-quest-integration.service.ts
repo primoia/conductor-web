@@ -108,7 +108,8 @@ export class InventoryQuestIntegrationService {
    * NPC solicita um item do jogador
    */
   requestItemForNPC(itemId: string, npcId: string): void {
-    console.log(`🔔 NPC ${npcId} solicitou item: ${itemId}`);
+    console.log(`🔔 [INTEGRATION] NPC ${npcId} solicitou item: ${itemId}`);
+    console.log(`🔔 [INTEGRATION] Player tem o item? ${this.inventoryService.hasItem(itemId)}`);
     this.npcWaitingForItem = npcId;
     this.expectedItemId = itemId;
 
@@ -120,6 +121,8 @@ export class InventoryQuestIntegrationService {
    * Abre inventário com contexto de entrega de item
    */
   openInventoryForItemDelivery(npcId: string, expectedItemId?: string): void {
+    console.log(`📂 [INTEGRATION] Abrindo inventário para entrega a ${npcId}`);
+    console.log(`📂 [INTEGRATION] Item esperado: ${expectedItemId}`);
     this.npcWaitingForItem = npcId;
     this.expectedItemId = expectedItemId || null;
     this.isInventoryOpen = true;
@@ -128,9 +131,12 @@ export class InventoryQuestIntegrationService {
     // Destaca o item esperado se existir
     if (expectedItemId && this.inventoryService.hasItem(expectedItemId)) {
       const item = this.inventoryService.getItem(expectedItemId);
+      console.log(`📂 [INTEGRATION] Item encontrado no inventário:`, item);
       if (item) {
         this.inventoryService.selectItem(item);
       }
+    } else {
+      console.log(`⚠️ [INTEGRATION] Item não encontrado no inventário`);
     }
   }
 
@@ -138,18 +144,22 @@ export class InventoryQuestIntegrationService {
    * Tenta entregar um item para o NPC esperando
    */
   attemptItemDelivery(itemId: string): void {
-    console.log(`📤 Tentando entregar item ${itemId}. NPC esperando: ${this.npcWaitingForItem}, Item esperado: ${this.expectedItemId}`);
+    console.log(`📤 [INTEGRATION] ========== TENTANDO ENTREGAR ITEM ==========`);
+    console.log(`📤 [INTEGRATION] Item a entregar: ${itemId}`);
+    console.log(`📤 [INTEGRATION] NPC esperando: ${this.npcWaitingForItem}`);
+    console.log(`📤 [INTEGRATION] Item esperado: ${this.expectedItemId}`);
 
     if (!this.npcWaitingForItem) {
-      console.warn('❌ Nenhum NPC esperando item');
+      console.warn('❌ [INTEGRATION] Nenhum NPC esperando item');
       return;
     }
 
     // Verifica se é o item correto
     const isCorrectItem = !this.expectedItemId || this.expectedItemId === itemId;
+    console.log(`📤 [INTEGRATION] Item correto? ${isCorrectItem}`);
 
     if (!isCorrectItem) {
-      console.log(`❌ ${this.npcWaitingForItem} não quer este item`);
+      console.log(`❌ [INTEGRATION] ${this.npcWaitingForItem} não quer este item`);
       this.playWrongItemEffect();
 
       // TODO: Trigger diálogo de item errado quando o método estiver disponível
@@ -158,16 +168,20 @@ export class InventoryQuestIntegrationService {
     }
 
     // Entrega o item
+    console.log(`📤 [INTEGRATION] Chamando inventoryService.giveItemToNPC(${itemId}, ${this.npcWaitingForItem})`);
     const result = this.inventoryService.giveItemToNPC(itemId, this.npcWaitingForItem);
+    console.log(`📤 [INTEGRATION] Resultado:`, result);
 
     if (result.success) {
-      console.log(`✅ Item entregue para ${this.npcWaitingForItem}`);
+      console.log(`✅ [INTEGRATION] Item entregue com sucesso para ${this.npcWaitingForItem}`);
+      console.log(`✅ [INTEGRATION] Item de recompensa:`, result.rewardItem);
 
       // Atualiza estado da quest
       this.updateQuestForItemDelivery(itemId, this.npcWaitingForItem);
 
       // Desbloqueia próximo NPC se houver
       if (result.rewardItem?.metadata?.unlocks) {
+        console.log(`🔓 [INTEGRATION] Desbloqueando:`, result.rewardItem.metadata.unlocks);
         result.rewardItem.metadata.unlocks.forEach(unlock => {
           if (unlock.startsWith('npc_')) {
             const npcId = unlock.replace('npc_', '');
@@ -178,6 +192,7 @@ export class InventoryQuestIntegrationService {
 
       // Trigger diálogo de sucesso
       if ('triggerItemReceivedDialogue' in this.dialogueService) {
+        console.log(`💬 [INTEGRATION] Triggering dialogue item_received para ${this.npcWaitingForItem}`);
         (this.dialogueService as any).triggerItemReceivedDialogue(this.npcWaitingForItem);
       }
 
@@ -196,7 +211,10 @@ export class InventoryQuestIntegrationService {
       this.npcWaitingForItem = null;
       this.expectedItemId = null;
       this.closeInventory();
+    } else {
+      console.error(`❌ [INTEGRATION] Falha ao entregar item!`);
     }
+    console.log(`📤 [INTEGRATION] ========== FIM ENTREGA ITEM ==========`);
   }
 
   /**

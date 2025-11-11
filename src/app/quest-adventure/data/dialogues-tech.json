@@ -118,6 +118,10 @@
         "speaker": "npc",
         "text": "TRANSFERÊNCIA COMPLETA. A Chave Alpha está em seu inventário. O Escriba está em modo de hibernação no Setor Norte. Quando o encontrar, entregue esta chave para iniciar seu processo de boot. Ele é verde, com múltiplos displays nos braços - impossível de confundir.",
         "emotion": "neutral",
+        "action": {
+          "type": "complete_objective",
+          "objective": "talk_to_librarian"
+        },
         "options": [
           {
             "id": "opt1",
@@ -182,9 +186,20 @@
         "speaker": "npc",
         "text": "GERANDO ITEM... Aqui está o Núcleo de Execução Beta. A Artesã precisa dele para sair do modo de segurança. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Você a encontrará no Setor Sul.",
         "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Obrigado! Vou procurar a Artesã.",
+            "xp": 20,
+            "action": {
+              "type": "give_item",
+              "item": "execution_core_beta"
+            }
+          }
+        ],
         "action": {
-          "type": "give_item",
-          "item": "execution_core_beta"
+          "type": "complete_objective",
+          "objective": "talk_to_scribe"
         }
       }
     },
@@ -239,9 +254,21 @@
         "id": "give_module",
         "speaker": "npc",
         "text": "FORJANDO ITEM... Toma aqui o Módulo de Otimização Gamma! A Crítica precisa disso pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo! Setor Leste, não tem erro!",
+        "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Obrigado! Vou procurar a Crítica.",
+            "xp": 20,
+            "action": {
+              "type": "give_item",
+              "item": "optimization_module_gamma"
+            }
+          }
+        ],
         "action": {
-          "type": "give_item",
-          "item": "optimization_module_gamma"
+          "type": "complete_objective",
+          "objective": "talk_to_artisan"
         }
       }
     },
@@ -296,9 +323,20 @@
         "speaker": "npc",
         "text": "CONCLUSÃO: Minha análise está completa. Gerando Protocolo de Sincronização Omega... Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. Retorne ao Guia com isto.",
         "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Vou levar ao Guia imediatamente!",
+            "xp": 20,
+            "action": {
+              "type": "give_item",
+              "item": "synchronization_protocol_omega"
+            }
+          }
+        ],
         "action": {
-          "type": "give_item",
-          "item": "synchronization_protocol_omega"
+          "type": "complete_objective",
+          "objective": "talk_to_critic"
         }
       }
     },

@@ -39,9 +39,16 @@ export class QuestStateService {
         completed: false
       },
       {
+        id: 'talk_to_librarian',
+        text: 'Leve o Código Primordial à Bibliotecária',
+        type: 'deliver', // Mudado de 'talk' para 'deliver' para não auto-completar
+        target: 'librarian',
+        completed: false
+      },
+      {
         id: 'talk_to_scribe',
-        text: 'Peça ao Escriba para criar o plano',
-        type: 'talk',
+        text: 'Ative o Escriba com a Chave Alpha',
+        type: 'deliver', // Mudado de 'talk' para 'deliver'
         target: 'requirements_scribe',
         completed: false
       },
@@ -53,8 +60,8 @@ export class QuestStateService {
       },
       {
         id: 'talk_to_artisan',
-        text: 'Leve o plano à Artesã',
-        type: 'talk',
+        text: 'Leve o Núcleo Beta à Artesã',
+        type: 'deliver', // Mudado de 'talk' para 'deliver'
         target: 'artisan',
         completed: false
       },
@@ -66,8 +73,8 @@ export class QuestStateService {
       },
       {
         id: 'talk_to_critic',
-        text: 'Mostre o estandarte à Crítica',
-        type: 'talk',
+        text: 'Leve o Módulo Gamma à Crítica',
+        type: 'deliver', // Mudado de 'talk' para 'deliver'
         target: 'critic',
         completed: false
       },

@@ -152,7 +152,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Splitter state
   screenplayWidth = 50;  // Reduzido de 70 para 50
   chatWidth = 50;        // Aumentado de 30 para 50
-  private isDraggingSplitter = false;
 
   // First column toggle state
   firstColumnVisible = true;
@@ -4127,32 +4126,6 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return cwd.slice(0, 20) + '...';
     }
     return cwd;
-  }
-
-  // === Splitter methods ===
-
-  onSplitterMouseDown(event: MouseEvent): void {
-    event.preventDefault();
-    this.isDraggingSplitter = true;
-  }
-
-  @HostListener('document:mousemove', ['$event'])
-  onDocumentMouseMove(event: MouseEvent): void {
-    if (!this.isDraggingSplitter) return;
-
-    const containerWidth = window.innerWidth;
-    const newScreenplayWidth = (event.clientX / containerWidth) * 100;
-
-    // Limitar entre 30% e 80%
-    if (newScreenplayWidth >= 30 && newScreenplayWidth <= 80) {
-      this.screenplayWidth = newScreenplayWidth;
-      this.chatWidth = 100 - newScreenplayWidth;
-    }
-  }
-
-  @HostListener('document:mouseup')
-  onDocumentMouseUp(): void {
-    this.isDraggingSplitter = false;
   }
 
   @HostListener('document:keydown.escape', ['$event'])

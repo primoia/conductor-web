@@ -25,13 +25,15 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     <div class="conversation-list">
       <div class="conversation-list-header">
         <h3>Conversas</h3>
-        <button
-          class="new-conversation-btn"
-          [disabled]="!screenplayId"
-          (click)="onCreateNewConversation()"
-          [title]="screenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
-          +
-        </button>
+        <div class="header-actions">
+          <button
+            class="new-conversation-btn"
+            [disabled]="!screenplayId"
+            (click)="onCreateNewConversation()"
+            [title]="screenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
+            +
+          </button>
+        </div>
       </div>
 
       <div
@@ -164,6 +166,12 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       font-size: 16px;
       font-weight: 600;
       color: #212529;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
 
     .new-conversation-btn {

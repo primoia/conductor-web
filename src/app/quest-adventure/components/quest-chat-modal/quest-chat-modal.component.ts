@@ -14,8 +14,16 @@ interface ChatMessage {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="quest-chat-overlay" (click)="handleOverlayClick($event)" [@fadeIn]>
-      <div class="quest-chat-modal" #modalContent [@slideUp]>
+    <div class="quest-chat-overlay" (click)="handleOverlayClick($event)" [@fadeIn] [class.minimized]="isMinimized" [class.hidden]="isHidden">
+      <!-- Botão flutuante quando escondido -->
+      <button class="floating-toggle-btn"
+              *ngIf="isHidden"
+              (click)="toggleVisibility()"
+              title="Mostrar conversa">
+        ▶
+      </button>
+
+      <div class="quest-chat-modal" #modalContent [@slideUp] [class.minimized]="isMinimized" [class.hidden]="isHidden">
         <!-- Header do Pergaminho -->
         <div class="chat-header">
           <div class="npc-info">
@@ -26,9 +34,19 @@ interface ChatMessage {
             </div>
           </div>
           <div class="header-actions">
+            <button class="hide-btn"
+                    (click)="toggleVisibility()"
+                    title="Esconder conversa">
+              <span>◀</span>
+            </button>
+            <button class="toggle-btn"
+                    (click)="toggleMinimize()"
+                    [title]="isMinimized ? 'Expandir conversa' : 'Minimizar conversa'">
+              <span>{{ isMinimized ? '▼' : '▲' }}</span>
+            </button>
             <button class="skip-btn"
                     (click)="skipTyping()"
-                    *ngIf="isTyping"
+                    *ngIf="isTyping && !isMinimized"
                     title="Pular digitação">
               <span>⏭</span>
             </button>
@@ -136,6 +154,8 @@ export class QuestChatModalComponent implements OnInit, OnChanges {
   typingSpeed = 50; // ms por caractere
   private lastMessage = '';
   private shouldSkipTyping = false;
+  isMinimized = false; // Flag para minimizar o diálogo
+  isHidden = false; // Flag para esconder completamente o diálogo
 
   ngOnInit() {
     this.startDialogue();
@@ -293,6 +313,21 @@ export class QuestChatModalComponent implements OnInit, OnChanges {
   skipTyping() {
     // Ativa flag para pular a digitação
     this.shouldSkipTyping = true;
+  }
+
+  toggleMinimize() {
+    // Alterna entre minimizado e maximizado
+    this.isMinimized = !this.isMinimized;
+  }
+
+  toggleVisibility() {
+    // Alterna entre escondido e visível
+    this.isHidden = !this.isHidden;
+
+    // Se estiver mostrando novamente e estava minimizado, expande
+    if (!this.isHidden && this.isMinimized) {
+      this.isMinimized = false;
+    }
   }
 
   // Método público para adicionar novas mensagens durante o diálogo
