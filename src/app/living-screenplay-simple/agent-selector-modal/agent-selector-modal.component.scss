@@ -14,7 +14,7 @@
 
 .modal-backdrop {
   @include mixins.modal-overlay;
-  z-index: $z-index-modal-high; // Higher z-index for agent selector
+  z-index: 10100 !important; // Above screenplay modal (10000)
 }
 
 .modal-container {

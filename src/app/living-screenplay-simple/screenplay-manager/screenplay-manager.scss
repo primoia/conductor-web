@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 10100; // Above screenplay modal (10000)
   animation: fadeIn 0.2s ease-out;
 }
 
@@ -288,7 +288,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: 10200; // Above screenplay manager modal (10100)
   animation: fadeIn 0.2s ease-out;
 }
 

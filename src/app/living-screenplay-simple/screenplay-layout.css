@@ -254,6 +254,8 @@ body, html {
   margin-bottom: 0;
   border-radius: 0;
   /* Remover border-radius para ficar alinhado com a coluna */
+  position: relative;
+  z-index: 100; /* Ensure toolbar is above other elements */
 }
 
 .editor-toolbar > .toolbar-buttons {
@@ -294,6 +296,11 @@ body, html {
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols' !important;
+  /* Touch optimizations */
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .toolbar-btn:hover {
@@ -337,6 +344,8 @@ body, html {
   position: relative;
   z-index: 1;
   overflow: auto;
+  /* Ensure editor content doesn't overlap toolbar */
+  pointer-events: auto;
 }
 
 /* Editor Footer - Dentro da third-column, ABAIXO do chat-panel */
@@ -1013,6 +1022,51 @@ body, html {
   }
 }
 
+/* Global: Botão fechar screenplay modal (fora de media queries) */
+.close-screenplay-modal {
+  display: none;
+}
+
+.screenplay-layout.screenplay-modal-active .close-screenplay-modal {
+  display: flex !important;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: #333;
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10500;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.screenplay-layout.screenplay-modal-active .close-screenplay-modal:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.screenplay-layout.screenplay-modal-active .close-screenplay-modal:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.05);
+}
+
+/* Close button inside toolbar (mobile) */
+.close-btn-mobile {
+  display: none; /* Hidden by default */
+}
+
 /* 🔥 NOVO: Mobile Portrait - Chat First (Opção 1) */
 /* Múltiplas queries para garantir detecção em Samsung S20 e outros */
 
@@ -1040,7 +1094,7 @@ body, html {
   /* FAB - Floating Action Button para abrir screenplay */
   .fab-screenplay {
     position: fixed;
-    bottom: 24px;
+    top: 20px;
     right: 20px;
     width: 56px;
     height: 56px;
@@ -1083,6 +1137,11 @@ body, html {
     animation: slideInUp 0.3s ease-out;
   }
 
+  /* Ensure bottom sheet appears above screenplay modal */
+  .screenplay-modal-active app-bottom-sheet {
+    z-index: 10002 !important;
+  }
+
   @keyframes slideInUp {
     from {
       transform: translateY(100%);
@@ -1102,38 +1161,6 @@ body, html {
     display: none;
   }
 
-  /* Botão fechar modal */
-  .close-screenplay-modal {
-    display: none; /* Escondido por padrão */
-  }
-
-  .screenplay-modal-active .close-screenplay-modal {
-    display: flex;
-    position: fixed;
-    top: 12px;
-    right: 12px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    color: #333;
-    font-size: 24px;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 10001;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .close-screenplay-modal:active {
-    transform: scale(0.95);
-    background: rgba(0, 0, 0, 0.2);
-  }
-
   /* Ajustar canvas no modal para ocupar toda tela */
   .screenplay-modal-active .screenplay-canvas {
     min-width: 100%;
@@ -1145,16 +1172,115 @@ body, html {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    z-index: 10001; /* Above modal container */
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    gap: 12px;
   }
 
+  /* Show close button inside toolbar on mobile modal */
+  .screenplay-modal-active .close-btn-mobile {
+    display: flex !important;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 24px !important;
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    color: white !important;
+    font-weight: bold;
+    order: -1; /* Place first in toolbar */
+    flex-shrink: 0;
+  }
+
+  .screenplay-modal-active .close-btn-mobile:active {
+    background: rgba(255, 255, 255, 0.5) !important;
+    transform: scale(0.9);
+  }
+
+  /* CRITICAL: Botões com tamanho adequado para touch no modal fullscreen */
   .screenplay-modal-active .toolbar-btn {
+    width: 40px !important; /* Slightly smaller for better fit */
+    height: 40px !important;
+    font-size: 18px !important;
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.3);
     color: white;
+    pointer-events: auto !important; /* Ensure clickable */
+    touch-action: manipulation; /* Improve touch response */
+    flex-shrink: 0; /* Prevent shrinking */
   }
 
   .screenplay-modal-active .toolbar-btn:hover {
     background: rgba(255, 255, 255, 0.3);
+  }
+
+  .screenplay-modal-active .toolbar-btn:active {
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0.95);
+  }
+
+  /* Ajustar espaçamento dos botões no modal */
+  .screenplay-modal-active .toolbar-buttons {
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    flex-wrap: nowrap; /* Single line */
+    justify-content: flex-start;
+    overflow-x: auto; /* Allow horizontal scroll if needed */
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  /* Hide scrollbar */
+  .screenplay-modal-active .toolbar-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fade effect to indicate scrollable content */
+  .screenplay-modal-active .editor-toolbar::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+    background: linear-gradient(to left, rgba(102, 126, 234, 1), transparent);
+    pointer-events: none;
+    z-index: 10002;
+  }
+
+  /* Hide secondary buttons on mobile to save space */
+  .screenplay-modal-active .toolbar-btn.import-btn,
+  .screenplay-modal-active .toolbar-btn.export-btn {
+    display: none !important;
+  }
+
+  /* Toggle buttons moved to settings menu */
+
+  /* Garantir que loading indicator seja visível */
+  .screenplay-modal-active .toolbar-loading {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Ensure overlay elements don't block toolbar clicks */
+  .screenplay-modal-active .overlay-elements {
+    pointer-events: none !important;
+    z-index: 5; /* Below toolbar */
+  }
+
+  /* Ensure screenplay canvas respects toolbar z-index */
+  .screenplay-modal-active .screenplay-canvas {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Settings menu should appear above everything in modal */
+  .screenplay-modal-active .screenplay-settings-menu {
+    z-index: 10003 !important;
   }
 }
 
@@ -1240,7 +1366,7 @@ body, html {
 .force-mobile-layout .fab-screenplay {
   display: flex !important;
   position: fixed !important;
-  bottom: 24px !important;
+  top: 20px !important;
   right: 20px !important;
   width: 56px !important;
   height: 56px !important;
@@ -1426,7 +1552,7 @@ body, html {
   transform: translateY(-1px);
 }
 
-/* Screenplay Settings Menu */
+/* Screenplay Settings Menu - Desktop only */
 .screenplay-settings-menu {
   position: absolute;
   top: 100%;
@@ -1440,6 +1566,13 @@ body, html {
   min-width: 280px;
   overflow: hidden;
   animation: fadeInDown 0.2s ease;
+}
+
+/* Hide desktop menu on mobile */
+@media (max-width: 768px) {
+  .screenplay-settings-menu.desktop-only {
+    display: none !important;
+  }
 }
 
 @keyframes fadeInDown {
@@ -1508,3 +1641,159 @@ body, html {
 .toolbar-btn[data-badge-severity="info"]::after { background: #3b82f6; }
 .toolbar-btn[data-badge-severity="warning"]::after { background: #f59e0b; }
 .toolbar-btn[data-badge-severity="error"]::after { background: #ef4444; }
+
+/* Bottom Sheet Mobile Enhancements */
+@media (max-width: 768px) and (orientation: portrait) {
+  /* Ensure bottom sheet works inside screenplay modal */
+  .screenplay-modal-active .bottom-sheet-container {
+    position: fixed !important;
+    z-index: 10002 !important;
+  }
+
+  /* Increase touch target sizes for better mobile UX */
+  .bottom-sheet-option {
+    min-height: 56px;
+  }
+
+  /* Improve backdrop for modal context */
+  .screenplay-modal-active .bottom-sheet-backdrop {
+    background: rgba(0, 0, 0, 0.6) !important;
+  }
+
+  /* Prevent body scroll when bottom sheet is open */
+  body.bottom-sheet-open {
+    overflow: hidden;
+  }
+}
+
+/* CRITICAL: Ensure all modals appear above screenplay modal */
+/* This applies globally, not just on mobile */
+app-screenplay-manager .modal-backdrop,
+app-agent-selector-modal .modal-backdrop,
+app-agent-creator .modal-backdrop,
+app-agent-preview-modal .modal-backdrop,
+app-export-modal .modal-backdrop,
+app-working-dir-modal .modal-backdrop,
+app-screenplay-info-modal .modal-backdrop,
+app-conflict-resolution-modal .modal-backdrop,
+app-report-modal .modal-backdrop,
+app-investigation-launcher .modal-backdrop,
+app-councilors-dashboard .modal-backdrop,
+app-promote-councilor-modal .modal-backdrop {
+  z-index: 10100 !important;
+}
+
+/* Dialog backdrops (modals within modals) should be even higher */
+.dialog-backdrop {
+  z-index: 10200 !important;
+}
+
+/* Sidebar toggle buttons moved to settings menu - no longer needed here */
+
+/* Mobile-specific modal enhancements - ALL mobile sizes */
+@media (max-width: 768px) {
+  /* Ensure modals are fully visible and touchable on mobile */
+  .modal-backdrop {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* CRITICAL: Force full width modal on ALL mobile sizes */
+  app-screenplay-manager .modal-container,
+  app-agent-selector-modal .modal-container,
+  app-agent-creator .modal-container,
+  app-agent-preview-modal .modal-container,
+  app-export-modal .modal-container,
+  app-working-dir-modal .modal-container,
+  app-screenplay-info-modal .modal-container,
+  app-conflict-resolution-modal .modal-container,
+  app-report-modal .modal-container,
+  app-investigation-launcher .modal-container,
+  app-councilors-dashboard .modal-container,
+  app-promote-councilor-modal .modal-container,
+  .modal-container {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Ensure modal body doesn't cause overflow */
+  .modal-body {
+    padding: 12px !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Fix agent list items being cut off */
+  app-agent-selector-modal .agents-list,
+  .agents-list {
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  app-agent-selector-modal .agent-item,
+  .agents-list .agent-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 0 12px 0 !important;
+  }
+
+  /* Fix screenplay list (screenplay manager modal) */
+  app-screenplay-manager .screenplay-list,
+  .screenplay-list {
+    width: 100% !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    margin: 0 !important;
+  }
+
+  app-screenplay-manager .screenplay-item,
+  .screenplay-list .screenplay-item,
+  .screenplay-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 0 10px 0 !important;
+    padding: 14px 12px !important;
+  }
+
+  /* Fix screenplay item info to prevent overflow */
+  .screenplay-info {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    flex: 1 !important;
+  }
+
+  .screenplay-name,
+  .screenplay-meta,
+  .screenplay-path {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 100% !important;
+  }
+
+  /* Fix screenplay actions overflow */
+  .screenplay-actions {
+    flex-shrink: 0 !important;
+    opacity: 1 !important; /* Always visible on mobile */
+  }
+
+  /* Ensure search container doesn't overflow */
+  .search-container {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 12px !important;
+  }
+
+  .search-input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}

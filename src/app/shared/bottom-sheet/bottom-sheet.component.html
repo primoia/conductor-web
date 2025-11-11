@@ -1,0 +1,32 @@
+<div class="bottom-sheet-container" *ngIf="isVisible">
+  <!-- Backdrop -->
+  <div
+    class="bottom-sheet-backdrop"
+    @fadeIn
+    (click)="onBackdropClick()">
+  </div>
+
+  <!-- Bottom Sheet -->
+  <div class="bottom-sheet" @slideUp (click)="$event.stopPropagation()">
+    <!-- Handle (visual indicator) -->
+    <div class="bottom-sheet-handle"></div>
+
+    <!-- Title -->
+    <div class="bottom-sheet-header" *ngIf="title">
+      <h3>{{ title }}</h3>
+    </div>
+
+    <!-- Options List -->
+    <div class="bottom-sheet-content">
+      <button
+        *ngFor="let option of options"
+        class="bottom-sheet-option"
+        [class.disabled]="option.disabled"
+        [disabled]="option.disabled"
+        (click)="onOptionClick(option.action, option.disabled)">
+        <span class="option-icon">{{ option.icon }}</span>
+        <span class="option-label">{{ option.label }}</span>
+      </button>
+    </div>
+  </div>
+</div>

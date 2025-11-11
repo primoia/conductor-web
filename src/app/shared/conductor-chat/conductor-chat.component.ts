@@ -51,7 +51,15 @@ const DEFAULT_CONFIG: ConductorConfig = {
   template: `
     <div class="conductor-chat-container">
       <!-- 🔥 NOVO: Sidebar com lista de conversas -->
-      <div class="conversation-sidebar" [class.hidden]="!isSidebarVisible" *ngIf="environment.features?.useConversationModel">
+      <div class="conversation-sidebar" [class.hidden]="!isSidebarVisible" [class.conversation-modal-active]="isSidebarVisible" *ngIf="environment.features?.useConversationModel">
+        <!-- Close button for mobile modal -->
+        <button
+          class="close-conversation-sidebar"
+          (click)="onToggleSidebarClick()"
+          title="Fechar Conversas">
+          ✕
+        </button>
+
         <app-conversation-list
           [activeConversationId]="activeConversationId"
           [screenplayId]="activeScreenplayId"
@@ -232,22 +240,24 @@ Erro: 'invalid_token' na response..."
               🗑️
             </button>
 
-            <!-- 🔥 NOVO: Toggle Sidebar Button -->
+            <!-- Toggle buttons moved to Settings menu (⚙️) -->
+            <!--
             <button
               class="dock-action-btn toggle-sidebar-btn"
               (click)="onToggleSidebarClick()"
               [title]="isSidebarVisible ? 'Esconder conversas' : 'Mostrar conversas'"
-              *ngIf="environment.features?.useConversationModel">
+              *ngIf="false">
               {{ isSidebarVisible ? '◀' : '▶' }}
             </button>
 
-            <!-- 🔥 NOVO: Toggle First Column Button -->
             <button
               class="dock-action-btn toggle-first-column-btn"
               (click)="onToggleFirstColumnClick()"
-              [title]="firstColumnVisible ? 'Esconder menu lateral' : 'Mostrar menu lateral'">
+              [title]="firstColumnVisible ? 'Esconder menu lateral' : 'Mostrar menu lateral'"
+              *ngIf="false">
               {{ firstColumnVisible ? '◀' : '▶' }}
             </button>
+            -->
 
             <!-- Settings Button -->
             <button
@@ -258,13 +268,16 @@ Erro: 'invalid_token' na response..."
               ⚙️
             </button>
 
-            <!-- Info Button -->
+            <!-- Info Button moved to settings menu -->
+            <!--
             <button
               class="dock-info-btn"
               (click)="toggleDockInfoModal()"
-              title="O que é a dock de agentes?">
+              title="O que é a dock de agentes?"
+              *ngIf="false">
               ?
             </button>
+            -->
 
             <!-- Separator -->
             <div class="dock-separator"></div>
@@ -313,6 +326,22 @@ Erro: 'invalid_token' na response..."
               </button>
               <button class="menu-item" (click)="editAgentCwd()">
                 📁 Editar diretório
+              </button>
+              <button
+                class="menu-item"
+                (click)="onToggleSidebarClick()"
+                *ngIf="environment.features?.useConversationModel">
+                {{ isSidebarVisible ? '◀' : '▶' }} {{ isSidebarVisible ? 'Esconder' : 'Mostrar' }} Conversas
+              </button>
+              <button
+                class="menu-item"
+                (click)="onToggleFirstColumnClick()">
+                {{ firstColumnVisible ? '◀' : '▶' }} {{ firstColumnVisible ? 'Esconder' : 'Mostrar' }} Menu Lateral
+              </button>
+              <button
+                class="menu-item"
+                (click)="toggleDockInfoModal()">
+                ❓ Sobre a Dock de Agentes
               </button>
             </div>
           </div>
@@ -1859,20 +1888,79 @@ Erro: 'invalid_token' na response..."
       transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
     }
 
-    /* 🔥 NOVO: Responsividade para mobile */
+    /* Close button for conversation sidebar - Hidden by default */
+    .close-conversation-sidebar {
+      display: none;
+    }
+
+    /* 🔥 NOVO: Responsividade para mobile - Fullscreen Modal */
     @media (max-width: 768px) {
       .conversation-sidebar {
-        position: absolute;
-        left: -280px;  /* Ajustado para nova largura */
-        top: 0;
-        bottom: 0;
-        z-index: 1000;
-        transition: left 0.3s ease;
-        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+        display: none; /* Hidden by default on mobile */
       }
 
-      .conversation-sidebar.mobile-open {
+      /* When visible, show as fullscreen modal */
+      .conversation-sidebar.conversation-modal-active {
+        display: flex !important;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
         left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 100vw !important;
+        z-index: 10000;
+        background: white;
+        border: none;
+        animation: slideInLeft 0.3s ease-out;
+        opacity: 1 !important;
+      }
+
+      @keyframes slideInLeft {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(0);
+        }
+      }
+
+      /* Show close button on mobile modal */
+      .conversation-sidebar.conversation-modal-active .close-conversation-sidebar {
+        display: flex;
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        color: #333;
+        font-size: 28px;
+        font-weight: bold;
+        line-height: 1;
+        cursor: pointer;
+        z-index: 10001;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+
+      .close-conversation-sidebar:active {
+        transform: scale(0.9);
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      .close-conversation-sidebar:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: scale(1.05);
       }
 
       .conductor-chat {

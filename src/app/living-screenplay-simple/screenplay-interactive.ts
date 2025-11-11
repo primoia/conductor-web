@@ -38,7 +38,8 @@ import { ScreenplayKpiService } from '../services/screenplay-kpi.service';
 import { CouncilorsDashboardComponent } from './councilors-dashboard/councilors-dashboard.component';
 import { PromoteCouncilorModalComponent } from './promote-councilor-modal/promote-councilor-modal.component';
 import { CouncilorSchedulerService } from '../services/councilor-scheduler.service';
-  import { ConversationManagementService } from '../services/conversation-management.service';
+import { ConversationManagementService } from '../services/conversation-management.service';
+import { BottomSheetComponent, BottomSheetOption } from '../shared/bottom-sheet/bottom-sheet.component';
 
 interface AgentConfig {
   id: string;
@@ -130,7 +131,8 @@ const AGENT_DEFINITIONS: { [emoji: string]: { title: string; description: string
     ReportModalComponent,
     InvestigationLauncherComponent,
     CouncilorsDashboardComponent,
-    PromoteCouncilorModalComponent
+    PromoteCouncilorModalComponent,
+    BottomSheetComponent
   ],
   templateUrl: './screenplay-interactive.html',
   styleUrls: [
@@ -219,6 +221,36 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   showWorkingDirModal = false;
   currentWorkingDirectory: string | null = null;
   showScreenplaySettings = false;
+
+  // Bottom Sheet state
+  showSettingsBottomSheet = false;
+  settingsBottomSheetOptions: BottomSheetOption[] = [
+    {
+      icon: '📥',
+      label: 'Importar do Disco',
+      action: 'import'
+    },
+    {
+      icon: '📤',
+      label: 'Exportar para Disco',
+      action: 'export'
+    },
+    {
+      icon: '📋',
+      label: 'Alternar Menu Lateral',
+      action: 'toggle-first-column'
+    },
+    {
+      icon: '📁',
+      label: 'Configurar Diretório de Trabalho',
+      action: 'working-dir'
+    },
+    {
+      icon: '⌨️',
+      label: 'Atalhos de Teclado',
+      action: 'keyboard-shortcuts'
+    }
+  ];
 
   // UI Enhancement: Conflict resolution modal
   showConflictModal = false;
@@ -1799,7 +1831,41 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * Toggle screenplay settings menu
    */
   toggleScreenplaySettings(): void {
+    // Use bottom sheet for mobile, dropdown for desktop
+    this.showSettingsBottomSheet = !this.showSettingsBottomSheet;
+    // Keep old behavior for backward compatibility
     this.showScreenplaySettings = !this.showScreenplaySettings;
+  }
+
+  /**
+   * Close settings bottom sheet
+   */
+  closeSettingsBottomSheet(): void {
+    this.showSettingsBottomSheet = false;
+    this.showScreenplaySettings = false;
+  }
+
+  /**
+   * Handle settings bottom sheet option selection
+   */
+  onSettingsOptionSelected(action: string): void {
+    switch (action) {
+      case 'import':
+        this.importFromDisk();
+        break;
+      case 'export':
+        this.openExportModal();
+        break;
+      case 'toggle-first-column':
+        this.toggleFirstColumn();
+        break;
+      case 'working-dir':
+        this.openWorkingDirModal();
+        break;
+      case 'keyboard-shortcuts':
+        this.toggleScreenplayInfoModal();
+        break;
+    }
   }
 
   /**
