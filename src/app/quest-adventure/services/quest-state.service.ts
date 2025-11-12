@@ -27,13 +27,13 @@ export class QuestStateService {
 
   // Quest Principal
   private mainQuest: Quest = {
-    id: 'guild_banner',
-    title: 'O Estandarte da Guilda',
-    description: 'Orquestre a equipe para criar um estandarte de boas-vindas para a guilda.',
+    id: 'restore_conductors',
+    title: 'Restaurando os Condutores Sintéticos',
+    description: 'Reative os Condutores em hibernação e restaure a Guilda dos Condutores Sintéticos.',
     objectives: [
       {
         id: 'talk_to_guide',
-        text: 'Fale com o Guia',
+        text: 'Fale com o Guia Ancião',
         type: 'talk',
         target: 'elder_guide',
         completed: false
@@ -41,54 +41,35 @@ export class QuestStateService {
       {
         id: 'talk_to_librarian',
         text: 'Leve o Código Primordial à Bibliotecária',
-        type: 'deliver', // Mudado de 'talk' para 'deliver' para não auto-completar
+        type: 'deliver',
         target: 'librarian',
         completed: false
       },
       {
         id: 'talk_to_scribe',
         text: 'Ative o Escriba com a Chave Alpha',
-        type: 'deliver', // Mudado de 'talk' para 'deliver'
+        type: 'deliver',
         target: 'requirements_scribe',
         completed: false
       },
       {
-        id: 'get_plan',
-        text: 'Obtenha o plano do estandarte',
-        type: 'create',
-        completed: false
-      },
-      {
         id: 'talk_to_artisan',
-        text: 'Leve o Núcleo Beta à Artesã',
-        type: 'deliver', // Mudado de 'talk' para 'deliver'
+        text: 'Ative a Artesã com o Núcleo Beta',
+        type: 'deliver',
         target: 'artisan',
         completed: false
       },
       {
-        id: 'banner_created',
-        text: 'Veja a criação do estandarte',
-        type: 'create',
-        completed: false
-      },
-      {
         id: 'talk_to_critic',
-        text: 'Leve o Módulo Gamma à Crítica',
-        type: 'deliver', // Mudado de 'talk' para 'deliver'
+        text: 'Ative a Crítica com o Módulo Gamma',
+        type: 'deliver',
         target: 'critic',
         completed: false
       },
       {
-        id: 'refine_banner',
-        text: 'Refine o estandarte com base no feedback',
-        type: 'refine',
-        completed: false,
-        optional: true
-      },
-      {
         id: 'return_to_guide',
-        text: 'Retorne ao Guia',
-        type: 'talk',
+        text: 'Retorne ao Guia com o Protocolo Omega',
+        type: 'deliver',
         target: 'elder_guide',
         completed: false
       }
@@ -97,7 +78,7 @@ export class QuestStateService {
     completed: false,
     rewards: {
       xp: 1000,
-      title: 'Condutor',
+      title: 'Condutor Híbrido',
       unlocks: ['open_world_mode']
     }
   };

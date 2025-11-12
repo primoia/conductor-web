@@ -20,6 +20,7 @@ export interface NPC {
   dialogueTreeId: string;
   showIndicator?: boolean;
   status?: 'available' | 'unavailable' | 'busy';
+  requiredItem?: string; // Item necessário no inventário para auto-desbloquear
   // Wandering behavior
   homePosition?: Position; // Posição inicial/base do NPC
   wanderRadius?: number; // Raio máximo de movimento

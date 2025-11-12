@@ -53,7 +53,8 @@ export class NpcManagerService implements OnDestroy {
         successPhrase: 'SCREENPLAY GERADO COM SUCESSO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'scribe_boot'
+      dialogueTreeId: 'scribe_boot',
+      requiredItem: 'activation_key_alpha' // Auto-desbloqueia se tiver este item
     },
     {
       id: 'artisan',
@@ -76,7 +77,8 @@ export class NpcManagerService implements OnDestroy {
         successPhrase: 'EXECUÇÃO COMPLETA! CÓDIGO RODANDO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'artisan_activation'
+      dialogueTreeId: 'artisan_activation',
+      requiredItem: 'execution_core_beta' // Auto-desbloqueia se tiver este item
     },
     {
       id: 'critic',
@@ -99,7 +101,8 @@ export class NpcManagerService implements OnDestroy {
         successPhrase: 'ANÁLISE COMPLETA! CÓDIGO OTIMIZADO!'
       },
       currentIndicator: 'none',
-      dialogueTreeId: 'critic_calibration'
+      dialogueTreeId: 'critic_calibration',
+      requiredItem: 'optimization_module_gamma' // Auto-desbloqueia se tiver este item
     },
     {
       id: 'librarian',
@@ -428,6 +431,13 @@ export class NpcManagerService implements OnDestroy {
       if (!npc.unlocked) return false;
       return this.getDistance(center, npc.position) <= radius;
     });
+  }
+
+  /**
+   * Obtém todos os NPCs (incluindo bloqueados)
+   */
+  getAllNPCs(): NPC[] {
+    return [...this.npcs];
   }
 
   /**

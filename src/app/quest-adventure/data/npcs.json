@@ -8,11 +8,26 @@
       "agentId": "SystemGuide_Meta_Agent",
       "position": { "x": 512, "y": 400 },
       "sprite": "elder",
-      "greeting": "Bem-vindo ao Salão da Guilda, Iniciado. Eu sou o Guia, e estou aqui para apresentar os Companheiros que transformarão suas ideias em realidade.",
+      "greeting": "DETECÇÃO: Novo usuário. Bem-vindo ao Salão Digital, Iniciado Orgânico.",
       "unlocked": true,
       "status": "available",
       "showIndicator": false,
-      "dialogueTree": "elder_initial"
+      "dialogueTree": "guide_intro"
+    },
+    {
+      "id": "librarian",
+      "name": "A Bibliotecária",
+      "title": "Unidade de Armazenamento",
+      "emoji": "📚",
+      "agentId": "DataLibrarian_Agent",
+      "position": { "x": 150, "y": 450 },
+      "sprite": "librarian",
+      "greeting": "PROCESSANDO... Detecto assinatura digital do Guia. Bem-vindo à Biblioteca de Dados.",
+      "unlocked": true,
+      "status": "available",
+      "showIndicator": false,
+      "dialogueTree": "librarian_intro",
+      "unlockCondition": null
     },
     {
       "id": "requirements_scribe",
@@ -22,11 +37,11 @@
       "agentId": "RequirementsAnalyst_Agent",
       "position": { "x": 200, "y": 280 },
       "sprite": "scribe",
-      "greeting": "Ah, o novo Iniciado! Prazer em conhecê-lo. Eu sou o Escriba. Minha função é transformar o caos de uma ideia em um plano claro e estruturado.",
+      "greeting": "MODO HIBERNAÇÃO... zzz... *sistemas offline* ... Requer chave de ativação... A Bibliotecária possui os códigos de desbloqueio...",
       "unlocked": false,
       "status": "locked",
       "showIndicator": false,
-      "dialogueTree": "scribe_initial",
+      "dialogueTree": "scribe_boot",
       "unlockCondition": "talked_to_elder"
     },
     {
@@ -37,11 +52,11 @@
       "agentId": "BuildMaster_Agent",
       "position": { "x": 824, "y": 280 },
       "sprite": "artisan",
-      "greeting": "Finalmente! Ação! Estava ficando entediada! Eu sou a Artesã. O Escriba sonha, planeja, teoriza... Mas sou EU quem constrói!",
+      "greeting": "MODO SEGURANÇA ATIVO... Energia baixa... Não posso... construir... nada... Preciso... núcleo... de... execução...",
       "unlocked": false,
       "status": "locked",
       "showIndicator": false,
-      "dialogueTree": "artisan_initial",
+      "dialogueTree": "artisan_activation",
       "unlockCondition": "got_plan_from_scribe"
     },
     {
@@ -52,11 +67,11 @@
       "agentId": "QualityAnalyst_Agent",
       "position": { "x": 512, "y": 130 },
       "sprite": "critic",
-      "greeting": "Eu já estava esperando você, Iniciado. Eu sou a Crítica. Meu olhar garante que cada criação não seja apenas funcional, mas excelente.",
+      "greeting": "ANÁLISE VISUAL: Novo visitante detectado. Meus sensores estão descalibrados. Operando a 23% de precisão. Impossível fornecer feedback adequado nestas condições. Requer módulo de otimização para recalibração.",
       "unlocked": false,
       "status": "locked",
       "showIndicator": false,
-      "dialogueTree": "critic_initial",
+      "dialogueTree": "critic_calibration",
       "unlockCondition": "banner_created"
     }
   ]

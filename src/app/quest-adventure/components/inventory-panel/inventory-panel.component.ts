@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { InventoryService } from '../../services/inventory.service';
@@ -18,6 +18,7 @@ import {
   styleUrls: ['./inventory-panel.component.scss']
 })
 export class InventoryPanelComponent implements OnInit, OnDestroy {
+  @Input() initialShowDetails = true; // Controla se abre em modo lista ou grid
   @Output() itemSelected = new EventEmitter<InventoryItem>();
   @Output() itemGiven = new EventEmitter<{ item: InventoryItem, npcId: string }>();
   @Output() closed = new EventEmitter<void>();
@@ -50,11 +51,14 @@ export class InventoryPanelComponent implements OnInit, OnDestroy {
 
   // Estado de visualização
   isMinimized = false;
-  showDetails = true;
+  showDetails = true; // Inicia com detalhes (modo lista)
 
   constructor(private inventoryService: InventoryService) {}
 
   ngOnInit(): void {
+    // Define estado inicial de visualização
+    this.showDetails = this.initialShowDetails;
+
     // Inscreve-se no estado do inventário
     this.inventoryService.inventory$
       .pipe(takeUntil(this.destroy$))
@@ -78,6 +82,11 @@ export class InventoryPanelComponent implements OnInit, OnDestroy {
           this.playItemAddedAnimation(transaction.itemId);
         }
       });
+
+    // Marca itens novos como vistos após 3 segundos
+    setTimeout(() => {
+      this.inventoryService.markAllItemsAsSeen();
+    }, 3000);
   }
 
   ngOnDestroy(): void {
@@ -114,6 +123,17 @@ export class InventoryPanelComponent implements OnInit, OnDestroy {
 
     // Efeito visual de seleção
     this.playSelectionAnimation(item.id);
+  }
+
+  /**
+   * Double-click no item - Alterna entre grid e lista
+   */
+  onItemDoubleClick(item: InventoryItem | null): void {
+    if (!item) return;
+
+    // Alterna para modo grid quando double-click
+    this.showDetails = false;
+    this.selectItem(item);
   }
 
   /**

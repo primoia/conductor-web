@@ -94,9 +94,15 @@ export class InventoryService {
    * Adiciona um item ao inventário
    */
   addItem(itemOrId: InventoryItem | string): boolean {
+    console.log(`🎒 [DEBUG] ========== ADD ITEM TO INVENTORY ==========`);
+    console.log(`🎒 [DEBUG] Input: ${typeof itemOrId === 'string' ? `ID="${itemOrId}"` : `Object name="${itemOrId.name}"`}`);
+    console.log(`🎒 [DEBUG] Timestamp: ${Date.now()}`);
+    console.log(`🎒 [DEBUG] Slots usados: ${this.inventoryState.usedSlots}/${this.inventoryState.maxSlots}`);
+    console.log(`🎒 [DEBUG] Items atuais no inventário:`, this.inventoryState.items.map(i => i.id));
+
     // Verifica espaço disponível
     if (this.inventoryState.usedSlots >= this.inventoryState.maxSlots) {
-      console.warn('Inventory is full!');
+      console.error(`❌ [DEBUG] Inventário cheio!`);
       this.showInventoryFullAnimation();
       return false;
     }
@@ -104,17 +110,27 @@ export class InventoryService {
     let item: InventoryItem | null = null;
 
     if (typeof itemOrId === 'string') {
+      console.log(`🎒 [DEBUG] Criando item do template: ${itemOrId}`);
       item = this.createItemFromTemplate(itemOrId);
+      console.log(`🎒 [DEBUG] Item criado:`, item);
     } else {
+      console.log(`🎒 [DEBUG] Usando item fornecido diretamente`);
       item = itemOrId;
     }
 
-    if (!item) return false;
+    if (!item) {
+      console.error(`❌ [DEBUG] Falha ao criar/obter item!`);
+      return false;
+    }
+
+    console.log(`🎒 [DEBUG] Item a ser adicionado: ID="${item.id}", Name="${item.name}", Stackable=${item.stackable}`);
 
     // Se o item é stackable, verifica se já existe
     if (item.stackable) {
+      console.log(`🎒 [DEBUG] Item é stackable, verificando se já existe...`);
       const existingItem = this.inventoryState.items.find(i => i.id === item!.id);
       if (existingItem) {
+        console.log(`🎒 [DEBUG] Item stackable já existe, incrementando quantidade`);
         existingItem.quantity = (existingItem.quantity || 1) + (item.quantity || 1);
 
         // Limita ao máximo de stack
@@ -131,22 +147,35 @@ export class InventoryService {
         });
 
         this.updateInventory();
+        console.log(`✅ [DEBUG] Item stackado com sucesso! Nova quantidade: ${existingItem.quantity}`);
+        console.log(`🎒 [DEBUG] ========== FIM ADD ITEM ==========`);
         return true;
       }
+      console.log(`🎒 [DEBUG] Item stackable não existe, será adicionado como novo`);
     } else {
+      console.log(`🎒 [DEBUG] Item NÃO é stackable, verificando duplicação...`);
       // Se o item NÃO é stackable, verifica se já existe (evita duplicação)
       const existingItem = this.inventoryState.items.find(i => i.id === item!.id);
       if (existingItem) {
-        console.log(`⚠️ [INVENTORY] Item ${item.id} já existe no inventário (não-stackable), ignorando duplicação`);
+        console.warn(`⚠️ [DEBUG] Item ${item.id} já existe no inventário (não-stackable), ignorando duplicação`);
+        console.log(`🎒 [DEBUG] ========== FIM ADD ITEM ==========`);
         return false; // Não adiciona duplicado
       }
+      console.log(`🎒 [DEBUG] Item não-stackable não existe, será adicionado`);
     }
 
-    // Adiciona novo item
+    // Adiciona novo item e marca como novo
+    console.log(`🎒 [DEBUG] Marcando item como novo (isNew=true)`);
+    item.metadata = item.metadata || {};
+    item.metadata.isNew = true;
+
+    console.log(`🎒 [DEBUG] Adicionando item ao array de itens`);
     this.inventoryState.items.push(item);
     this.inventoryState.usedSlots++;
+    console.log(`✅ [DEBUG] Item adicionado! Novo total de slots usados: ${this.inventoryState.usedSlots}`);
 
     // Registra transação
+    console.log(`🎒 [DEBUG] Registrando transação`);
     this.recordTransaction({
       id: this.generateTransactionId(),
       timestamp: Date.now(),
@@ -157,11 +186,18 @@ export class InventoryService {
 
     // Auto-sort se configurado
     if (INVENTORY_CONFIG.autoSort) {
+      console.log(`🎒 [DEBUG] Auto-sort ativado, ordenando inventário`);
       this.sortInventory();
     }
 
+    console.log(`🎒 [DEBUG] Atualizando observables e salvando`);
     this.updateInventory();
+    console.log(`🎒 [DEBUG] Exibindo animação de item adicionado`);
     this.showItemAddedAnimation(item);
+
+    console.log(`✅ [DEBUG] Item ${item.id} adicionado com sucesso!`);
+    console.log(`🎒 [DEBUG] Items finais no inventário:`, this.inventoryState.items.map(i => `${i.id}${i.metadata?.isNew ? '(NEW)' : ''}`));
+    console.log(`🎒 [DEBUG] ========== FIM ADD ITEM ==========`);
     return true;
   }
 
@@ -362,6 +398,29 @@ export class InventoryService {
   getItemCount(itemId: string): number {
     const item = this.getItem(itemId);
     return item ? (item.quantity || 1) : 0;
+  }
+
+  /**
+   * Marca um item como visto (não novo)
+   */
+  markItemAsSeen(itemId: string): void {
+    const item = this.getItem(itemId);
+    if (item && item.metadata?.isNew) {
+      item.metadata.isNew = false;
+      this.updateInventory();
+    }
+  }
+
+  /**
+   * Marca todos os itens como vistos
+   */
+  markAllItemsAsSeen(): void {
+    this.inventoryState.items.forEach(item => {
+      if (item.metadata?.isNew) {
+        item.metadata.isNew = false;
+      }
+    });
+    this.updateInventory();
   }
 
   /**

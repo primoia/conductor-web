@@ -50,6 +50,7 @@
           *ngIf="item"
           [class]="getRarityClass(item)"
           [class.animated]="isAnimated(item.id)"
+          [class.new-item]="item.metadata?.isNew"
           [class]="getItemAnimation(item.id)"
           [draggable]="true"
           (dragstart)="onDragStart($event, item)"
@@ -97,7 +98,9 @@
           class="item-row"
           *ngFor="let item of inventoryState.items"
           [class.selected]="item === selectedItem"
-          (click)="selectItem(item)">
+          [class.new-item]="item.metadata?.isNew"
+          (click)="selectItem(item)"
+          (dblclick)="onItemDoubleClick(item)">
 
           <!-- Item Icon -->
           <div class="item-col-icon">

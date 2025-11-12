@@ -688,6 +688,44 @@
   }
 }
 
+@keyframes newItemGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.6),
+                inset 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.9),
+                inset 0 0 15px rgba(255, 215, 0, 0.5);
+  }
+}
+
+// New Item Styles
+.new-item {
+  animation: newItemGlow 1.5s ease-in-out infinite;
+  border: 2px solid rgba(255, 215, 0, 0.8) !important;
+  background: linear-gradient(135deg,
+    rgba(255, 215, 0, 0.15) 0%,
+    rgba(255, 165, 0, 0.1) 100%) !important;
+
+  &::before {
+    content: '✨';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 16px;
+    animation: pulse 1s ease-in-out infinite;
+    z-index: 10;
+  }
+}
+
+.item-row.new-item {
+  background: linear-gradient(90deg,
+    rgba(255, 215, 0, 0.15) 0%,
+    rgba(255, 165, 0, 0.05) 100%);
+  border-left: 3px solid rgba(255, 215, 0, 0.8);
+  animation: newItemGlow 1.5s ease-in-out infinite;
+}
+
 // Give Item Button Styles
 .detail-actions {
   margin: 15px 0;

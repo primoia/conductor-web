@@ -57,14 +57,6 @@
         <div class="screenplay-canvas" #canvas>
           <!-- Editor Toolbar movida para cima da coluna do meio -->
           <div class="editor-toolbar">
-            <!-- Mobile Close Button - Inside Toolbar -->
-            <button
-              class="toolbar-btn close-btn-mobile"
-              title="Fechar Roteiro"
-              (click)="closeScreenplayModal()">
-              ✕
-            </button>
-
             <!-- Loading indicator -->
             <div *ngIf="isLoading" class="toolbar-loading">
               <span>Carregando...</span>
@@ -118,35 +110,17 @@
                 ⚙️
               </button>
 
-              <!-- Settings Menu - Desktop only -->
+              <!-- Settings Menu -->
               <div
                 *ngIf="showScreenplaySettings"
-                class="screenplay-settings-menu desktop-only">
-                <button class="menu-item" (click)="importFromDisk(); showScreenplaySettings = false">
-                  📥 Importar do Disco
-                </button>
-                <button class="menu-item" (click)="openExportModal(); showScreenplaySettings = false">
-                  📤 Exportar para Disco
-                </button>
-                <button class="menu-item" (click)="toggleFirstColumn(); showScreenplaySettings = false">
-                  📋 Alternar Menu Lateral
-                </button>
-                <button class="menu-item" (click)="openWorkingDirModal(); showScreenplaySettings = false">
+                class="screenplay-settings-menu">
+                <button class="menu-item" (click)="openWorkingDirModal()">
                   📁 Configurar Diretório de Trabalho
                 </button>
                 <button class="menu-item" (click)="toggleScreenplayInfoModal(); showScreenplaySettings = false">
                   ⌨️ Atalhos de Teclado
                 </button>
               </div>
-
-              <!-- Bottom Sheet - Mobile settings -->
-              <app-bottom-sheet
-                [isVisible]="showSettingsBottomSheet"
-                [title]="'Configurações'"
-                [options]="settingsBottomSheetOptions"
-                (close)="closeSettingsBottomSheet()"
-                (optionSelected)="onSettingsOptionSelected($event)">
-              </app-bottom-sheet>
             </div>
           </div>
 

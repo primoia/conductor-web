@@ -58,6 +58,7 @@ export interface ItemMetadata {
   uses?: number;            // Número de usos (para consumíveis)
   maxUses?: number;         // Máximo de usos
   requiredItems?: string[]; // Itens necessários para usar este
+  isNew?: boolean;          // Se o item foi recém-adicionado ao inventário
 }
 
 /**

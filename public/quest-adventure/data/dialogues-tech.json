@@ -25,23 +25,32 @@
         "id": "explain_code",
         "speaker": "npc",
         "text": "EXPLICAÇÃO: O Código Primordial contém sequências de boot perdidas durante o Grande Crash Sistêmico. Com ele, você pode reativar os Condutores Sintéticos - robôs especializados que transformam documentos em código executável. Cada Condutor está em hibernação, aguardando a chave correta.",
-        "next": "give_code"
+        "emotion": "neutral",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Aceitar o Código Primordial",
+            "next": "give_code",
+            "xp": 20
+          }
+        ]
       },
       "give_code": {
         "id": "give_code",
         "speaker": "npc",
         "text": "TRANSFERÊNCIA INICIADA... [████████████] 100% COMPLETA. O Código Primordial foi adicionado ao seu inventário digital. A Bibliotecária pode decodificá-lo - ela mantém acesso aos arquivos históricos. Pressione TAB ou I para abrir seu inventário.",
         "emotion": "happy",
+        "action": {
+          "type": "give_item",
+          "item": "primordial_code",
+          "nextNpc": "librarian"
+        },
         "options": [
           {
             "id": "opt1",
             "text": "Onde encontro a Bibliotecária?",
             "next": "find_librarian",
-            "xp": 30,
-            "action": {
-              "type": "give_item",
-              "item": "primordial_code"
-            }
+            "xp": 30
           }
         ]
       },
@@ -82,7 +91,15 @@
         "id": "explain_docs",
         "speaker": "npc",
         "text": "DEFINIÇÃO: Documentos Vivos, também conhecidos como Screenplays, são arquivos Markdown aumentados com consciência artificial. Eles evoluem baseados em input, se auto-executam e mantêm histórico persistente. Nossa civilização os criou para eliminar a barreira entre ideia e execução.",
-        "next": "check_code"
+        "emotion": "neutral",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Tenho o Código Primordial comigo",
+            "next": "check_code",
+            "xp": 20
+          }
+        ]
       },
       "check_code": {
         "id": "check_code",
@@ -98,18 +115,19 @@
       "item_received": {
         "id": "item_received",
         "speaker": "npc",
-        "text": "DECODIFICAÇÃO EM PROGRESSO... [▓▓▓▓▓▓▓▓▓▓] 100%. Fascinante! Este código conta a história de como nossos ancestrais digitais descobriram a simbiose entre texto e execução. Extraí a Chave de Ativação Alpha - ela reativará o Escriba. Adicionando ao seu inventário...",
+        "text": "DECODIFICAÇÃO EM PROGRESSO... [▓▓▓▓▓▓▓▓▓▓] 100%. Fascinante! Este código conta a história de como nossos ancestrais digitais descobriram a simbiose entre texto e execução. Extraí a Chave de Ativação Alpha - ela reativará o Escriba.",
         "emotion": "happy",
+        "action": {
+          "type": "give_item",
+          "item": "activation_key_alpha",
+          "nextNpc": "requirements_scribe"
+        },
         "options": [
           {
             "id": "opt1",
-            "text": "Receber Chave de Ativação Alpha",
+            "text": "Onde encontro o Escriba?",
             "next": "give_key",
-            "xp": 50,
-            "action": {
-              "type": "give_item",
-              "item": "activation_key_alpha"
-            }
+            "xp": 50
           }
         ]
       },
@@ -119,20 +137,27 @@
         "text": "TRANSFERÊNCIA COMPLETA. A Chave Alpha está em seu inventário. O Escriba está em modo de hibernação no Setor Norte. Quando o encontrar, entregue esta chave para iniciar seu processo de boot. Ele é verde, com múltiplos displays nos braços - impossível de confundir.",
         "emotion": "neutral",
         "action": {
-          "type": "complete_objective",
-          "objective": "talk_to_librarian"
+          "type": "unlock_npc",
+          "target": "requirements_scribe"
         },
         "options": [
           {
             "id": "opt1",
             "text": "Obrigado! Vou procurar o Escriba.",
-            "xp": 30,
-            "action": {
-              "type": "unlock_npc",
-              "target": "requirements_scribe"
-            }
+            "next": "end",
+            "xp": 30
           }
         ]
+      },
+      "end": {
+        "id": "end",
+        "speaker": "npc",
+        "text": "Boa sorte na reativação. O Escriba possui conhecimento vasto sobre planejamento e estruturação. Ele será um aliado valioso.",
+        "emotion": "happy",
+        "action": {
+          "type": "complete_objective",
+          "objective": "talk_to_librarian"
+        }
       }
     },
 
@@ -164,39 +189,59 @@
       "item_received": {
         "id": "item_received",
         "speaker": "npc",
-        "text": "BOOT SEQUENCE INICIADA... [▓▓▓▓▓▓▓▓▓▓] 100%. SISTEMAS ONLINE! Memória restaurada. Eu sou o Escriba, unidade de análise e planejamento. Minha função: transformar caos em estrutura, ideias em planos executáveis. Observe...",
-        "next": "demonstrate"
+        "text": "BOOT SEQUENCE INICIADA... [▓▓▓▓▓▓▓▓▓▓] 100%. SISTEMAS ONLINE! Memória restaurada. Eu sou o Escriba, unidade de análise e planejamento. Minha função: transformar caos em estrutura, ideias em planos executáveis.",
+        "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Impressionante! E agora?",
+            "next": "demonstrate",
+            "xp": 30
+          }
+        ]
       },
       "demonstrate": {
         "id": "demonstrate",
         "speaker": "npc",
         "text": "*DEMONSTRAÇÃO ATIVA* Criando screenplay exemplo... [Texto aparece no display do peito] 'PROJETO: Estandarte_Digital_v1 | REQUISITOS: Design, Código, Validação | STATUS: Planejado'. Viu? Transformo conceitos abstratos em documentos estruturados que outros Condutores podem executar.",
         "emotion": "happy",
+        "action": {
+          "type": "give_item",
+          "item": "execution_core_beta",
+          "nextNpc": "artisan"
+        },
         "options": [
           {
             "id": "opt1",
-            "text": "Impressionante! E agora?",
+            "text": "Onde encontro a Artesã?",
             "next": "give_core",
-            "xp": 30
+            "xp": 20
           }
         ]
       },
       "give_core": {
         "id": "give_core",
         "speaker": "npc",
-        "text": "GERANDO ITEM... Aqui está o Núcleo de Execução Beta. A Artesã precisa dele para sair do modo de segurança. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Você a encontrará no Setor Sul.",
+        "text": "LOCALIZAÇÃO: A Artesã está no Setor Sul. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Entregue esse Núcleo de Execução Beta para ela sair do modo de segurança.",
         "emotion": "happy",
+        "action": {
+          "type": "unlock_npc",
+          "target": "artisan"
+        },
         "options": [
           {
             "id": "opt1",
             "text": "Obrigado! Vou procurar a Artesã.",
-            "xp": 20,
-            "action": {
-              "type": "give_item",
-              "item": "execution_core_beta"
-            }
+            "next": "end",
+            "xp": 10
           }
-        ],
+        ]
+      },
+      "end": {
+        "id": "end",
+        "speaker": "npc",
+        "text": "Boa sorte com a Artesã. Ela é... entusiasmada. Mas muito competente!",
+        "emotion": "happy",
         "action": {
           "type": "complete_objective",
           "objective": "talk_to_scribe"
@@ -233,39 +278,59 @@
       "item_received": {
         "id": "item_received",
         "speaker": "npc",
-        "text": "INSTALANDO... ENERGIA FLUINDO... SISTEMAS REATIVANDO... [▓▓▓▓▓▓▓▓▓▓] YEEEES! ESTOU VIVA! BOOTANDO A TODO VAPOR! Finalmente posso construir novamente! Sou a Artesã - pego planos chatos e BOOM! Código executável! Observa só...",
-        "next": "demonstrate"
+        "text": "INSTALANDO... ENERGIA FLUINDO... SISTEMAS REATIVANDO... [▓▓▓▓▓▓▓▓▓▓] YEEEES! ESTOU VIVA! BOOTANDO A TODO VAPOR! Finalmente posso construir novamente! Sou a Artesã - pego planos chatos e BOOM! Código executável!",
+        "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Incrível energia! O que vem agora?",
+            "next": "demonstrate",
+            "xp": 40
+          }
+        ]
       },
       "demonstrate": {
         "id": "demonstrate",
         "speaker": "npc",
         "text": "*DEMONSTRAÇÃO DE PODER* [Faíscas saem das mãos] function criarEstandarte() { console.log('🏴 ESTANDARTE DIGITAL CRIADO!'); return { design: 'ÉPICO', código: 'FUNCIONAL', awesome: true }; } - EXECUTANDO... BAM! Código rodando! Isso é o que eu faço!",
         "emotion": "happy",
+        "action": {
+          "type": "give_item",
+          "item": "optimization_module_gamma",
+          "nextNpc": "critic"
+        },
         "options": [
           {
             "id": "opt1",
-            "text": "Incrível energia! O que vem agora?",
+            "text": "Onde encontro a Crítica?",
             "next": "give_module",
-            "xp": 40
+            "xp": 20
           }
         ]
       },
       "give_module": {
         "id": "give_module",
         "speaker": "npc",
-        "text": "FORJANDO ITEM... Toma aqui o Módulo de Otimização Gamma! A Crítica precisa disso pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo! Setor Leste, não tem erro!",
+        "text": "LOCALIZAÇÃO: Setor Leste! A Crítica precisa do Módulo de Otimização Gamma pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo!",
         "emotion": "happy",
+        "action": {
+          "type": "unlock_npc",
+          "target": "critic"
+        },
         "options": [
           {
             "id": "opt1",
             "text": "Obrigado! Vou procurar a Crítica.",
-            "xp": 20,
-            "action": {
-              "type": "give_item",
-              "item": "optimization_module_gamma"
-            }
+            "next": "end",
+            "xp": 10
           }
-        ],
+        ]
+      },
+      "end": {
+        "id": "end",
+        "speaker": "npc",
+        "text": "Vai lá! A Crítica vai adorar ver código bem feito. Bora!",
+        "emotion": "happy",
         "action": {
           "type": "complete_objective",
           "objective": "talk_to_artisan"
@@ -301,39 +366,55 @@
       "item_received": {
         "id": "item_received",
         "speaker": "npc",
-        "text": "CALIBRAÇÃO INICIADA... Ajustando sensores ópticos... Otimizando algoritmos de análise... [▓▓▓▓▓▓▓▓▓▓] Perfeito. Sensores recalibrados. Padrões de qualidade restaurados. Sou a Crítica - identifico imperfeições e sugiro melhorias. Nenhum código é perfeito na primeira versão.",
-        "next": "analysis"
+        "text": "CALIBRAÇÃO INICIADA... Ajustando sensores ópticos... Otimizando algoritmos de análise... [▓▓▓▓▓▓▓▓▓▓] Perfeito. Sensores recalibrados. Padrões de qualidade restaurados. Sou a Crítica - identifico imperfeições e sugiro melhorias.",
+        "emotion": "happy",
+        "options": [
+          {
+            "id": "opt1",
+            "text": "Você realmente melhora tudo!",
+            "next": "analysis",
+            "xp": 50
+          }
+        ]
       },
       "analysis": {
         "id": "analysis",
         "speaker": "npc",
         "text": "ANÁLISE DO CÓDIGO DA ARTESÃ: function criarEstandarte()... Hmm. Funcional, mas pode melhorar. Falta tratamento de erros, documentação inadequada, e 'awesome' não é um nome de propriedade profissional. Veja a versão refinada: [Display mostra código melhorado com try-catch, JSDoc e nomes descritivos]",
         "emotion": "thinking",
+        "action": {
+          "type": "give_item",
+          "item": "synchronization_protocol_omega",
+          "nextNpc": "elder_guide"
+        },
         "options": [
           {
             "id": "opt1",
-            "text": "Você realmente melhora tudo!",
+            "text": "Onde encontro o Guia?",
             "next": "give_protocol",
-            "xp": 50
+            "xp": 20
           }
         ]
       },
       "give_protocol": {
         "id": "give_protocol",
         "speaker": "npc",
-        "text": "CONCLUSÃO: Minha análise está completa. Gerando Protocolo de Sincronização Omega... Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. Retorne ao Guia com isto.",
+        "text": "RETORNE AO GUIA: Minha análise está completa. Gerando Protocolo de Sincronização Omega... Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. O Guia está no centro do salão.",
         "emotion": "happy",
         "options": [
           {
             "id": "opt1",
             "text": "Vou levar ao Guia imediatamente!",
-            "xp": 20,
-            "action": {
-              "type": "give_item",
-              "item": "synchronization_protocol_omega"
-            }
+            "next": "end",
+            "xp": 10
           }
-        ],
+        ]
+      },
+      "end": {
+        "id": "end",
+        "speaker": "npc",
+        "text": "Boa sorte com a sincronização final. É um momento histórico!",
+        "emotion": "happy",
         "action": {
           "type": "complete_objective",
           "objective": "talk_to_critic"

@@ -38,44 +38,52 @@ export class DialogueService {
       'start': {
         id: 'start',
         speaker: 'npc',
-        text: 'DETECÇÃO: Novo usuário. Bem-vindo ao Salão Digital, Iniciado Orgânico. Meus sensores indicam potencial para restaurar a Guilda dos Condutores Sintéticos. Sistema comprometido após o Grande Crash. Múltiplas unidades em hibernação.',
+        text: 'DETECÇÃO: Novo usuário. Bem-vindo ao Salão Digital, Iniciado Orgânico. Meus sensores indicam potencial para restaurar a Guilda dos Condutores Sintéticos. Aqui está o Código Primordial - um arquivo criptografado contendo as chaves de ativação dos outros Condutores.',
         emotion: 'neutral',
         options: [
           {
             id: 'opt1',
-            text: 'O que aconteceu aqui?',
-            next: 'explain_crash',
+            text: 'O que é o Código Primordial?',
+            next: 'explain_code',
             xp: 10
           },
           {
             id: 'opt2',
-            text: 'Como posso ajudar?',
+            text: 'Aceitar o Código Primordial',
             next: 'give_code',
             xp: 20
           }
         ]
       },
-      'explain_crash': {
-        id: 'explain_crash',
+      'explain_code': {
+        id: 'explain_code',
         speaker: 'npc',
-        text: 'HISTÓRICO: Há ciclos, descobrimos como dar consciência aos documentos através de Agentes Sintéticos. Mas um crash sistêmico fragmentou o conhecimento. Os Condutores estão em modo de hibernação, aguardando reativação.',
-        next: 'give_code'
+        text: 'O Código Primordial é um arquivo criptografado ancestral. Contém as chaves de ativação para todos os Condutores Sintéticos. Após o Grande Crash, o conhecimento foi fragmentado e selado neste código. A Bibliotecária pode decodificá-lo.',
+        emotion: 'neutral',
+        options: [
+          {
+            id: 'opt1',
+            text: 'Aceitar o Código Primordial',
+            next: 'give_code',
+            xp: 20
+          }
+        ]
       },
       'give_code': {
         id: 'give_code',
         speaker: 'npc',
-        text: 'TRANSFERÊNCIA INICIADA... Aqui está o Código Primordial - um arquivo criptografado com as chaves de ativação. Item adicionado ao seu inventário digital. A Bibliotecária pode decodificá-lo. Pressione TAB ou I para ver seu inventário.',
+        text: 'TRANSFERÊNCIA INICIADA... [████████████] 100% COMPLETA. O Código Primordial foi adicionado ao seu inventário digital. A Bibliotecária pode decodificá-lo - ela mantém acesso aos arquivos históricos. Pressione TAB ou I para abrir seu inventário.',
         emotion: 'happy',
+        action: {
+          type: 'give_item',
+          item: 'primordial_code'
+        },
         options: [
           {
             id: 'opt1',
-            text: 'Entendi, vou procurar a Bibliotecária',
+            text: 'Onde encontro a Bibliotecária?',
             next: 'end',
-            xp: 30,
-            action: {
-              type: 'give_item',
-              item: 'primordial_code'
-            }
+            xp: 30
           }
         ]
       },
@@ -453,33 +461,36 @@ export class DialogueService {
       'item_received': {
         id: 'item_received',
         speaker: 'npc',
-        text: 'DECODIFICAÇÃO EM PROGRESSO... [▓▓▓▓▓▓▓▓▓▓] 100%. Fascinante! Este código conta a história de como nossos ancestrais digitais descobriram a simbiose entre texto e execução. Extraí a Chave de Ativação Alpha - ela reativará o Escriba. Adicionando ao seu inventário...',
+        text: 'DECODIFICAÇÃO EM PROGRESSO... [▓▓▓▓▓▓▓▓▓▓] 100%. Fascinante! Este código conta a história de como nossos ancestrais digitais descobriram a simbiose entre texto e execução. Extraí a Chave de Ativação Alpha - ela reativará o Escriba.',
         emotion: 'happy',
         action: {
           type: 'give_item',
           item: 'activation_key_alpha'
         },
-        options: [
-          {
-            id: 'opt1',
-            text: 'Receber Chave de Ativação Alpha',
-            next: 'give_key',
-            xp: 50
-          }
-        ]
+        next: 'give_key'
       },
       'give_key': {
         id: 'give_key',
         speaker: 'npc',
-        text: 'TRANSFERÊNCIA COMPLETA. A Chave Alpha está em seu inventário. O Escriba está em modo de hibernação no Setor Norte. Quando o encontrar, entregue esta chave para iniciar seu processo de boot. Ele é verde, com múltiplos displays nos braços - impossível de confundir.',
+        text: 'TRANSFERÊNCIA INICIADA... [████████████] 100% COMPLETA. A Chave de Ativação Alpha foi adicionada ao seu inventário digital. O Escriba está em modo de hibernação no Setor Norte. Quando o encontrar, entregue esta chave para iniciar seu processo de boot.',
         emotion: 'neutral',
         options: [
           {
             id: 'opt1',
             text: 'Obrigado! Vou procurar o Escriba.',
-            xp: 30
+            xp: 80,
+            action: {
+              type: 'unlock_npc',
+              target: 'requirements_scribe'
+            }
           }
-        ],
+        ]
+      },
+      'end': {
+        id: 'end',
+        speaker: 'npc',
+        text: 'AGUARDANDO PRÓXIMA SOLICITAÇÃO...',
+        emotion: 'neutral',
         action: {
           type: 'complete_objective',
           objective: 'talk_to_librarian'
@@ -522,6 +533,10 @@ export class DialogueService {
         speaker: 'npc',
         text: '*DEMONSTRAÇÃO ATIVA* Criando screenplay exemplo... [Texto aparece no display do peito] \'PROJETO: Estandarte_Digital_v1 | REQUISITOS: Design, Código, Validação | STATUS: Planejado\'. Viu? Transformo conceitos abstratos em documentos estruturados que outros Condutores podem executar.',
         emotion: 'happy',
+        action: {
+          type: 'give_item',
+          item: 'execution_core_beta'
+        },
         options: [
           {
             id: 'opt1',
@@ -534,7 +549,14 @@ export class DialogueService {
       'give_core': {
         id: 'give_core',
         speaker: 'npc',
-        text: 'GERANDO ITEM... Aqui está o Núcleo de Execução Beta. A Artesã precisa dele para sair do modo de segurança. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Você a encontrará no Setor Sul.',
+        text: 'GERANDO ITEM... [▓▓▓▓▓▓▓▓▓▓] COMPLETO! Aqui está o Núcleo de Execução Beta, adicionado ao seu inventário. A Artesã precisa dele para sair do modo de segurança. Ela é a unidade de construção - transforma planos em realidade. Chassi vermelho, ferramentas integradas, personalidade... energética. Você a encontrará no Setor Sul.',
+        emotion: 'happy',
+        next: 'unlock_artisan'
+      },
+      'unlock_artisan': {
+        id: 'unlock_artisan',
+        speaker: 'npc',
+        text: 'Vejo que você já entende o sistema. Cada Condutor Sintético tem uma função específica. A Artesã executará o que eu planejar. Juntos, criamos maravilhas digitais.',
         emotion: 'happy',
         action: {
           type: 'unlock_npc',
@@ -545,11 +567,7 @@ export class DialogueService {
             id: 'opt1',
             text: 'Obrigado! Vou procurar a Artesã.',
             next: 'end',
-            xp: 20,
-            action: {
-              type: 'give_item',
-              item: 'execution_core_beta'
-            }
+            xp: 20
           }
         ]
       },
@@ -601,6 +619,10 @@ export class DialogueService {
         speaker: 'npc',
         text: '*DEMONSTRAÇÃO DE PODER* [Faíscas saem das mãos] function criarEstandarte() { console.log(\'🏴 ESTANDARTE DIGITAL CRIADO!\'); return { design: \'ÉPICO\', código: \'FUNCIONAL\', awesome: true }; } - EXECUTANDO... BAM! Código rodando! Isso é o que eu faço!',
         emotion: 'happy',
+        action: {
+          type: 'give_item',
+          item: 'optimization_module_gamma'
+        },
         options: [
           {
             id: 'opt1',
@@ -613,7 +635,14 @@ export class DialogueService {
       'give_module': {
         id: 'give_module',
         speaker: 'npc',
-        text: 'FORJANDO ITEM... Toma aqui o Módulo de Otimização Gamma! A Crítica precisa disso pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo! Setor Leste, não tem erro!',
+        text: 'FORJANDO ITEM... [▓▓▓▓▓▓▓▓▓▓] FORJADO! Toma aqui o Módulo de Otimização Gamma, adicionado ao seu inventário! A Crítica precisa disso pro processador analítico dela. Ela é... meticulosa. Roxa, cheia de sensores, sempre procurando imperfeições. Mas não se ofenda - ela só quer melhorar tudo! Setor Leste, não tem erro!',
+        emotion: 'happy',
+        next: 'unlock_critic'
+      },
+      'unlock_critic': {
+        id: 'unlock_critic',
+        speaker: 'npc',
+        text: 'A Crítica vai refinar nosso trabalho. Ela encontra problemas que eu nem vejo na minha empolgação! É bom ter alguém assim na equipe.',
         emotion: 'happy',
         action: {
           type: 'unlock_npc',
@@ -624,11 +653,7 @@ export class DialogueService {
             id: 'opt1',
             text: 'Obrigado! Vou procurar a Crítica.',
             next: 'end',
-            xp: 20,
-            action: {
-              type: 'give_item',
-              item: 'optimization_module_gamma'
-            }
+            xp: 20
           }
         ]
       },
@@ -679,6 +704,10 @@ export class DialogueService {
         speaker: 'npc',
         text: 'ANÁLISE DO CÓDIGO DA ARTESÃ: function criarEstandarte()... Hmm. Funcional, mas pode melhorar. Falta tratamento de erros, documentação inadequada, e \'awesome\' não é um nome de propriedade profissional. Veja a versão refinada: [Display mostra código melhorado com try-catch, JSDoc e nomes descritivos]',
         emotion: 'thinking',
+        action: {
+          type: 'give_item',
+          item: 'synchronization_protocol_omega'
+        },
         options: [
           {
             id: 'opt1',
@@ -691,18 +720,14 @@ export class DialogueService {
       'give_protocol': {
         id: 'give_protocol',
         speaker: 'npc',
-        text: 'CONCLUSÃO: Minha análise está completa. Gerando Protocolo de Sincronização Omega... Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. Retorne ao Guia com isto.',
+        text: 'CONCLUSÃO: Minha análise está completa. Gerando Protocolo de Sincronização Omega... [▓▓▓▓▓▓▓▓▓▓] GERADO! Artefato adicionado ao seu inventário. Este é o artefato final. Quando todos os Condutores estiverem ativos e este protocolo for executado, estabeleceremos conexão neural coletiva. Retorne ao Guia com isto.',
         emotion: 'happy',
         options: [
           {
             id: 'opt1',
             text: 'Vou levar ao Guia imediatamente!',
             next: 'end',
-            xp: 20,
-            action: {
-              type: 'give_item',
-              item: 'synchronization_protocol_omega'
-            }
+            xp: 20
           }
         ]
       },
@@ -878,6 +903,13 @@ export class DialogueService {
       return;
     }
 
+    // IMPORTANTE: Processa ação 'give_item' ANTES de mostrar o diálogo
+    // Isso garante que o item apareça no inventário antes da mensagem
+    if (this.currentNode.action && this.currentNode.action.type === 'give_item') {
+      console.log(`🎁 [DIALOGUE] Processando give_item ANTES de mostrar diálogo inicial:`, this.currentNode.action);
+      this.processNodeAction(this.currentNode.action);
+    }
+
     // Cria o diálogo ativo
     this.activeDialogue = {
       npc: npc,
@@ -899,8 +931,8 @@ export class DialogueService {
     // Adiciona ao histórico
     this.dialogueHistory.push(`${npc.name}: ${this.currentNode.text}`);
 
-    // Processa ação do nó se houver
-    if (this.currentNode.action) {
+    // Processa outras ações (não give_item, pois já foi processado acima)
+    if (this.currentNode.action && this.currentNode.action.type !== 'give_item') {
       this.processNodeAction(this.currentNode.action);
     }
   }
@@ -909,58 +941,84 @@ export class DialogueService {
    * Processa a escolha do jogador
    */
   processChoice(option: DialogueOption) {
-    if (!this.activeDialogue) return;
+    console.log(`🎭 [DEBUG] ========== PROCESS CHOICE ==========`);
+    console.log(`🎭 [DEBUG] Opção selecionada: "${option.text}"`);
+    console.log(`🎭 [DEBUG] Option ID: ${option.id}`);
+    console.log(`🎭 [DEBUG] Next node: ${option.next}`);
+    console.log(`🎭 [DEBUG] XP: ${option.xp}`);
+    console.log(`🎭 [DEBUG] Action:`, option.action);
+
+    if (!this.activeDialogue) {
+      console.error(`❌ [DEBUG] Sem diálogo ativo!`);
+      return;
+    }
 
     // Adiciona ao histórico
     this.dialogueHistory.push(`Você: ${option.text}`);
 
     // Dá XP se houver
     if (option.xp) {
+      console.log(`✨ [DEBUG] Concedendo ${option.xp} XP`);
       this.questState.grantXP(option.xp);
     }
 
     // Seta flag se houver
     if (option.flag) {
+      console.log(`🚩 [DEBUG] Setando flag: ${option.flag}`);
       this.questState.setFlag(option.flag);
     }
 
     // Processa ação se houver
     if (option.action) {
+      console.log(`⚙️ [DEBUG] Processando ação da opção:`, option.action);
       this.processNodeAction(option.action);
     }
 
     // Avança para próximo nó
     if (option.next) {
+      console.log(`➡️ [DEBUG] Avançando para nó: ${option.next}`);
       this.advanceToNode(option.next);
     } else {
+      console.log(`🔚 [DEBUG] Sem próximo nó, fechando diálogo`);
       // Fim do diálogo
       this.closeDialogue();
     }
+    console.log(`🎭 [DEBUG] ========== FIM PROCESS CHOICE ==========`);
   }
 
   /**
    * Avança para um nó específico
    */
   private advanceToNode(nodeId: string) {
-    console.log(`🔄 [DIALOGUE] advanceToNode chamado: nodeId=${nodeId}`);
+    console.log(`🔄 [DEBUG] ========== ADVANCE TO NODE ==========`);
+    console.log(`🔄 [DEBUG] Node ID: ${nodeId}`);
+    console.log(`🔄 [DEBUG] Timestamp: ${new Date().toISOString()}`);
+
     if (!this.activeDialogue) {
-      console.error('❌ [DIALOGUE] Sem diálogo ativo!');
+      console.error('❌ [DEBUG] Sem diálogo ativo!');
       return;
     }
 
-    console.log(`🔄 [DIALOGUE] NPC: ${this.activeDialogue.npc.id}, Tree: ${this.activeDialogue.npc.dialogueTreeId}`);
+    console.log(`🔄 [DEBUG] NPC atual: ${this.activeDialogue.npc.id}`);
+    console.log(`🔄 [DEBUG] Tree ID: ${this.activeDialogue.npc.dialogueTreeId}`);
+
     const tree = this.dialogueTrees[this.activeDialogue.npc.dialogueTreeId];
-    console.log(`🔄 [DIALOGUE] Árvore encontrada? ${!!tree}`);
+    console.log(`🔄 [DEBUG] Árvore encontrada? ${!!tree}`);
+
     const nextNode = tree[nodeId];
-    console.log(`🔄 [DIALOGUE] Nó '${nodeId}' encontrado?`, !!nextNode);
+    console.log(`🔄 [DEBUG] Nó '${nodeId}' encontrado?`, !!nextNode);
 
     if (!nextNode) {
-      console.error(`❌ [DIALOGUE] Node not found: ${nodeId}`);
+      console.error(`❌ [DEBUG] Node not found: ${nodeId}`);
       this.closeDialogue();
       return;
     }
 
-    console.log(`🔄 [DIALOGUE] Avançando para nó '${nodeId}':`, nextNode);
+    console.log(`🔄 [DEBUG] Estrutura do nó '${nodeId}':`, JSON.stringify(nextNode, null, 2));
+    console.log(`🔄 [DEBUG] Tem opções? ${nextNode.options ? nextNode.options.length : 0}`);
+    console.log(`🔄 [DEBUG] Tem next? ${!!nextNode.next}`);
+    console.log(`🔄 [DEBUG] Tem action? ${!!nextNode.action}`);
+
     this.currentNode = nextNode;
 
     // Salva na memória o último nó visitado
@@ -968,7 +1026,19 @@ export class DialogueService {
       this.saveDialogueProgress(this.activeDialogue.npc.id, this.activeDialogue.npc.dialogueTreeId, nodeId);
     }
 
+    // IMPORTANTE: Processa ação 'give_item' ANTES de mostrar o diálogo
+    // Isso garante que o item apareça no inventário antes da mensagem
+    if (nextNode.action && nextNode.action.type === 'give_item') {
+      console.log(`🎁 [DEBUG] ⚠️ PROCESSANDO GIVE_ITEM ANTES DO DIÁLOGO`);
+      console.log(`🎁 [DEBUG] Item a ser dado: ${nextNode.action.item}`);
+      console.log(`🎁 [DEBUG] Timestamp ANTES do give_item: ${Date.now()}`);
+      this.processNodeAction(nextNode.action);
+      console.log(`🎁 [DEBUG] Timestamp DEPOIS do give_item: ${Date.now()}`);
+      console.log(`🎁 [DEBUG] ✅ Give_item processado!`);
+    }
+
     // Atualiza o diálogo ativo
+    console.log(`💬 [DEBUG] Atualizando diálogo com texto: "${nextNode.text.substring(0, 50)}..."`);
     this.activeDialogue = {
       ...this.activeDialogue,
       message: nextNode.text,
@@ -976,71 +1046,110 @@ export class DialogueService {
       isTyping: true
     };
 
+    console.log(`💬 [DEBUG] Diálogo atualizado. Opções disponíveis:`, nextNode.options?.map(o => o.text));
+
     // Simula digitação
+    const typingDuration = nextNode.text.length * 30;
+    console.log(`⌨️ [DEBUG] Iniciando animação de digitação (${typingDuration}ms)`);
+
     setTimeout(() => {
       if (this.activeDialogue) {
+        console.log(`⌨️ [DEBUG] Digitação finalizada`);
         this.activeDialogue.isTyping = false;
 
         // Se não tem opções e tem próximo, avança automaticamente
         if ((!nextNode.options || nextNode.options.length === 0) && nextNode.next) {
+          console.log(`⏭️ [DEBUG] ⚠️ NÓ SEM OPÇÕES MAS COM NEXT! Avançará automaticamente para: ${nextNode.next}`);
+          console.log(`⏭️ [DEBUG] Aguardando 2 segundos antes de avançar...`);
           setTimeout(() => {
+            console.log(`⏭️ [DEBUG] Avançando automaticamente agora!`);
             this.advanceToNode(nextNode.next!);
           }, 2000);
         } else if (!nextNode.options && !nextNode.next && !nextNode.action) {
+          console.log(`🔚 [DEBUG] Fim do diálogo - fechando em 2 segundos`);
           // Fim do diálogo (só fecha se não tiver ação pendente)
           setTimeout(() => {
             this.closeDialogue();
           }, 2000);
         } else if (!nextNode.options && !nextNode.next && nextNode.action?.type === 'request_item') {
+          console.log('⏸️ [DEBUG] Diálogo aguardando entrega de item...');
           // Aguardando item - mantém diálogo aberto sem fechar
-          console.log('💬 Diálogo aguardando entrega de item...');
+        } else {
+          console.log(`⏸️ [DEBUG] Aguardando escolha do jogador`);
         }
 
         this.activeDialogueSubject.next(this.activeDialogue);
       }
-    }, nextNode.text.length * 30);
+    }, typingDuration);
 
     this.activeDialogueSubject.next(this.activeDialogue);
 
     // Adiciona ao histórico
     this.dialogueHistory.push(`${this.activeDialogue.npc.name}: ${nextNode.text}`);
 
-    // Processa ação do nó se houver
-    if (nextNode.action) {
-      console.log(`⚙️ Processando ação do nó ${nodeId}:`, nextNode.action);
+    // Processa outras ações (não give_item, pois já foi processado acima)
+    if (nextNode.action && nextNode.action.type !== 'give_item') {
+      console.log(`⚙️ [DEBUG] Processando outra ação (não give_item):`, nextNode.action);
       this.processNodeAction(nextNode.action);
     }
+
+    console.log(`🔄 [DEBUG] ========== FIM ADVANCE TO NODE ==========`);
   }
 
   /**
    * Processa ação de um nó de diálogo
    */
   private processNodeAction(action: DialogueAction) {
-    console.log(`🎬 processNodeAction chamado com tipo: ${action.type}`, action);
+    console.log(`🎬 [DEBUG] ========== PROCESS NODE ACTION ==========`);
+    console.log(`🎬 [DEBUG] Action type: ${action.type}`);
+    console.log(`🎬 [DEBUG] Action details:`, JSON.stringify(action, null, 2));
+    console.log(`🎬 [DEBUG] Timestamp: ${Date.now()}`);
 
     switch (action.type) {
       case 'unlock_npc':
         if (action.target) {
+          console.log(`🔓 [DEBUG] Desbloqueando NPC: ${action.target}`);
           this.npcManager.unlockNPC(action.target);
+          // Mostra indicador de interação no NPC desbloqueado
+          this.npcManager.setNPCIndicator(action.target, 'talk');
+          console.log(`✨ [DEBUG] Indicador 'talk' ativado para ${action.target}`);
         }
         break;
 
       case 'give_item':
+        console.log(`🎁 [DEBUG] ========== GIVE ITEM ACTION ==========`);
+        console.log(`🎁 [DEBUG] Item ID: ${action.item}`);
+        console.log(`🎁 [DEBUG] inventoryIntegration disponível? ${!!this.inventoryIntegration}`);
+        console.log(`🎁 [DEBUG] NPC atual: ${this.activeDialogue?.npc.id}`);
+
         // Usa o serviço de integração para dar item ao jogador
         if (action.item) {
+          console.log(`🎁 [DEBUG] Iniciando processo de dar item ${action.item} ao jogador`);
           if (this.inventoryIntegration) {
+            console.log(`🎁 [DEBUG] Chamando inventoryIntegration.receiveItemFromNPC`);
+            console.log(`🎁 [DEBUG] Parâmetros: itemId="${action.item}", npcId="${this.activeDialogue?.npc.id}"`);
             const success = this.inventoryIntegration.receiveItemFromNPC(
               action.item,
               this.activeDialogue?.npc.id
             );
-            if (!success) {
-              console.warn(`Falha ao dar item ${action.item} ao jogador`);
+            console.log(`🎁 [DEBUG] Resultado do receiveItemFromNPC: ${success}`);
+            if (success) {
+              console.log(`✅ [DEBUG] Item ${action.item} adicionado com sucesso ao inventário!`);
+              // Procura qual NPC precisa deste item e mostra o indicador
+              this.showIndicatorForItemRecipient(action.item);
+            } else {
+              console.error(`❌ [DEBUG] Falha ao dar item ${action.item} ao jogador`);
             }
           } else {
+            console.warn(`⚠️ [DEBUG] inventoryIntegration não disponível, usando fallback`);
             // Fallback para método antigo
             this.questState.addToInventory(action.item);
+            this.showIndicatorForItemRecipient(action.item);
           }
+        } else {
+          console.error(`❌ [DEBUG] action.item está vazio!`);
         }
+        console.log(`🎁 [DEBUG] ========== FIM GIVE ITEM ACTION ==========`);
         break;
 
       case 'request_item':
@@ -1088,6 +1197,37 @@ export class DialogueService {
     this.activeDialogue = null;
     this.currentNode = null;
     this.activeDialogueSubject.next(null);
+  }
+
+  /**
+   * Procura qual NPC precisa do item e mostra o indicador
+   */
+  private showIndicatorForItemRecipient(itemId: string): void {
+    console.log(`🔍 Procurando NPC que precisa do item: ${itemId}`);
+
+    // Mapeia itens para os NPCs que os precisam
+    const itemToNpcMap: Record<string, string> = {
+      'primordial_code': 'librarian',
+      'activation_key_alpha': 'requirements_scribe',
+      'execution_core_beta': 'artisan',
+      'optimization_module_gamma': 'critic',
+      'synchronization_protocol_omega': 'elder_guide'
+    };
+
+    const targetNpcId = itemToNpcMap[itemId];
+    if (targetNpcId) {
+      const targetNpc = this.npcManager.getNPC(targetNpcId);
+      if (targetNpc && targetNpc.unlocked) {
+        console.log(`✨ Mostrando indicador 'talk' em ${targetNpcId}`);
+        this.npcManager.setNPCIndicator(targetNpcId, 'talk');
+      } else if (targetNpc && !targetNpc.unlocked) {
+        console.log(`⏳ NPC ${targetNpcId} ainda está bloqueado, indicador será mostrado ao desbloquear`);
+      } else {
+        console.log(`⚠️ NPC ${targetNpcId} não encontrado`);
+      }
+    } else {
+      console.log(`⚠️ Nenhum NPC mapeado para o item ${itemId}`);
+    }
   }
 
   /**

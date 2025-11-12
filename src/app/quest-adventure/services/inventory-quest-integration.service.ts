@@ -82,21 +82,35 @@ export class InventoryQuestIntegrationService {
    * NPC dá um item ao jogador
    */
   receiveItemFromNPC(itemId: string, npcId?: string): boolean {
+    console.log(`📦 [DEBUG] ========== RECEIVE ITEM FROM NPC ==========`);
+    console.log(`📦 [DEBUG] Item ID: ${itemId}`);
+    console.log(`📦 [DEBUG] NPC ID: ${npcId || 'undefined'}`);
+    console.log(`📦 [DEBUG] Timestamp: ${Date.now()}`);
+
+    console.log(`📦 [DEBUG] Chamando inventoryService.addItem("${itemId}")`);
     const success = this.inventoryService.addItem(itemId);
+    console.log(`📦 [DEBUG] Resultado do addItem: ${success}`);
 
     if (success) {
-      console.log(`📦 Recebeu ${itemId} de ${npcId || 'NPC'}`);
+      console.log(`✅ [DEBUG] Item ${itemId} recebido com sucesso de ${npcId || 'NPC'}`);
 
       // Atualiza objetivo de quest se aplicável
+      console.log(`📦 [DEBUG] Verificando objetivo atual da quest...`);
       const currentObjective = this.questStateService.getCurrentObjective();
+      console.log(`📦 [DEBUG] Objetivo atual:`, currentObjective);
+
       // Por enquanto, vamos apenas verificar se o objetivo atual é relevante
       const relatedObjective = currentObjective &&
         currentObjective.target === itemId ? currentObjective : undefined;
 
+      console.log(`📦 [DEBUG] Objetivo relacionado ao item?`, !!relatedObjective);
+
       if (relatedObjective) {
+        console.log(`📦 [DEBUG] Completando objetivo: ${relatedObjective.id}`);
         this.questStateService.completeObjective(relatedObjective.id);
       }
 
+      console.log(`📦 [DEBUG] ========== FIM RECEIVE ITEM FROM NPC ==========`);
       // Efeito visual/sonoro
       this.playItemReceivedEffect(itemId);
     }

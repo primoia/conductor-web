@@ -524,6 +524,32 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
 
     // Se NPC está bloqueado
     if (!npc.unlocked) {
+      // DEBUG: Verifica requisitos de auto-unlock
+      console.log(`[NPC Auto-Unlock Check] NPC ${npcId}:`);
+      console.log(`  - requiredItem: ${npc.requiredItem}`);
+      console.log(`  - hasItem: ${npc.requiredItem ? this.inventoryService.hasItem(npc.requiredItem) : 'N/A'}`);
+
+      // NOVA LÓGICA: Verifica se o jogador tem o item necessário para auto-desbloquear
+      if (npc.requiredItem && this.inventoryService.hasItem(npc.requiredItem)) {
+        console.log(`✅ [NPC Auto-Unlock] Jogador tem ${npc.requiredItem}, desbloqueando ${npcId} automaticamente!`);
+        this.npcManager.unlockNPC(npcId);
+        // Remove o indicador do NPC atual (pois agora vai dialogar com ele)
+        this.npcManager.setNPCIndicator(npcId, 'none');
+
+        // Aguarda um momento para atualizar o visual
+        setTimeout(() => {
+          const unlockedNpc = this.npcManager.getNPC(npcId);
+          if (unlockedNpc) {
+            console.log(`[NPC Dialogue] Iniciando diálogo com ${npcId}, auto-unlocked: ${unlockedNpc.unlocked}`);
+            this.dialogue.startDialogue(unlockedNpc);
+            this.questState.onNPCInteraction(npcId);
+          }
+        }, 500);
+        return;
+      } else {
+        console.log(`❌ [NPC Auto-Unlock] Não pode auto-desbloquear (requiredItem: ${npc.requiredItem}, hasItem: ${npc.requiredItem ? this.inventoryService.hasItem(npc.requiredItem) : false})`);
+      }
+
       // Verifica se é o NPC que deve ser encontrado
       const targetNpc = this.questState.getTargetNpcToFind();
 
@@ -621,8 +647,19 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
         this.questState.setTargetNpcToFind(action.target);
         break;
 
+      case 'set_focus':
+        // Define o foco visual para um NPC específico
+        console.log(`🎯 [FOCUS] Setando foco para: ${action.target}`);
+        this.focusTarget = action.target;
+        break;
+
       case 'give_item':
         this.questState.addToInventory(action.item);
+        // Se a ação tem um nextNpc, seta o foco
+        if (action.nextNpc) {
+          console.log(`🎯 [FOCUS] Item dado, setando foco para próximo NPC: ${action.nextNpc}`);
+          this.focusTarget = action.nextNpc;
+        }
         break;
 
       case 'complete_objective':
@@ -681,24 +718,39 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
   }
 
   handleReset() {
+    console.log('🔄 [RESET] Iniciando reset completo do jogo...');
+
     // Força mostrar intro novamente (deve ser definido ANTES de limpar)
     sessionStorage.setItem('force_intro', 'true');
 
     // Limpa TUDO do localStorage primeiro
+    console.log('🔄 [RESET] Limpando localStorage...');
     localStorage.clear();
 
     // Limpa sessionStorage também (exceto force_intro)
+    console.log('🔄 [RESET] Limpando sessionStorage...');
     const forceIntro = sessionStorage.getItem('force_intro');
     sessionStorage.clear();
     if (forceIntro) {
       sessionStorage.setItem('force_intro', forceIntro);
     }
 
+    // Reseta serviços antes de recarregar
+    console.log('🔄 [RESET] Resetando serviços...');
+    try {
+      this.inventoryService.resetInventory();
+      this.dialogue.resetDialogueMemory();
+      console.log('✅ [RESET] Serviços resetados com sucesso');
+    } catch (e) {
+      console.error('❌ [RESET] Erro ao resetar serviços:', e);
+    }
+
     // Limpa o nome do player
     this.playerName = '';
 
-    // Recarrega a página (que vai carregar estado limpo)
-    window.location.reload();
+    console.log('🔄 [RESET] Recarregando página...');
+    // Recarrega a página com hard refresh
+    window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
   }
 
   private checkMobileDevice() {
@@ -720,6 +772,17 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyDown(event: KeyboardEvent) {
+    // Ignora teclas se ainda estiver na intro
+    if (this.showIntro) {
+      return;
+    }
+
+    // Ignora teclas se o usuário estiver digitando em um input/textarea
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      return;
+    }
+
     // Tecla I ou Tab para abrir/fechar inventário
     if (event.key === 'i' || event.key === 'I' || event.key === 'Tab') {
       event.preventDefault();
@@ -759,6 +822,43 @@ export class QuestAdventureComponent implements OnInit, OnDestroy {
 
   onInventoryItemGiven(event: { item: InventoryItem, npcId: string }) {
     console.log(`📦 Entregando ${event.item.name} para ${event.npcId}`);
+
+    // Verifica se há um NPC esperando item (diálogo ativo)
+    const npcWaiting = this.inventoryIntegration.getNPCWaitingForItem();
+
+    if (!npcWaiting) {
+      console.log(`📦 [Manual Delivery] Nenhum diálogo ativo. Procurando NPC que precisa de ${event.item.id}...`);
+
+      // Procura NPCs bloqueados que precisam deste item
+      const allNpcs = this.npcManager.getAllNPCs();
+      const targetNpc = allNpcs.find(npc =>
+        !npc.unlocked &&
+        npc.requiredItem === event.item.id
+      );
+
+      if (targetNpc) {
+        console.log(`✅ [Manual Delivery] Encontrou NPC ${targetNpc.id} que precisa de ${event.item.id}!`);
+        console.log(`📦 [Manual Delivery] Desbloqueando e iniciando diálogo...`);
+
+        // Desbloqueia o NPC e inicia o diálogo
+        this.npcManager.unlockNPC(targetNpc.id);
+        // Remove o indicador do NPC atual (pois agora vai dialogar com ele)
+        this.npcManager.setNPCIndicator(targetNpc.id, 'none');
+
+        setTimeout(() => {
+          const unlockedNpc = this.npcManager.getNPC(targetNpc.id);
+          if (unlockedNpc) {
+            this.dialogue.startDialogue(unlockedNpc);
+            this.questState.onNPCInteraction(targetNpc.id);
+            this.closeInventory();
+          }
+        }, 500);
+        return;
+      } else {
+        console.log(`❌ [Manual Delivery] Nenhum NPC bloqueado precisa de ${event.item.id}`);
+      }
+    }
+
     this.inventoryIntegration.attemptItemDelivery(event.item.id);
   }
 }
