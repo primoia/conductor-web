@@ -56,6 +56,14 @@ export class ScreenplayInfoModalComponent extends BaseModalComponent {
     {
       keys: ['Ctrl', 'I'],
       description: 'Importar do disco'
+    },
+    {
+      keys: ['Alt', 'B'],
+      description: 'Esconder/Mostrar conversas'
+    },
+    {
+      keys: ['Alt', 'G'],
+      description: 'Esconder/Mostrar menu lateral'
     }
   ];
 }

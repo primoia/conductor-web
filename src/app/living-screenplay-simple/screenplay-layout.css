@@ -491,6 +491,22 @@ body, html {
 }
 
 /* Individual button styling */
+/* Close Screenplay Button - Hidden by default, shown only on mobile */
+.toolbar-btn.close-screenplay-btn {
+  display: none;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.toolbar-btn.close-screenplay-btn:hover {
+  background: #fecaca;
+  border-color: #f87171;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
 .toolbar-btn.new-btn {
   background: #f3e8ff;
   border-color: #d8b4fe;
@@ -1083,6 +1099,11 @@ body, html {
     animation: slideInUp 0.3s ease-out;
   }
 
+  /* Show close button in mobile when screenplay modal is active */
+  .screenplay-modal-active .close-screenplay-btn {
+    display: flex !important;
+  }
+
   @keyframes slideInUp {
     from {
       transform: translateY(100%);
@@ -1102,36 +1123,9 @@ body, html {
     display: none;
   }
 
-  /* Botão fechar modal */
+  /* Botão fechar modal - DESABILITADO (agora está na toolbar) */
   .close-screenplay-modal {
-    display: none; /* Escondido por padrão */
-  }
-
-  .screenplay-modal-active .close-screenplay-modal {
-    display: flex;
-    position: fixed;
-    top: 12px;
-    right: 12px;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    color: #333;
-    font-size: 24px;
-    font-weight: bold;
-    cursor: pointer;
-    z-index: 10001;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .close-screenplay-modal:active {
-    transform: scale(0.95);
-    background: rgba(0, 0, 0, 0.2);
+    display: none !important; /* Sempre escondido - usar botão da toolbar */
   }
 
   /* Ajustar canvas no modal para ocupar toda tela */

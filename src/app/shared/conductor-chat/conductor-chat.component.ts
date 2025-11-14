@@ -2077,6 +2077,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.checkConnectionStatus();
     }, 30000);
 
+    // 📱 Restaurar estado mobile da sidebar
+    this.restoreMobileSidebarState();
+
     // Initialize speech recognition
     this.speechSupported = this.speechService.isSupported;
 
@@ -2511,6 +2514,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentName = agentName || null;
     this.selectedAgentEmoji = agentEmoji || null;
     this.activeScreenplayId = screenplayId || null;
+
+    // 📁 Atualizar CWD do agente ativo
+    this.activeAgentCwd = cwd || null;
+    console.log('📁 [CHAT] CWD do agente ativo atualizado:', this.activeAgentCwd);
+
     this.chatState.isLoading = true;
 
     // 🔥 NOVO MODELO: Usar conversas globais
@@ -3010,6 +3018,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onToggleSidebarClick(): void {
     this.isSidebarVisible = !this.isSidebarVisible;
+
+    // 📱 Salvar estado mobile da sidebar
+    this.saveMobileSidebarState();
   }
 
   /**
@@ -3017,6 +3028,57 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onToggleFirstColumnClick(): void {
     this.toggleFirstColumnRequested.emit();
+  }
+
+  /**
+   * 📱 Detectar se está no mobile (portrait mode com width <= 768px)
+   */
+  private isMobile(): boolean {
+    return window.innerWidth <= 768 && window.matchMedia('(orientation: portrait)').matches;
+  }
+
+  /**
+   * 📱 Salvar estado da sidebar no localStorage (mobile)
+   */
+  private saveMobileSidebarState(): void {
+    if (!this.isMobile()) {
+      return; // Só salvar no mobile
+    }
+
+    const sidebarState = {
+      isSidebarVisible: this.isSidebarVisible,
+      timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem('mobile-chat-sidebar-state', JSON.stringify(sidebarState));
+    console.log('📱 [CHAT] Estado da sidebar salvo:', sidebarState);
+  }
+
+  /**
+   * 📱 Restaurar estado da sidebar do localStorage (mobile)
+   */
+  private restoreMobileSidebarState(): void {
+    if (!this.isMobile()) {
+      return; // Só restaurar no mobile
+    }
+
+    const savedState = localStorage.getItem('mobile-chat-sidebar-state');
+    if (!savedState) {
+      console.log('📱 [CHAT] Nenhum estado da sidebar salvo encontrado');
+      return;
+    }
+
+    try {
+      const sidebarState = JSON.parse(savedState);
+      console.log('📱 [CHAT] Restaurando estado da sidebar:', sidebarState);
+
+      // Restaurar visibilidade da sidebar
+      this.isSidebarVisible = sidebarState.isSidebarVisible ?? true;
+      console.log('📱 [CHAT] Sidebar restaurada:', this.isSidebarVisible ? 'visível' : 'oculta');
+    } catch (error) {
+      console.error('📱 [CHAT] Erro ao restaurar estado da sidebar:', error);
+      localStorage.removeItem('mobile-chat-sidebar-state');
+    }
   }
 
   /**
@@ -3423,6 +3485,29 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
       event.preventDefault();
       event.stopPropagation();
     }
+  }
+
+  /**
+   * 🔥 NOVO: Atalho Alt+B para esconder/mostrar conversas
+   */
+  @HostListener('document:keydown.alt.b', ['$event'])
+  onToggleSidebarShortcut(event: Event): void {
+    // Apenas ativa se a feature de conversas estiver habilitada
+    if (this.environment.features?.useConversationModel) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.onToggleSidebarClick();
+    }
+  }
+
+  /**
+   * 🔥 NOVO: Atalho Alt+G para esconder/mostrar menu lateral
+   */
+  @HostListener('document:keydown.alt.g', ['$event'])
+  onToggleFirstColumnShortcut(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.onToggleFirstColumnClick();
   }
 
   /**

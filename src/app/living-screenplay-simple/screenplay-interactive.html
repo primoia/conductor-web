@@ -65,6 +65,13 @@
 
             <!-- Toolbar Buttons -->
             <div class="toolbar-buttons">
+              <!-- Mobile Close Button (only visible on mobile when screenplay is open) -->
+              <button
+                class="toolbar-btn close-screenplay-btn"
+                title="Fechar Roteiro"
+                (click)="closeScreenplayModal()">
+                ✕
+              </button>
               <button
                 class="toolbar-btn new-btn"
                 title="Novo Roteiro"
@@ -187,6 +194,7 @@
       <!-- Agent Selector Modal -->
       <app-agent-selector-modal
         [isVisible]="showAgentSelector"
+        [screenplayWorkingDirectory]="currentWorkingDirectory"
         (agentSelected)="onAgentSelected($event)"
         (close)="closeAgentSelector()">
       </app-agent-selector-modal>

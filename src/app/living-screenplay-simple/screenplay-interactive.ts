@@ -787,6 +787,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.activeTab = savedTab;
     }
 
+    // 📱 Restaurar estado mobile após refresh
+    this.restoreMobileState();
+
     // Load screenplays list for tree view
     this.loadScreenplaysList();
 
@@ -960,6 +963,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       // This will trigger onActiveConversationChanged() which creates the default agent
       if (this.conductorChat) {
         this.conductorChat.createNewConversationForScreenplay();
+      }
+
+      // 📱 Mobile: Open screenplay modal when new screenplay is created
+      if (this.isMobile()) {
+        this.openScreenplayModal();
       }
 
       this.logging.info('✅ [NEW] New screenplay with default agent created', 'ScreenplayInteractive');
@@ -1292,6 +1300,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           this.loadScreenplayIntoEditor(event.screenplay);
           this.updateUrlWithScreenplayId(event.screenplay.id);
           // Auto-selection will be handled by loadInstancesFromMongoDB when agents are loaded
+
+          // 📱 Mobile: Open screenplay modal when screenplay is loaded
+          if (this.isMobile()) {
+            this.openScreenplayModal();
+          }
         }
         break;
       case 'create':
@@ -1303,6 +1316,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
           // setTimeout(async () => {
           //   await this.createDefaultAgentInstance();
           // }, 100);
+
+          // 📱 Mobile: Open screenplay modal when screenplay is created
+          if (this.isMobile()) {
+            this.openScreenplayModal();
+          }
         }
         break;
       case 'delete':
@@ -1525,6 +1543,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
         this.loadScreenplayIntoEditor(screenplayWithDiskContent);
         // Note: Default agent will be created automatically by loadInstancesFromMongoDB if needed
+
+        // 📱 Mobile: Open screenplay modal when screenplay is imported
+        if (this.isMobile()) {
+          this.openScreenplayModal();
+        }
 
         // If backend didn't return content, update it asynchronously
         if (!newScreenplay.content || newScreenplay.content.length === 0) {
@@ -1816,6 +1839,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.screenplayModalOpen = true;
     // Prevenir scroll do body quando modal está aberto
     document.body.style.overflow = 'hidden';
+
+    // 📱 Salvar estado mobile
+    this.saveMobileState();
   }
 
   /**
@@ -1825,6 +1851,65 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.screenplayModalOpen = false;
     // Restaurar scroll do body
     document.body.style.overflow = '';
+
+    // 📱 Salvar estado mobile
+    this.saveMobileState();
+  }
+
+  /**
+   * 🔥 NOVO: Detect if device is mobile (portrait mode with width <= 768px)
+   */
+  private isMobile(): boolean {
+    return window.innerWidth <= 768 && window.matchMedia('(orientation: portrait)').matches;
+  }
+
+  /**
+   * 📱 Salvar estado da interface mobile no localStorage
+   */
+  private saveMobileState(): void {
+    if (!this.isMobile()) {
+      return; // Só salvar no mobile
+    }
+
+    const mobileState = {
+      screenplayModalOpen: this.screenplayModalOpen,
+      timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem('mobile-ui-state', JSON.stringify(mobileState));
+    console.log('📱 [MOBILE] Estado salvo:', mobileState);
+  }
+
+  /**
+   * 📱 Restaurar estado da interface mobile do localStorage
+   */
+  private restoreMobileState(): void {
+    if (!this.isMobile()) {
+      return; // Só restaurar no mobile
+    }
+
+    const savedState = localStorage.getItem('mobile-ui-state');
+    if (!savedState) {
+      console.log('📱 [MOBILE] Nenhum estado salvo encontrado');
+      return;
+    }
+
+    try {
+      const mobileState = JSON.parse(savedState);
+      console.log('📱 [MOBILE] Restaurando estado:', mobileState);
+
+      // Restaurar screenplay modal
+      if (mobileState.screenplayModalOpen) {
+        // Aguardar o DOM estar pronto antes de abrir o modal
+        setTimeout(() => {
+          this.openScreenplayModal();
+          console.log('📱 [MOBILE] Screenplay modal restaurado');
+        }, 100);
+      }
+    } catch (error) {
+      console.error('📱 [MOBILE] Erro ao restaurar estado:', error);
+      localStorage.removeItem('mobile-ui-state');
+    }
   }
 
   /**
@@ -2158,6 +2243,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         }
         this.loadScreenplayIntoEditor(screenplay);
         this.isLoading = false;
+
+        // 📱 Mobile: Open screenplay modal when screenplay is loaded
+        if (this.isMobile()) {
+          this.openScreenplayModal();
+        }
       },
       error: (err) => {
         this.logging.error('Failed to load screenplay:', err, 'ScreenplayInteractive');

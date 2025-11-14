@@ -39,6 +39,7 @@ export interface AgentSelectionData {
 })
 export class AgentSelectorModalComponent extends BaseModalComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() override isVisible: boolean = false;
+  @Input() screenplayWorkingDirectory?: string | null; // 📁 Diretório de trabalho do screenplay
   @Output() agentSelected = new EventEmitter<AgentSelectionData>();
   @Output() override closeModal = new EventEmitter<void>();
 
@@ -101,8 +102,21 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
     // Always reload agents when modal becomes visible
     if (changes['isVisible'] && this.isVisible && !this.isLoading) {
       this.loadAgents();
+
+      // 📁 Preencher workingDirectory com o diretório do screenplay (se disponível)
+      if (this.screenplayWorkingDirectory && !this.workingDirectory) {
+        this.workingDirectory = this.screenplayWorkingDirectory;
+        console.log('[AgentSelectorModal] Herdando diretório do screenplay:', this.workingDirectory);
+      }
+
       // Focus search input when modal opens
       setTimeout(() => this.focusSearchInput(), 100);
+    }
+
+    // 📁 Atualizar workingDirectory se o diretório do screenplay mudar
+    if (changes['screenplayWorkingDirectory'] && this.screenplayWorkingDirectory) {
+      this.workingDirectory = this.screenplayWorkingDirectory;
+      console.log('[AgentSelectorModal] Diretório do screenplay atualizado:', this.workingDirectory);
     }
   }
 
