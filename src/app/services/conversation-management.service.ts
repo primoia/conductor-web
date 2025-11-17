@@ -55,13 +55,19 @@ export class ConversationManagementService {
 
   /**
    * Define a conversa ativa
+   * 🔥 NOVO: Também salva como última conversa usada no localStorage
    */
-  setActiveConversation(conversationId: string | null): void {
+  setActiveConversation(conversationId: string | null, screenplayId?: string): void {
     this.logging.info(
       `🔄 [CONVERSATION-MGT] Conversa ativa mudou: ${conversationId || 'nenhuma'}`,
       'ConversationManagementService'
     );
     this.activeConversationId$.next(conversationId);
+
+    // 🔥 NOVO: Salvar como última conversa usada se temos screenplay e conversation
+    if (conversationId && screenplayId) {
+      this.saveLastConversationForScreenplay(screenplayId, conversationId);
+    }
   }
 
   /**
@@ -84,6 +90,37 @@ export class ConversationManagementService {
   clearActiveConversation(): void {
     this.logging.info('🧹 [CONVERSATION-MGT] Limpando conversa ativa', 'ConversationManagementService');
     this.activeConversationId$.next(null);
+  }
+
+  // ==========================================
+  // Memória de Última Conversa (localStorage)
+  // ==========================================
+
+  /**
+   * 🔥 NOVO: Salva a última conversa usada para um screenplay específico
+   */
+  private saveLastConversationForScreenplay(screenplayId: string, conversationId: string): void {
+    const key = `last_conversation_${screenplayId}`;
+    localStorage.setItem(key, conversationId);
+    this.logging.info(
+      `💾 [CONVERSATION-MGT] Última conversa salva para screenplay ${screenplayId}: ${conversationId}`,
+      'ConversationManagementService'
+    );
+  }
+
+  /**
+   * 🔥 NOVO: Recupera a última conversa usada para um screenplay específico
+   */
+  private getLastConversationForScreenplay(screenplayId: string): string | null {
+    const key = `last_conversation_${screenplayId}`;
+    const conversationId = localStorage.getItem(key);
+    if (conversationId) {
+      this.logging.info(
+        `💾 [CONVERSATION-MGT] Última conversa recuperada para screenplay ${screenplayId}: ${conversationId}`,
+        'ConversationManagementService'
+      );
+    }
+    return conversationId;
   }
 
   // ==========================================
@@ -141,20 +178,33 @@ export class ConversationManagementService {
 
         // Se não há preferência da URL, comportamento normal
         if (response.conversations.length > 0) {
-          // Já tem conversas, carregar a mais recente
-          const latestConversation = response.conversations[0];
+          // 🔥 NOVO: Tentar carregar última conversa usada para este screenplay
+          const lastConversationId = this.getLastConversationForScreenplay(screenplayId);
+          let conversationToLoad = null;
+
+          // Verificar se a última conversa ainda existe na lista
+          if (lastConversationId) {
+            conversationToLoad = response.conversations.find(
+              (c) => c.conversation_id === lastConversationId
+            );
+          }
+
+          // Se não encontrou a última usada, usar a última da lista
+          if (!conversationToLoad) {
+            conversationToLoad = response.conversations[response.conversations.length - 1];
+          }
 
           this.logging.info(
-            `✅ [CONVERSATION-MGT] Carregando conversa existente: ${latestConversation.conversation_id}`,
+            `✅ [CONVERSATION-MGT] Carregando conversa ${lastConversationId ? 'memorizada' : 'última da lista'}: ${conversationToLoad.conversation_id}`,
             'ConversationManagementService'
           );
 
           // 🔒 BUG FIX: Usar setActiveConversation() para emitir evento activeConversationChanged
           // Isso garante que o screenplay-interactive atualize os agentes
-          conductorChat.setActiveConversation(latestConversation.conversation_id);
+          conductorChat.setActiveConversation(conversationToLoad.conversation_id);
 
-          // Atualizar estado local
-          this.setActiveConversation(latestConversation.conversation_id);
+          // Atualizar estado local e salvar no localStorage
+          this.setActiveConversation(conversationToLoad.conversation_id, screenplayId);
         } else {
           // Não tem conversas, criar uma automaticamente
           this.logging.info(

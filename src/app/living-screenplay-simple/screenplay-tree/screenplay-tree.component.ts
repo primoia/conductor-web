@@ -88,7 +88,7 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
           name: project,
           isExpanded,
           children: screenplays
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+            .sort((a, b) => a.name.localeCompare(b.name)) // ✅ Ordem alfabética
             .map(s => ({
               type: 'file' as const,
               name: s.name,

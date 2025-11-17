@@ -1348,9 +1348,15 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private updateUrlWithScreenplayId(id: string): void {
+    // 🔥 CRITICAL: Ao trocar de screenplay, limpar conversationId e instanceId
+    // porque pertencem ao screenplay anterior
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { screenplayId: id },
+      queryParams: {
+        screenplayId: id,
+        conversationId: null,  // Limpa conversa do screenplay anterior
+        instanceId: null       // Limpa instância do screenplay anterior
+      },
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
@@ -2301,6 +2307,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.agentInstances.clear();
     this.agents = [];
 
+    // 🔥 CRITICAL: Limpar conversationId e instanceId do screenplay anterior
+    this.activeConversationId = null;
+    this.activeAgentId = null;
+    this.pendingConversationId = null; // Limpa também o pending da URL
+    this.contextualAgents = [];
+
     // 🔍 DEBUG: Log complete screenplay object to verify workingDirectory is coming from backend
     console.log('🔍 [DEBUG] Screenplay loaded from backend:', {
       id: screenplay.id,
@@ -2323,7 +2335,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.sourceOrigin = 'database';
     this.sourceIdentifier = screenplay.id;
 
-    // Update URL with screenplay ID
+    // Update URL with screenplay ID (e limpa conversation/instance IDs)
     this.updateUrlWithScreenplayId(screenplay.id);
 
     this.logging.info(`📖 [LOAD] Loading screenplay into editor:`, 'ScreenplayInteractive', {
@@ -3556,8 +3568,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Atualizar estado local
     this.activeConversationId = conversationId;
 
-    // Sincronizar com o serviço de gerenciamento
-    this.conversationManagement.setActiveConversation(conversationId);
+    // Sincronizar com o serviço de gerenciamento e salvar no localStorage
+    this.conversationManagement.setActiveConversation(conversationId, this.currentScreenplay?.id);
 
     // Atualizar o dock para mostrar apenas agentes da conversa ativa
     this.updateAgentDockLists();
