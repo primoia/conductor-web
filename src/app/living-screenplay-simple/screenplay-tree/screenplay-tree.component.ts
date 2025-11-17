@@ -60,6 +60,15 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
         projectMap.get(projectName)!.push(screenplay);
       });
 
+    // Find which project contains the active screenplay
+    let activeProjectName: string | null = null;
+    if (this.activeScreenplayId) {
+      const activeScreenplay = this.screenplays.find(s => s.id === this.activeScreenplayId);
+      if (activeScreenplay) {
+        activeProjectName = this.extractProjectName(activeScreenplay.importPath);
+      }
+    }
+
     // Build tree structure
     this.treeNodes = Array.from(projectMap.entries())
       .sort(([a], [b]) => {
@@ -69,10 +78,10 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
         return a.localeCompare(b);
       })
       .map(([project, screenplays]) => {
-        // Restaurar estado de expansão salvo, ou expandir por padrão na primeira vez
+        // Restaurar estado de expansão salvo, ou expandir apenas se contém o screenplay ativo
         const isExpanded = this.expansionState.has(project)
           ? this.expansionState.get(project)!
-          : true;
+          : (project === activeProjectName);
 
         return {
           type: 'project' as const,

@@ -40,7 +40,7 @@ body, html {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 240px; /* 🔥 AJUSTADO: Reduzido de 320px para 240px */
+  width: 42%; /* 🔥 NOVO: 25% da tela / 60% do container = ~42% do container */
   flex-shrink: 0; /* Não encolher */
   background: #f8f9fa;
   border-right: 1px solid #e1e4e8;
@@ -234,12 +234,13 @@ body, html {
 
 .screenplay-canvas {
   flex: 1;
+  width: 58%; /* 🔥 NOVO: 35% da tela / 60% do container = 58% do container */
   position: relative;
   background: #ffffff;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  min-width: 500px; /* 🔥 NOVO: Largura mínima para não quebrar botões da toolbar */
+  min-width: 300px; /* 🔥 AJUSTADO: Reduzido para não quebrar no tablet */
 }
 
 /* Editor Toolbar */
@@ -868,26 +869,25 @@ body, html {
 
 /* Tablets e telas médias (até 768px) */
 @media (max-width: 768px) {
-  /* Esconder primeira coluna automaticamente em tablets */
+  /* Manter primeira coluna com proporção correta dentro do container */
   .first-column {
-    width: 0;
-    opacity: 0;
-    pointer-events: none;
-    border-right: none;
+    width: 42% !important; /* 42% do screenplay-container */
   }
 
-  /* Ajustar min-width do canvas para tablets */
+  /* Ajustar canvas para 58% do container */
   .screenplay-canvas {
-    min-width: 350px;
+    width: 58% !important; /* 58% do screenplay-container */
+    min-width: 250px;
   }
 
   /* Ajustar proporções das colunas */
   .screenplay-container {
-    width: 40% !important;
+    width: 60vw !important; /* 🔥 60% da tela (25% first + 35% canvas) */
   }
 
   .third-column {
-    width: 60% !important;
+    width: 40vw !important; /* 🔥 40% da tela */
+    max-width: 40vw !important;
   }
 
   .agent-launcher-dock {

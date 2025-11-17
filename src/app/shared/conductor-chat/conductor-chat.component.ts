@@ -50,25 +50,90 @@ const DEFAULT_CONFIG: ConductorConfig = {
   ],
   template: `
     <div class="conductor-chat-container">
-      <!-- 🔥 NOVO: Sidebar com lista de conversas -->
-      <div class="conversation-sidebar" [class.hidden]="!isSidebarVisible" [class.conversation-modal-active]="isSidebarVisible" *ngIf="environment.features?.useConversationModel">
-        <!-- Close button for mobile modal -->
+      <!-- 🔥 NOVO: Sidebar com lista de conversas - TRÊS ESTADOS -->
+      <div
+        class="conversation-sidebar"
+        [class.hidden]="sidebarState === 'hidden'"
+        [class.compact]="sidebarState === 'compact'"
+        [class.full]="sidebarState === 'full'"
+        [class.conversation-modal-active]="sidebarState === 'full' && isMobile()"
+        *ngIf="environment.features?.useConversationModel">
+
+        <!-- Close button para mobile modal (apenas quando full) -->
         <button
           class="close-conversation-sidebar"
+          *ngIf="sidebarState === 'full' && isMobile()"
           (click)="onToggleSidebarClick()"
           title="Fechar Conversas">
           ✕
         </button>
 
-        <app-conversation-list
-          [activeConversationId]="activeConversationId"
-          [screenplayId]="activeScreenplayId"
-          [agentInstances]="contextualAgents"
-          (conversationSelected)="onSelectConversation($event)"
-          (conversationCreated)="onCreateNewConversation()"
-          (conversationDeleted)="onDeleteConversation($event)"
-          (contextEditRequested)="onContextEditRequested($event)">
-        </app-conversation-list>
+        <!-- VERSÃO COMPACTA (conversation-dock) -->
+        <div class="conversation-dock" *ngIf="sidebarState === 'compact'">
+          <!-- Lista compacta de conversas (scrollável com drag & drop) -->
+          <div
+            class="dock-conversations-list"
+            cdkDropList
+            (cdkDropListDropped)="onConversationDrop($event)">
+            <div
+              *ngFor="let conv of conversations"
+              class="dock-item-wrapper"
+              cdkDrag>
+              <!-- Drag preview -->
+              <div class="dock-item-preview" *cdkDragPreview>
+                {{ getConversationInitial(conv.title) }}
+              </div>
+              <!-- Placeholder durante drag -->
+              <div class="dock-item-placeholder" *cdkDragPlaceholder></div>
+
+              <!-- Drag handle (invisível mas ocupa espaço) -->
+              <div class="dock-drag-handle" cdkDragHandle title="Arrastar para reordenar"></div>
+
+              <!-- Botão clicável -->
+              <button
+                class="dock-conversation-item"
+                [class.active]="conv.conversation_id === activeConversationId"
+                [title]="conv.title"
+                (click)="onSelectConversation(conv.conversation_id)">
+                {{ getConversationInitial(conv.title) }}
+              </button>
+            </div>
+          </div>
+
+          <div class="dock-separator"></div>
+
+          <!-- Botão CRIAR NOVA CONVERSA no fundo (NÃO expande) -->
+          <button
+            class="dock-action-btn add-conversation-btn"
+            [disabled]="!activeScreenplayId"
+            (click)="createNewConversationWithoutExpanding()"
+            [title]="activeScreenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
+            ➕
+          </button>
+        </div>
+
+        <!-- FAB (Floating Action Button) quando hidden - mostra compact novamente -->
+        <button
+          *ngIf="sidebarState === 'hidden'"
+          class="conversation-fab"
+          (click)="showCompactConversations()"
+          title="Mostrar conversas">
+          💬
+        </button>
+
+        <!-- VERSÃO COMPLETA (lista expandida) -->
+        <div class="conversation-full" *ngIf="sidebarState === 'full'">
+          <!-- Lista de conversas -->
+          <app-conversation-list
+            [activeConversationId]="activeConversationId"
+            [screenplayId]="activeScreenplayId"
+            [agentInstances]="contextualAgents"
+            (conversationSelected)="onSelectConversation($event)"
+            (conversationCreated)="onCreateNewConversation()"
+            (conversationDeleted)="onDeleteConversation($event)"
+            (contextEditRequested)="onContextEditRequested($event)">
+          </app-conversation-list>
+        </div>
       </div>
 
       <!-- Chat principal -->
@@ -268,16 +333,14 @@ Erro: 'invalid_token' na response..."
               ⚙️
             </button>
 
-            <!-- Info Button moved to settings menu -->
-            <!--
+            <!-- 🔥 NOVO: Botão de Controle da Conversation Sidebar -->
             <button
-              class="dock-info-btn"
-              (click)="toggleDockInfoModal()"
-              title="O que é a dock de agentes?"
-              *ngIf="false">
-              ?
+              class="dock-action-btn conversation-toggle-btn"
+              (click)="onToggleSidebarClick()"
+              [title]="getConversationToggleTitle()"
+              *ngIf="environment.features?.useConversationModel">
+              {{ getConversationToggleIcon() }}
             </button>
-            -->
 
             <!-- Separator -->
             <div class="dock-separator"></div>
@@ -331,7 +394,8 @@ Erro: 'invalid_token' na response..."
                 class="menu-item"
                 (click)="onToggleSidebarClick()"
                 *ngIf="environment.features?.useConversationModel">
-                {{ isSidebarVisible ? '◀' : '▶' }} {{ isSidebarVisible ? 'Esconder' : 'Mostrar' }} Conversas
+                {{ sidebarState === 'hidden' ? '▶' : sidebarState === 'compact' ? '⇄' : '◀' }}
+                {{ sidebarState === 'hidden' ? 'Mostrar' : sidebarState === 'compact' ? 'Expandir' : 'Compactar' }} Conversas
               </button>
               <button
                 class="menu-item"
@@ -537,11 +601,8 @@ Erro: 'invalid_token' na response..."
       overflow: hidden;
     }
 
-    /* 🔥 NOVO: Sidebar com lista de conversas */
+    /* 🔥 NOVO: Sidebar com lista de conversas - TRÊS ESTADOS */
     .conversation-sidebar {
-      width: 280px;       /* Aumentado para melhor visualização */
-      min-width: 240px;   /* Largura mínima razoável */
-      max-width: 350px;   /* Máximo para não ocupar muito espaço */
       flex-shrink: 0;
       background: #f8f9fa;
       border-right: 1px solid #dee2e6;
@@ -549,13 +610,220 @@ Erro: 'invalid_token' na response..."
       transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, opacity 0.3s ease;
     }
 
-    /* 🔥 NOVO: Esconde a sidebar quando hidden */
+    /* Estado: HIDDEN - Completamente escondida */
     .conversation-sidebar.hidden {
       width: 0;
       min-width: 0;
       max-width: 0;
       opacity: 0;
       border-right: none;
+      overflow: hidden;
+    }
+
+    /* Estado: COMPACT - Barra de botões compacta (60px) */
+    .conversation-sidebar.compact {
+      width: 60px;
+      min-width: 60px;
+      max-width: 60px;
+      background: #f0f3f7;
+      border-right: 1px solid #e1e4e8;
+    }
+
+    /* Estado: FULL - Expandida/larga (280px) */
+    .conversation-sidebar.full {
+      width: 280px;
+      min-width: 240px;
+      max-width: 350px;
+      background: #f8f9fa;
+      border-right: 1px solid #dee2e6;
+    }
+
+    /* 🔥 NOVO: Conversation Dock - Versão compacta (similar à agent-launcher-dock) */
+    .conversation-dock {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      overflow: hidden;
+    }
+
+    .dock-conversations-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      width: 100%;
+      scrollbar-width: thin;
+      scrollbar-color: #d1d5db #f0f3f7;
+    }
+
+    .dock-conversations-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .dock-conversations-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .dock-conversations-list::-webkit-scrollbar-thumb {
+      background: #d1d5db;
+      border-radius: 2px;
+    }
+
+    .dock-conversations-list::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
+    }
+
+    .dock-conversation-item {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e1e4e8;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      color: #4a5568;
+    }
+
+    .dock-conversation-item:hover {
+      background: #f7fafc;
+      border-color: #a8b9ff;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .dock-conversation-item.active {
+      background: #ebf4ff;
+      border-color: #7c9ff6;
+      box-shadow: 0 0 0 2px rgba(124, 159, 246, 0.3);
+      transform: scale(1.05);
+      color: #2c5aa0;
+    }
+
+    .dock-action-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e1e4e8;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      flex-shrink: 0;
+    }
+
+    .dock-action-btn:hover:not(:disabled) {
+      background: #f7fafc;
+      border-color: #a8b9ff;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .dock-action-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .dock-action-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .dock-action-btn.add-conversation-btn {
+      background: #f0fdf4;
+      border-color: #86efac;
+      color: #16a34a;
+    }
+
+    .dock-action-btn.add-conversation-btn:hover:not(:disabled) {
+      background: #dcfce7;
+      border-color: #4ade80;
+      transform: scale(1.1);
+    }
+
+    .dock-separator {
+      width: 32px;
+      height: 1px;
+      background: #e1e4e8;
+      margin: 8px 0;
+      flex-shrink: 0;
+    }
+
+    /* 🔥 NOVO: FAB (Floating Action Button) quando sidebar está hidden */
+    .conversation-fab {
+      position: fixed;
+      left: 16px;
+      bottom: 80px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      color: white;
+    }
+
+    .conversation-fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+    }
+
+    .conversation-fab:active {
+      transform: scale(0.95);
+    }
+
+    /* Animação de entrada do FAB */
+    @keyframes fabSlideIn {
+      from {
+        transform: translateX(-100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .conversation-fab {
+      animation: fabSlideIn 0.3s ease-out;
+    }
+
+    /* 🔥 NOVO: Versão Full com Header de Controles */
+    .conversation-full {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+    }
+
+    .conversation-full app-conversation-list {
+      flex: 1;
+      min-height: 0;
       overflow: hidden;
     }
 
@@ -748,6 +1016,17 @@ Erro: 'invalid_token' na response..."
     .settings-btn:hover:not(:disabled) {
       background: #bbdefb;
       border-color: #90caf9;
+    }
+
+    /* 🔥 NOVO: Botão de controle da conversation sidebar */
+    .conversation-toggle-btn {
+      background: #f3e8ff;
+      border-color: #d8b4fe;
+    }
+
+    .conversation-toggle-btn:hover:not(:disabled) {
+      background: #e9d5ff;
+      border-color: #c084fc;
     }
 
     /* header-info-btn removed - use dock ? button instead */
@@ -1751,6 +2030,17 @@ Erro: 'invalid_token' na response..."
       border-color: #42a5f5;
     }
 
+    /* 🔥 NOVO: Botão de controle da conversation sidebar */
+    .dock-action-btn.conversation-toggle-btn {
+      background: #f3e8ff;
+      border-color: #d8b4fe;
+    }
+
+    .dock-action-btn.conversation-toggle-btn:hover:not(:disabled) {
+      background: #e9d5ff;
+      border-color: #c084fc;
+    }
+
     .dock-separator {
       width: 30px;
       height: 1px;
@@ -1894,12 +2184,53 @@ Erro: 'invalid_token' na response..."
     }
 
     /* 🔥 NOVO: Responsividade para mobile - Fullscreen Modal */
+    /* 🔥 RESPONSIVIDADE MOBILE - Três Estados */
     @media (max-width: 768px) {
-      .conversation-sidebar {
-        display: none; /* Hidden by default on mobile */
+      /* Estado HIDDEN: completamente escondido */
+      .conversation-sidebar.hidden {
+        display: none;
       }
 
-      /* When visible, show as fullscreen modal */
+      /* Estado COMPACT: barra estreita de 50px */
+      .conversation-sidebar.compact {
+        width: 50px !important;
+        min-width: 50px !important;
+        max-width: 50px !important;
+        display: flex;
+      }
+
+      .conversation-sidebar.compact .dock-conversation-item {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+      }
+
+      .conversation-sidebar.compact .dock-action-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+      }
+
+      /* Estado FULL: fullscreen modal */
+      .conversation-sidebar.full {
+        display: flex !important;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 100vw !important;
+        z-index: 10000;
+        background: white;
+        border: none;
+        animation: slideInLeft 0.3s ease-out;
+        opacity: 1 !important;
+      }
+
+      /* Quando full no mobile, vira modal */
       .conversation-sidebar.conversation-modal-active {
         display: flex !important;
         flex-direction: column;
@@ -1927,7 +2258,8 @@ Erro: 'invalid_token' na response..."
         }
       }
 
-      /* Show close button on mobile modal */
+      /* Show close button on mobile modal (apenas quando full) */
+      .conversation-sidebar.full .close-conversation-sidebar,
       .conversation-sidebar.conversation-modal-active .close-conversation-sidebar {
         display: flex;
         position: absolute;
@@ -1966,6 +2298,32 @@ Erro: 'invalid_token' na response..."
       .conductor-chat {
         border-left: none;
       }
+
+      /* FAB no mobile - posição ajustada */
+      .conversation-fab {
+        left: 12px;
+        bottom: 70px;
+        width: 52px;
+        height: 52px;
+        font-size: 22px;
+      }
+    }
+
+    /* 🔥 RESPONSIVIDADE TABLET (769px - 1024px) */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      /* No tablet, compact continua em 60px mas fica mais confortável */
+      .conversation-sidebar.compact {
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+      }
+
+      /* Full no tablet usa largura reduzida para não ocupar muito espaço */
+      .conversation-sidebar.full {
+        width: 240px !important;
+        min-width: 200px !important;
+        max-width: 280px !important;
+      }
     }
   `]
 })
@@ -1978,6 +2336,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() agentDockClicked = new EventEmitter<any>();
   @Output() activeConversationChanged = new EventEmitter<string | null>(); // 🔥 NOVO: Notifica mudança de conversa
   @Output() agentOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de agentes
+  @Output() conversationOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de conversas
   @Output() toggleFirstColumnRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita toggle do menu lateral
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
@@ -2022,7 +2381,16 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   isRecording: boolean = false;
   speechSupported: boolean = false;
   showPersonaModal: boolean = false;
-  isSidebarVisible: boolean = true; // 🔥 NOVO: Controla visibilidade da sidebar
+
+  // 🔥 NOVO: Três estados para a sidebar de conversas
+  // 'hidden' = completamente escondida
+  // 'compact' = barra de botões compacta (60px, similar à agent-launcher-dock)
+  // 'full' = expandida/larga (280px)
+  sidebarState: 'hidden' | 'compact' | 'full' = 'compact'; // Default: compact
+
+  // 🔥 NOVO: Lista local de conversas para o modo compacto
+  private _conversations: Conversation[] = [];
+
   private messageContent: string = ''; // Content from editor
 
   // ✅ SOLUÇÃO BUG PARALELISMO: Mapa de históricos isolados por agente
@@ -2514,6 +2882,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.selectedAgentName = agentName || null;
     this.selectedAgentEmoji = agentEmoji || null;
     this.activeScreenplayId = screenplayId || null;
+
+    // 🔥 Carregar conversas quando o screenplay mudar
+    if (this.activeScreenplayId) {
+      this.loadConversations();
+    }
 
     // 📁 Atualizar CWD do agente ativo
     this.activeAgentCwd = cwd || null;
@@ -3015,12 +3388,51 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   /**
    * 🔥 NOVO: Toggle visibility da sidebar de conversas
+   * Circula entre: compact → full → hidden → compact
    */
   onToggleSidebarClick(): void {
-    this.isSidebarVisible = !this.isSidebarVisible;
+    // Circular entre os três estados
+    const previousState = this.sidebarState;
 
-    // 📱 Salvar estado mobile da sidebar
+    if (this.sidebarState === 'compact') {
+      this.sidebarState = 'full';
+    } else if (this.sidebarState === 'full') {
+      this.sidebarState = 'hidden';
+    } else {
+      this.sidebarState = 'compact';
+    }
+
+    console.log('🔄 [SIDEBAR] Novo estado:', this.sidebarState);
+
+    // 🔄 Recarregar conversas ao mudar de estado para garantir sincronização
+    if ((previousState === 'compact' && this.sidebarState === 'full') ||
+        (previousState === 'full' && this.sidebarState === 'compact')) {
+      // Pequeno delay para permitir que o componente filho seja renderizado
+      setTimeout(() => {
+        this.refreshConversationList();
+      }, 100);
+    }
+
+    // 📱 Salvar estado da sidebar
     this.saveMobileSidebarState();
+  }
+
+  /**
+   * 🔥 NOVO: Mostra conversas compactas (hidden → compact)
+   */
+  showCompactConversations(): void {
+    this.sidebarState = 'compact';
+    console.log('💬 [SIDEBAR] Conversas compactas visíveis');
+    this.saveMobileSidebarState();
+  }
+
+  /**
+   * 🔥 NOVO: Cria nova conversa SEM expandir a sidebar
+   */
+  createNewConversationWithoutExpanding(): void {
+    // Simplesmente delega para o método existente sem mudar o estado
+    this.onCreateNewConversation();
+    console.log('➕ [SIDEBAR] Nova conversa criada (sidebar permanece compact)');
   }
 
   /**
@@ -3033,51 +3445,102 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   /**
    * 📱 Detectar se está no mobile (portrait mode com width <= 768px)
    */
-  private isMobile(): boolean {
+  isMobile(): boolean {
     return window.innerWidth <= 768 && window.matchMedia('(orientation: portrait)').matches;
   }
 
   /**
-   * 📱 Salvar estado da sidebar no localStorage (mobile)
+   * 🔥 NOVO: Getter para acessar conversas do componente filho ou da lista local
    */
-  private saveMobileSidebarState(): void {
-    if (!this.isMobile()) {
-      return; // Só salvar no mobile
+  get conversations(): any[] {
+    // Se o conversationListComponent estiver disponível (modo full), usar dele
+    if (this.conversationListComponent?.conversations) {
+      return this.conversationListComponent.conversations;
     }
-
-    const sidebarState = {
-      isSidebarVisible: this.isSidebarVisible,
-      timestamp: new Date().toISOString()
-    };
-
-    localStorage.setItem('mobile-chat-sidebar-state', JSON.stringify(sidebarState));
-    console.log('📱 [CHAT] Estado da sidebar salvo:', sidebarState);
+    // Caso contrário, usar a lista local (modo compacto)
+    return this._conversations;
   }
 
   /**
-   * 📱 Restaurar estado da sidebar do localStorage (mobile)
+   * 🔥 NOVO: Retorna a inicial do título da conversa para exibir na dock compacta
+   */
+  getConversationInitial(title: string): string {
+    if (!title) return '?';
+
+    // Remove espaços e pega a primeira letra maiúscula
+    const firstChar = title.trim()[0];
+    return firstChar ? firstChar.toUpperCase() : '?';
+  }
+
+  /**
+   * 🔥 NOVO: Retorna o ícone correto para o botão de toggle baseado no estado atual
+   */
+  getConversationToggleIcon(): string {
+    switch (this.sidebarState) {
+      case 'hidden':
+        return '💬'; // Mostrar
+      case 'compact':
+        return '⇄'; // Expandir
+      case 'full':
+        return '◀'; // Compactar/Esconder
+      default:
+        return '💬';
+    }
+  }
+
+  /**
+   * 🔥 NOVO: Retorna o título correto para o botão de toggle baseado no estado atual
+   */
+  getConversationToggleTitle(): string {
+    switch (this.sidebarState) {
+      case 'hidden':
+        return 'Mostrar conversas (compacto)';
+      case 'compact':
+        return 'Expandir conversas';
+      case 'full':
+        return 'Compactar conversas';
+      default:
+        return 'Conversas';
+    }
+  }
+
+  /**
+   * 📱 Salvar estado da sidebar no localStorage
+   */
+  private saveMobileSidebarState(): void {
+    const sidebarState = {
+      state: this.sidebarState,
+      timestamp: new Date().toISOString()
+    };
+
+    localStorage.setItem('chat-sidebar-state', JSON.stringify(sidebarState));
+    console.log('💾 [SIDEBAR] Estado salvo:', sidebarState);
+  }
+
+  /**
+   * 📱 Restaurar estado da sidebar do localStorage
    */
   private restoreMobileSidebarState(): void {
-    if (!this.isMobile()) {
-      return; // Só restaurar no mobile
-    }
-
-    const savedState = localStorage.getItem('mobile-chat-sidebar-state');
+    const savedState = localStorage.getItem('chat-sidebar-state');
     if (!savedState) {
-      console.log('📱 [CHAT] Nenhum estado da sidebar salvo encontrado');
+      console.log('💾 [SIDEBAR] Nenhum estado salvo encontrado, usando default: compact');
       return;
     }
 
     try {
-      const sidebarState = JSON.parse(savedState);
-      console.log('📱 [CHAT] Restaurando estado da sidebar:', sidebarState);
+      const parsed = JSON.parse(savedState);
+      const state = parsed.state;
 
-      // Restaurar visibilidade da sidebar
-      this.isSidebarVisible = sidebarState.isSidebarVisible ?? true;
-      console.log('📱 [CHAT] Sidebar restaurada:', this.isSidebarVisible ? 'visível' : 'oculta');
+      // Validar estado
+      if (state === 'hidden' || state === 'compact' || state === 'full') {
+        this.sidebarState = state;
+        console.log('💾 [SIDEBAR] Estado restaurado:', this.sidebarState);
+      } else {
+        console.warn('⚠️ [SIDEBAR] Estado inválido no localStorage, usando default');
+      }
     } catch (error) {
-      console.error('📱 [CHAT] Erro ao restaurar estado da sidebar:', error);
-      localStorage.removeItem('mobile-chat-sidebar-state');
+      console.error('❌ [SIDEBAR] Erro ao restaurar estado:', error);
+      localStorage.removeItem('chat-sidebar-state');
     }
   }
 
@@ -3335,6 +3798,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   refreshConversationList(): void {
     console.log('🔄 [CHAT] Atualizando lista de conversas');
+
+    // Recarregar lista local
+    this.loadConversations();
+
+    // Atualizar componente filho se disponível
     if (this.conversationListComponent) {
       this.conversationListComponent.refresh();
     }
@@ -3712,6 +4180,87 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
 
     // Emitir evento para o componente pai com a nova ordem
     this.agentOrderChanged.emit(reorderedAgents);
+  }
+
+  /**
+   * 🔥 NOVO: Handler para drag & drop de conversas no dock
+   * Reordena as conversas localmente e persiste no backend
+   */
+  onConversationDrop(event: CdkDragDrop<any[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return; // Nenhuma mudança
+    }
+
+    console.log(`🔄 [CONVERSATION-DRAG-DROP] Movendo conversa de ${event.previousIndex} para ${event.currentIndex}`);
+
+    // Reordenar localmente
+    moveItemInArray(this._conversations, event.previousIndex, event.currentIndex);
+
+    // Persistir nova ordem no backend
+    this.saveConversationOrder();
+
+    // Emitir evento para o componente pai com a nova ordem
+    this.conversationOrderChanged.emit(this._conversations);
+  }
+
+  /**
+   * 🔥 NOVO: Salva ordem das conversas no MongoDB
+   * Envia um array com conversation_id e display_order para cada conversa
+   */
+  private saveConversationOrder(): void {
+    // Construir array de updates com base na posição atual
+    const orderUpdates = this._conversations.map((conv, index) => ({
+      conversation_id: conv.conversation_id,
+      display_order: index
+    }));
+
+    console.log('💾 [SAVE-ORDER] Salvando ordem das conversas:', orderUpdates);
+
+    // Chamar serviço para atualizar ordem no backend
+    this.conversationService.updateConversationOrder(orderUpdates).subscribe({
+      next: (response) => {
+        console.log('✅ [SAVE-ORDER] Ordem salva com sucesso:', response);
+      },
+      error: (error) => {
+        console.error('❌ [SAVE-ORDER] Erro ao salvar ordem:', error);
+        // Recarregar conversas para restaurar ordem original
+        this.loadConversations();
+        alert('Erro ao salvar ordem das conversas. Ordem restaurada.');
+      }
+    });
+  }
+
+  /**
+   * 🔥 NOVO: Carrega as conversas do screenplay ativo
+   */
+  private loadConversations(): void {
+    if (!this.activeScreenplayId) {
+      this._conversations = [];
+      return;
+    }
+
+    console.log('🔄 [CONVERSATIONS] Carregando conversas do screenplay:', this.activeScreenplayId);
+
+    this.conversationService.listConversations(100, 0, this.activeScreenplayId).subscribe({
+      next: (response: any) => {
+        // Ordenar por display_order se disponível, senão por updated_at
+        this._conversations = response.conversations.sort((a: any, b: any) => {
+          const aOrder = a.display_order;
+          const bOrder = b.display_order;
+
+          if (aOrder !== undefined && bOrder !== undefined) {
+            return aOrder - bOrder;
+          }
+
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
+        console.log(`✅ [CONVERSATIONS] ${this._conversations.length} conversas carregadas`);
+      },
+      error: (error: any) => {
+        console.error('❌ [CONVERSATIONS] Erro ao carregar conversas:', error);
+        this._conversations = [];
+      }
+    });
   }
 
   private loadConversationContext(): void {

@@ -150,8 +150,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(ScreenplayTreeComponent) screenplayTree?: ScreenplayTreeComponent;
 
   // Splitter state
-  screenplayWidth = 50;  // Reduzido de 70 para 50
-  chatWidth = 50;        // Aumentado de 30 para 50
+  screenplayWidth = 60;  // 🔥 25% (first-column) + 35% (screenplay-canvas)
+  chatWidth = 40;        // 🔥 40% para chat/conversas
 
   // First column toggle state
   firstColumnVisible = true;
