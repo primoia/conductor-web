@@ -208,6 +208,7 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
   @Input() isLoading: boolean = false;
   @Output() messageContentChanged = new EventEmitter<string>();
   @Output() enterPressed = new EventEmitter<void>(); // Enter envia mensagem
+  @Output() contentHeightChanged = new EventEmitter<number>(); // 🔥 NOVO: Emite altura do conteúdo
 
   @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
 
@@ -299,6 +300,9 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
         const html = editor.getHTML();
         const markdown = this.turndownService.turndown(html);
         this.messageContentChanged.emit(markdown.trim());
+
+        // 🔥 NOVO: Calcular altura do conteúdo e emitir
+        this.updateContentHeight();
       },
     });
 
@@ -330,12 +334,37 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
   }
 
   /**
+   * 🔥 NOVO: Calcula altura necessária do conteúdo e emite evento
+   */
+  private updateContentHeight(): void {
+    if (!this.editorContainer) return;
+
+    // Aguardar próximo frame para garantir que o DOM foi atualizado
+    setTimeout(() => {
+      const proseMirrorElement = this.editorContainer.nativeElement.querySelector('.ProseMirror');
+      if (proseMirrorElement) {
+        // Altura do conteúdo + padding do container (24px)
+        const contentHeight = proseMirrorElement.scrollHeight;
+        const totalHeight = contentHeight + 24; // 12px top + 12px bottom padding
+
+        // Limites: min 80px (2-3 linhas), max 400px
+        const constrainedHeight = Math.min(Math.max(totalHeight, 80), 400);
+
+        this.contentHeightChanged.emit(constrainedHeight);
+      }
+    }, 0);
+  }
+
+  /**
    * Clear editor content (called from parent after sending message)
    */
   clearEditor(): void {
     if (this.editor) {
       this.editor.commands.clearContent();
       this.editor.commands.focus();
+
+      // 🔥 NOVO: Resetar altura ao limpar
+      this.contentHeightChanged.emit(80); // Voltar ao tamanho mínimo
     }
   }
 

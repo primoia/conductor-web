@@ -867,8 +867,8 @@ body, html {
 /* Responsive adjustments */
 /* 🔥 NOVO: Media Queries para melhor responsividade mobile */
 
-/* Tablets e telas médias (até 768px) */
-@media (max-width: 768px) {
+/* Tablets e telas médias (até 768px) - LANDSCAPE APENAS */
+@media (max-width: 768px) and (orientation: landscape) {
   /* Manter primeira coluna com proporção correta dentro do container */
   .first-column {
     width: 42% !important; /* 42% do screenplay-container */
@@ -886,7 +886,7 @@ body, html {
   }
 
   .third-column {
-    width: 40vw !important; /* 🔥 40% da tela */
+    width: 40vw !important; /* 🔥 40% da tela em landscape */
     max-width: 40vw !important;
   }
 
@@ -917,8 +917,8 @@ body, html {
   }
 }
 
-/* Celulares grandes (até 428px) */
-@media (max-width: 428px) {
+/* Celulares grandes (até 428px) - LANDSCAPE APENAS */
+@media (max-width: 428px) and (orientation: landscape) {
   /* Esconder primeira coluna */
   .first-column {
     width: 0 !important;
@@ -963,8 +963,8 @@ body, html {
   }
 }
 
-/* Celulares pequenos (até 375px) */
-@media (max-width: 375px) {
+/* Celulares pequenos (até 375px) - LANDSCAPE APENAS */
+@media (max-width: 375px) and (orientation: landscape) {
   /* Layout ainda mais compacto */
   .screenplay-canvas {
     min-width: 150px;
@@ -1001,8 +1001,8 @@ body, html {
   }
 }
 
-/* Celulares muito pequenos (até 320px) */
-@media (max-width: 320px) {
+/* Celulares muito pequenos (até 320px) - LANDSCAPE APENAS */
+@media (max-width: 320px) and (orientation: landscape) {
   /* Layout mínimo funcional */
   .screenplay-canvas {
     min-width: 120px;

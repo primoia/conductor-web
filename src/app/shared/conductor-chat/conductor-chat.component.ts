@@ -451,6 +451,7 @@ Erro: 'invalid_token' na response..."
           [isLoading]="chatState.isLoading"
           (messageContentChanged)="onMessageContentChanged($event)"
           (enterPressed)="sendMessage()"
+          (contentHeightChanged)="onContentHeightChanged($event)"
         />
       </div>
 
@@ -1215,8 +1216,8 @@ Erro: 'invalid_token' na response..."
     .chat-input-area {
       background: white;
       flex-shrink: 0; /* NEVER compress - maintains set height */
-      min-height: 100px; /* Minimum: ~5 lines of text */
-      max-height: 500px; /* Maximum: prevents taking too much space */
+      min-height: 80px; /* Minimum: ~2-3 lines of text */
+      max-height: 400px; /* Maximum: prevents taking too much space */
       display: flex;
       flex-direction: column;
       position: relative;
@@ -2368,10 +2369,10 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
   // Resize functionality - controls chat INPUT AREA height (ONLY editor, not controls)
   // Initial height calculation:
-  // - Text area for ~5 lines: 5 × 1.5 line-height × 13px font = ~97px
+  // - Text area for ~2-3 lines: 3 × 1.5 line-height × 13px font = ~58px
   // - Editor padding: 24px (12px top + 12px bottom)
-  // - Total: ~160px for editor area (controls are separate, always 60px)
-  chatInputHeight: string = '160px'; // Initial height (comfortable 5+ lines visible)
+  // - Total: ~80px for editor area (controls are separate, always 60px)
+  chatInputHeight: string = '80px'; // Initial height (compact, auto-expands with content)
   private isResizing: boolean = false;
   private startY: number = 0;
   private startHeight: number = 0;
@@ -2503,6 +2504,16 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onMessageContentChanged(content: string): void {
     this.messageContent = content;
+  }
+
+  /**
+   * 🔥 NOVO: Ajusta altura da área de input baseado no conteúdo
+   */
+  onContentHeightChanged(height: number): void {
+    // Não ajustar altura se o usuário estiver redimensionando manualmente
+    if (!this.isResizing) {
+      this.chatInputHeight = `${height}px`;
+    }
   }
 
   /**
@@ -3521,6 +3532,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * 📱 Restaurar estado da sidebar do localStorage
    */
   private restoreMobileSidebarState(): void {
+    // 🔥 No mobile portrait, começar sempre com sidebar hidden
+    if (this.isMobile()) {
+      this.sidebarState = 'hidden';
+      console.log('📱 [SIDEBAR] Mobile portrait detectado, iniciando com sidebar hidden');
+      return;
+    }
+
     const savedState = localStorage.getItem('chat-sidebar-state');
     if (!savedState) {
       console.log('💾 [SIDEBAR] Nenhum estado salvo encontrado, usando default: compact');
@@ -4031,10 +4049,10 @@ ${this.selectedAgentEmoji || '🤖'} Nome: ${this.selectedAgentName || 'desconhe
     const newHeight = this.startHeight + deltaY;
 
     // Set min and max heights for the INPUT AREA (editor only, controls are separate)
-    // Min: 100px = ~5 lines of text with padding
-    // Max: 500px = reasonable limit
-    const minHeight = 100; // Minimum 100px (shows at least 5 lines)
-    const maxHeight = 500; // Maximum 500px (reasonable limit for editor)
+    // Min: 80px = ~2-3 lines of text with padding
+    // Max: 400px = reasonable limit
+    const minHeight = 80; // Minimum 80px (shows at least 2-3 lines)
+    const maxHeight = 400; // Maximum 400px (reasonable limit for editor)
 
     const constrainedHeight = Math.min(Math.max(newHeight, minHeight), maxHeight);
     this.chatInputHeight = `${constrainedHeight}px`;
