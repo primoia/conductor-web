@@ -2401,6 +2401,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   private progressMessages: Map<string, Message | null> = new Map();
   private streamingMessages: Map<string, Message | null> = new Map();
 
+  // 🔥 NOVO: Mapeamento de instanceId -> conversationId para validação de mensagens SSE
+  private instanceToConversationMap: Map<string, string> = new Map();
+
   private subscriptions = new Subscription();
   private connectionCheckInterval: any;
 
@@ -2627,6 +2630,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     // Preparar callbacks
     const callbacks: MessageHandlingCallbacks = {
       onProgressUpdate: (message: string, instanceId: string) => {
+        // 🔥 VALIDAÇÃO: Só processar se a mensagem pertence à conversa ativa
+        const messageConversationId = this.instanceToConversationMap.get(instanceId);
+        if (messageConversationId && messageConversationId !== this.activeConversationId) {
+          console.log(`⏭️ [CHAT] Descartando progressUpdate de conversa diferente (${messageConversationId} != ${this.activeConversationId})`);
+          return;
+        }
+
         if (message) {
           this.addProgressMessage(message, instanceId);
         } else {
@@ -2634,6 +2644,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         }
       },
       onStreamingUpdate: (chunk: string, instanceId: string) => {
+        // 🔥 VALIDAÇÃO: Só processar se a mensagem pertence à conversa ativa
+        const messageConversationId = this.instanceToConversationMap.get(instanceId);
+        if (messageConversationId && messageConversationId !== this.activeConversationId) {
+          console.log(`⏭️ [CHAT] Descartando streamingUpdate de conversa diferente (${messageConversationId} != ${this.activeConversationId})`);
+          return;
+        }
+
         this.appendToStreamingMessage(chunk, instanceId);
       },
       onLoadingChange: (isLoading: boolean) => {
@@ -2643,12 +2660,21 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         this.chatState.messages = messages;
       },
       onConversationReload: (conversationId: string) => {
+        // 🔥 Limpar mapeamento após processar mensagem
+        if (this.activeAgentId) {
+          this.instanceToConversationMap.delete(this.activeAgentId);
+          console.log(`🧹 [CHAT] Removido mapeamento: ${this.activeAgentId}`);
+        }
         this.loadConversation(conversationId);
       }
     };
 
     // 🔥 NOVO MODELO: Usar conversas globais
     if (environment.features?.useConversationModel && this.activeConversationId && this.activeAgentId) {
+      // 🔥 Registrar mapeamento instanceId -> conversationId para validação de SSE
+      this.instanceToConversationMap.set(this.activeAgentId, this.activeConversationId);
+      console.log(`📋 [CHAT] Registrado mapeamento: ${this.activeAgentId} -> ${this.activeConversationId}`);
+
       // Adicionar mensagem à UI imediatamente
       this.chatState.messages = [...this.chatState.messages.filter(msg =>
         !msg.id.startsWith('empty-')
@@ -3755,6 +3781,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     }
 
     console.log('🔄 [CHAT] Setando conversa ativa:', conversationId);
+
+    // 🔥 LIMPEZA: Remover mapeamentos da conversa anterior para evitar mensagens SSE vazadas
+    if (this.instanceToConversationMap.size > 0) {
+      console.log('🧹 [CHAT] Limpando mapeamentos da conversa anterior');
+      this.instanceToConversationMap.clear();
+    }
+
     this.activeConversationId = conversationId;
     this.activeConversationChanged.emit(this.activeConversationId); // 🔥 Emite evento
 
