@@ -11,12 +11,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Prevenir overflow horizontal em mobile */
-body, html {
-  overflow-x: hidden;
-  max-width: 100vw;
-}
-
 .screenplay-layout {
   display: flex;
   flex-direction: row; /* Layout horizontal: colunas lado a lado */
@@ -25,6 +19,12 @@ body, html {
   max-width: 100vw; /* 🔥 NOVO: Prevenir overflow horizontal */
   overflow: hidden;
   overflow-x: hidden; /* 🔥 NOVO: Forçar overflow-x hidden */
+}
+
+/* 🔥 Esconder FAB buttons no desktop (só mostrar em mobile) */
+.fab-screenplay,
+.close-screenplay-modal {
+  display: none;
 }
 
 .screenplay-container {
@@ -1047,10 +1047,15 @@ body, html {
   .third-column {
     width: 100% !important;
     max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
 
   .screenplay-layout {
     flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
 
   /* FAB - Floating Action Button para abrir screenplay */
@@ -1163,9 +1168,14 @@ body, html {
   .third-column {
     width: 100% !important;
     max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
   .screenplay-layout {
     flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
   .fab-screenplay {
     display: flex !important;
@@ -1183,9 +1193,14 @@ body, html {
   .third-column {
     width: 100% !important;
     max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
   .screenplay-layout {
     flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
   .fab-screenplay {
     display: flex !important;
@@ -1203,12 +1218,87 @@ body, html {
   .third-column {
     width: 100% !important;
     max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
   }
   .screenplay-layout {
     flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
   .fab-screenplay {
     display: flex !important;
+  }
+}
+
+/* 🔥 Query 5: Tablets em portrait (768px - 1366px) - iPads e tablets maiores */
+@media (min-width: 769px) and (max-width: 1366px) and (orientation: portrait) {
+  /* Esconder screenplay e roteiros */
+  .screenplay-container {
+    display: none !important;
+  }
+  .first-column {
+    display: none !important;
+  }
+
+  /* Chat ocupa 100% da tela */
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+
+  .screenplay-layout {
+    flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Mostrar FAB no tablet portrait */
+  .fab-screenplay {
+    display: flex !important;
+    position: fixed;
+    bottom: 32px;
+    right: 24px;
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+    z-index: 999;
+  }
+}
+
+/* 🔥 Query 6: Fallback para tablets touch em portrait (qualquer tamanho) */
+@media (pointer: coarse) and (orientation: portrait) and (min-width: 769px) {
+  .screenplay-container {
+    display: none !important;
+  }
+  .first-column {
+    display: none !important;
+  }
+  .third-column {
+    width: 100% !important;
+    max-width: 100vw;
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+  .screenplay-layout {
+    flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+  .fab-screenplay {
+    display: flex !important;
+    position: fixed;
+    bottom: 32px;
+    right: 24px;
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+    z-index: 999;
   }
 }
 

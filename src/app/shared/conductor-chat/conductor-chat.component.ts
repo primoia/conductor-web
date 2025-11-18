@@ -70,6 +70,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
         <!-- VERSÃO COMPACTA (conversation-dock) -->
         <div class="conversation-dock" *ngIf="sidebarState === 'compact'">
+          <!-- Botão CRIAR NOVA CONVERSA no topo -->
+          <button
+            class="dock-action-btn add-conversation-btn"
+            [disabled]="!activeScreenplayId"
+            (click)="createNewConversationWithoutExpanding()"
+            [title]="activeScreenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
+            ➕
+          </button>
+
+          <div class="dock-separator"></div>
+
           <!-- Lista compacta de conversas (scrollável com drag & drop) -->
           <div
             class="dock-conversations-list"
@@ -99,17 +110,6 @@ const DEFAULT_CONFIG: ConductorConfig = {
               </button>
             </div>
           </div>
-
-          <div class="dock-separator"></div>
-
-          <!-- Botão CRIAR NOVA CONVERSA no fundo (NÃO expande) -->
-          <button
-            class="dock-action-btn add-conversation-btn"
-            [disabled]="!activeScreenplayId"
-            (click)="createNewConversationWithoutExpanding()"
-            [title]="activeScreenplayId ? 'Criar nova conversa' : 'Selecione um roteiro primeiro'">
-            ➕
-          </button>
         </div>
 
         <!-- FAB (Floating Action Button) quando hidden - mostra compact novamente -->
@@ -2449,6 +2449,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     // 📱 Restaurar estado mobile da sidebar
     this.restoreMobileSidebarState();
 
+    // 🔥 Carregar conversas se já houver um screenplay ativo
+    if (this.activeScreenplayId) {
+      this.loadConversations();
+    }
+
     // Initialize speech recognition
     this.speechSupported = this.speechService.isSupported;
 
@@ -3413,12 +3418,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.sidebarState = 'compact';
     }
 
-    console.log('🔄 [SIDEBAR] Novo estado:', this.sidebarState);
+    console.log('🔄 [SIDEBAR] Transição:', previousState, '→', this.sidebarState);
 
-    // 🔄 Recarregar conversas ao mudar de estado para garantir sincronização
-    if ((previousState === 'compact' && this.sidebarState === 'full') ||
-        (previousState === 'full' && this.sidebarState === 'compact')) {
-      // Pequeno delay para permitir que o componente filho seja renderizado
+    // 🔄 Recarregar conversas ao tornar a sidebar visível
+    if (this.sidebarState !== 'hidden') {
+      // Pequeno delay para permitir que o componente seja renderizado
       setTimeout(() => {
         this.refreshConversationList();
       }, 100);
@@ -3435,6 +3439,11 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.sidebarState = 'compact';
     console.log('💬 [SIDEBAR] Conversas compactas visíveis');
     this.saveMobileSidebarState();
+
+    // 🔥 Carregar conversas quando mostrar pela primeira vez
+    if (this.activeScreenplayId && this._conversations.length === 0) {
+      this.loadConversations();
+    }
   }
 
   /**
