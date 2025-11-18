@@ -2660,6 +2660,17 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         this.chatState.messages = messages;
       },
       onConversationReload: (conversationId: string) => {
+        // 🔥 VALIDAÇÃO: Só recarregar se for a conversa ativa
+        if (conversationId !== this.activeConversationId) {
+          console.log(`⏭️ [CHAT] Descartando reload de conversa diferente (${conversationId} != ${this.activeConversationId})`);
+
+          // Limpar mapeamento mesmo descartando
+          if (this.activeAgentId) {
+            this.instanceToConversationMap.delete(this.activeAgentId);
+          }
+          return; // ✋ Não recarrega se não for a conversa ativa
+        }
+
         // 🔥 Limpar mapeamento após processar mensagem
         if (this.activeAgentId) {
           this.instanceToConversationMap.delete(this.activeAgentId);
@@ -2674,6 +2685,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       // 🔥 Registrar mapeamento instanceId -> conversationId para validação de SSE
       this.instanceToConversationMap.set(this.activeAgentId, this.activeConversationId);
       console.log(`📋 [CHAT] Registrado mapeamento: ${this.activeAgentId} -> ${this.activeConversationId}`);
+      console.log(`📋 [CHAT] Conversação ativa no momento do envio: ${this.activeConversationId}`);
 
       // Adicionar mensagem à UI imediatamente
       this.chatState.messages = [...this.chatState.messages.filter(msg =>
@@ -3780,11 +3792,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('🔄 [CHAT] Setando conversa ativa:', conversationId);
+    const previousConversationId = this.activeConversationId;
+    console.log(`🔄 [CHAT] Trocando conversa ativa: ${previousConversationId} -> ${conversationId}`);
 
     // 🔥 LIMPEZA: Remover mapeamentos da conversa anterior para evitar mensagens SSE vazadas
     if (this.instanceToConversationMap.size > 0) {
-      console.log('🧹 [CHAT] Limpando mapeamentos da conversa anterior');
+      console.log(`🧹 [CHAT] Limpando ${this.instanceToConversationMap.size} mapeamento(s) da conversa anterior`);
       this.instanceToConversationMap.clear();
     }
 
