@@ -236,6 +236,7 @@
             [firstColumnVisible]="firstColumnVisible"
             (addAgentRequested)="openAgentSelector()"
             (deleteAgentRequested)="onDeleteAgentClick()"
+            (openScreenplayModalRequested)="openScreenplayModal()"
             (agentDockClicked)="onDockAgentClick($event)"
             (activeConversationChanged)="onActiveConversationChanged($event)"
             (agentOrderChanged)="onAgentOrderChanged($event)"
@@ -259,14 +260,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 🔥 NOVO: FAB (Floating Action Button) para abrir screenplay em mobile -->
-    <button
-      class="fab-screenplay"
-      (click)="openScreenplayModal()"
-      title="Abrir Roteiro">
-      📝
-    </button>
 
     <!-- 🔥 NOVO: Botão fechar modal de screenplay (mobile) -->
     <button

@@ -70,7 +70,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
         <!-- VERSÃO COMPACTA (conversation-dock) -->
         <div class="conversation-dock" *ngIf="sidebarState === 'compact'">
-          <!-- Botão CRIAR NOVA CONVERSA no topo -->
+          <!-- Botão ABRIR ROTEIRO no topo -->
+          <button
+            class="dock-action-btn open-screenplay-btn"
+            (click)="onOpenScreenplayClick()"
+            title="Abrir roteiro">
+            📝
+          </button>
+
+          <div class="dock-separator"></div>
+
+          <!-- Botão CRIAR NOVA CONVERSA -->
           <button
             class="dock-action-btn add-conversation-btn"
             [disabled]="!activeScreenplayId"
@@ -112,9 +122,28 @@ const DEFAULT_CONFIG: ConductorConfig = {
           </div>
         </div>
 
-        <!-- FAB (Floating Action Button) quando hidden - mostra compact novamente -->
+        <!-- 🔥 NOVO: FABs quando hidden - mobile portrait -->
+        <div class="mobile-fabs" *ngIf="sidebarState === 'hidden' && isMobile()">
+          <!-- FAB Abrir Roteiro -->
+          <button
+            class="mobile-fab screenplay-fab"
+            (click)="onOpenScreenplayClick()"
+            title="Abrir roteiro">
+            📝
+          </button>
+
+          <!-- FAB Mostrar Conversas -->
+          <button
+            class="mobile-fab conversation-fab"
+            (click)="showCompactConversations()"
+            title="Mostrar conversas">
+            💬
+          </button>
+        </div>
+
+        <!-- FAB (Floating Action Button) quando hidden - desktop/tablet -->
         <button
-          *ngIf="sidebarState === 'hidden'"
+          *ngIf="sidebarState === 'hidden' && !isMobile()"
           class="conversation-fab"
           (click)="showCompactConversations()"
           title="Mostrar conversas">
@@ -748,6 +777,19 @@ Erro: 'invalid_token' na response..."
       cursor: not-allowed;
     }
 
+    .dock-action-btn.open-screenplay-btn {
+      background: #f3e8ff;
+      border-color: #d8b4fe;
+      color: #9333ea;
+      font-size: 18px;
+    }
+
+    .dock-action-btn.open-screenplay-btn:hover {
+      background: #e9d5ff;
+      border-color: #c084fc;
+      transform: scale(1.1);
+    }
+
     .dock-action-btn.add-conversation-btn {
       background: #f0fdf4;
       border-color: #86efac;
@@ -812,6 +854,63 @@ Erro: 'invalid_token' na response..."
 
     .conversation-fab {
       animation: fabSlideIn 0.3s ease-out;
+    }
+
+    /* 🔥 NOVO: Mobile FABs container - múltiplos botões em mobile portrait */
+    .mobile-fabs {
+      position: fixed;
+      left: 16px;
+      bottom: 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 1000;
+      animation: fabSlideIn 0.3s ease-out;
+    }
+
+    .mobile-fab {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      color: white;
+    }
+
+    .mobile-fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .mobile-fab:active {
+      transform: scale(0.95);
+    }
+
+    /* Estilo específico para FAB de roteiro */
+    .mobile-fab.screenplay-fab {
+      background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+      color: #9333ea;
+      border: 2px solid #d8b4fe;
+    }
+
+    .mobile-fab.screenplay-fab:hover {
+      background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+      box-shadow: 0 6px 24px rgba(147, 51, 234, 0.4);
+    }
+
+    /* Estilo específico para FAB de conversas */
+    .mobile-fab.conversation-fab {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .mobile-fab.conversation-fab:hover {
+      box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
     }
 
     /* 🔥 NOVO: Versão Full com Header de Controles */
@@ -1925,11 +2024,13 @@ Erro: 'invalid_token' na response..."
       justify-content: center;
       padding: 20px;
       border-top: 3px solid #1976d2;
+      pointer-events: none; /* 🔥 Não bloquear cliques em elementos acima (FAB) */
     }
 
     .blocked-message {
       display: flex;
       align-items: center;
+      pointer-events: auto; /* 🔥 Reabilitar cliques no conteúdo interno */
       gap: 12px;
       color: white;
       font-size: 13px;
@@ -2339,6 +2440,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() agentOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de agentes
   @Output() conversationOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de conversas
   @Output() toggleFirstColumnRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita toggle do menu lateral
+  @Output() openScreenplayModalRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita abertura do modal de roteiros
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
   @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
@@ -3438,6 +3540,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    */
   onDeleteAgentClick(): void {
     this.deleteAgentRequested.emit();
+  }
+
+  /**
+   * 🔥 NOVO: Emit event to request opening screenplay modal
+   */
+  onOpenScreenplayClick(): void {
+    console.log('📝 [CHAT] Botão de roteiro clicado, emitindo evento...');
+    this.openScreenplayModalRequested.emit();
+    console.log('   - Evento openScreenplayModalRequested emitido');
   }
 
   /**

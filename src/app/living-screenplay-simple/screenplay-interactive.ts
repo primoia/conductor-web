@@ -1842,12 +1842,20 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * 🔥 NOVO: Open screenplay modal (mobile portrait)
    */
   openScreenplayModal(): void {
+    console.log('📝 [SCREENPLAY] openScreenplayModal() chamado');
+    console.log('   - screenplayModalOpen antes:', this.screenplayModalOpen);
+
     this.screenplayModalOpen = true;
+
+    console.log('   - screenplayModalOpen depois:', this.screenplayModalOpen);
+
     // Prevenir scroll do body quando modal está aberto
     document.body.style.overflow = 'hidden';
 
     // 📱 Salvar estado mobile
     this.saveMobileState();
+
+    console.log('   - Modal deveria estar aberto agora');
   }
 
   /**
