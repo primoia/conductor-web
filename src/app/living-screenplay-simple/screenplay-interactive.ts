@@ -247,7 +247,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   // Councilor system state
   showCouncilorsDashboard = false;
   showPromoteCouncilorModal = false;
-  selectedAgentForPromotion: any = null;
+  selectedAgentForPromotion: Agent | null = null;
   isSelectingAgentForPromotion = false;
 
   // Text selection context for agent execution
@@ -547,21 +547,29 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * Opens agent selector to choose which agent to promote to councilor
    */
   openAgentSelectorForPromotion(): void {
+    console.log('🏛️ [COUNCILOR] openAgentSelectorForPromotion - setando flag para true');
     this.isSelectingAgentForPromotion = true;
     this.showCouncilorsDashboard = false;
     this.showAgentSelector = true;
+    console.log('🏛️ [COUNCILOR] Estado:', { isSelectingAgentForPromotion: this.isSelectingAgentForPromotion, showAgentSelector: this.showAgentSelector });
   }
 
   /**
    * Opens promote councilor modal with selected agent
    */
   openPromoteCouncilorModal(agent?: any): void {
+    console.log('🏛️ [COUNCILOR] openPromoteCouncilorModal chamado', { agent, showPromoteCouncilorModal: this.showPromoteCouncilorModal });
     this.selectedAgentForPromotion = agent || null;
     this.showPromoteCouncilorModal = true;
     this.showCouncilorsDashboard = false;
+    console.log('🏛️ [COUNCILOR] Estado após abertura:', {
+      showPromoteCouncilorModal: this.showPromoteCouncilorModal,
+      selectedAgentForPromotion: this.selectedAgentForPromotion
+    });
   }
 
   closePromoteCouncilorModal(): void {
+    console.log('🏛️ [COUNCILOR] closePromoteCouncilorModal chamado');
     this.showPromoteCouncilorModal = false;
     this.selectedAgentForPromotion = null;
   }
@@ -576,17 +584,23 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.conflictNewFileName = '';
   }
 
+  /**
+   * Promove agente a conselheiro
+   * Chamado pelo PromoteCouncilorModalComponent via (promote) event
+   */
   async handlePromoteCouncilor(request: any): Promise<void> {
     if (!this.selectedAgentForPromotion) {
-      console.error('❌ No agent selected for promotion');
+      console.error('❌ [COUNCILOR] Nenhum agente selecionado para promocao');
+      this.notificationService.showError('Nenhum agente selecionado');
       return;
     }
 
-    try {
-      const agentId = this.selectedAgentForPromotion.id;
-      console.log(`⭐ Promoting agent ${agentId} to councilor:`, request);
+    const agentId = this.selectedAgentForPromotion.id;
+    const displayName = request.customization?.display_name || this.selectedAgentForPromotion.name;
 
-      // Call API to promote agent to councilor
+    console.log(`⭐ [COUNCILOR] Promovendo agente ${agentId} a conselheiro:`, request);
+
+    try {
       const response = await fetch(`/api/councilors/${agentId}/promote-councilor`, {
         method: 'POST',
         headers: {
@@ -596,31 +610,31 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to promote agent');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || `Erro ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
-      console.log('✅ Agent promoted successfully:', result);
+      console.log('✅ [COUNCILOR] Agente promovido com sucesso:', result);
 
-      // Show success notification
-      this.notificationService.showSuccess(
-        `${request.customization?.display_name || this.selectedAgentForPromotion.name} promovido a conselheiro!`
-      );
+      // Mostrar notificacao de sucesso
+      this.notificationService.showSuccess(`${displayName} promovido a conselheiro!`);
 
-      // Close modal and show dashboard
+      // Fechar modal e abrir dashboard
       this.closePromoteCouncilorModal();
       this.showCouncilorsDashboard = true;
 
-      // Reload councilors in the scheduler service
-      // This will trigger the dashboard to update via the observable
+      // Recarregar conselheiros no scheduler
       await this.councilorScheduler.initialize();
 
     } catch (error) {
-      console.error('❌ Error promoting agent to councilor:', error);
-      this.notificationService.showError(
-        `Erro ao promover conselheiro: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.error('❌ [COUNCILOR] Erro ao promover agente:', error);
+
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      this.notificationService.showError(`Erro ao promover conselheiro: ${errorMessage}`);
+
+      // Nao fecha o modal em caso de erro - usuario pode tentar novamente
     }
   }
 
@@ -3247,8 +3261,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const canvas = this.canvas.nativeElement;
     const { agent, instanceId, cwd } = selectionData;
 
+    console.log('🏛️ [COUNCILOR] onAgentSelected - isSelectingAgentForPromotion:', this.isSelectingAgentForPromotion);
+
     // Check if we're selecting agent for councilor promotion
     if (this.isSelectingAgentForPromotion) {
+      console.log('🏛️ [COUNCILOR] Entrando no fluxo de promoção!');
       this.isSelectingAgentForPromotion = false;
       this.showAgentSelector = false;
       this.openPromoteCouncilorModal(agent);

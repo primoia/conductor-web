@@ -4,7 +4,12 @@ import { map, catchError } from 'rxjs/operators';
 import {
   AgentWithCouncilor,
   CouncilorExecutionResult,
-  CouncilorReport
+  CouncilorReport,
+  // New instance-based types
+  CouncilorInstance,
+  CouncilorInstanceListResponse,
+  PromoteToCouncilorInstanceRequest,
+  PromoteToCouncilorInstanceResponse
 } from '../models/councilor.types';
 import { AgentService } from './agent.service';
 import { GamificationEventsService } from './gamification-events.service';
@@ -25,9 +30,13 @@ export class CouncilorSchedulerService implements OnDestroy {
   /** Lock para prevenir execuções simultâneas do mesmo conselheiro */
   private executionLock = new Set<string>();
 
-  /** Subject com lista de conselheiros ativos */
+  /** Subject com lista de conselheiros ativos (legacy) */
   private councilorSubject = new BehaviorSubject<AgentWithCouncilor[]>([]);
   public councilors$ = this.councilorSubject.asObservable();
+
+  /** Subject com lista de councilor instances (NEW) */
+  private councilorInstancesSubject = new BehaviorSubject<CouncilorInstance[]>([]);
+  public councilorInstances$ = this.councilorInstancesSubject.asObservable();
 
   /** Subject com contagem de investigações ativas */
   private activeInvestigationsSubject = new BehaviorSubject<number>(0);
@@ -83,7 +92,7 @@ export class CouncilorSchedulerService implements OnDestroy {
   }
 
   /**
-   * Carrega conselheiros do backend
+   * Carrega conselheiros do backend (LEGACY - mantido para compatibilidade)
    */
   private async loadCouncilorsFromBackend(): Promise<AgentWithCouncilor[]> {
     try {
@@ -99,6 +108,106 @@ export class CouncilorSchedulerService implements OnDestroy {
       console.warn('⚠️ [COUNCILOR SCHEDULER] Endpoint de conselheiros não disponível ainda:', error);
       return [];
     }
+  }
+
+  // ========== NEW Instance-Based Methods ==========
+
+  /**
+   * Carrega councilor instances do backend (NEW)
+   * Usa o novo endpoint GET /api/councilors/instances
+   */
+  async loadCouncilorInstances(): Promise<CouncilorInstance[]> {
+    try {
+      console.log('🏛️ [COUNCILOR SCHEDULER] Carregando councilor instances...');
+
+      const response = await fetch('/api/councilors/instances');
+
+      if (!response.ok) {
+        throw new Error(`Failed to load councilor instances: ${response.status}`);
+      }
+
+      const data: CouncilorInstanceListResponse = await response.json();
+      const instances = data.instances || [];
+
+      console.log(`🏛️ [COUNCILOR SCHEDULER] ${instances.length} councilor instances carregados`);
+
+      // Atualizar subject
+      this.councilorInstancesSubject.next(instances);
+
+      return instances;
+    } catch (error) {
+      console.warn('⚠️ [COUNCILOR SCHEDULER] Erro ao carregar councilor instances:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Promove um agente para councilor instance (NEW)
+   * Usa o novo endpoint POST /api/councilors/promote
+   */
+  async promoteToCouncilorInstance(
+    agentId: string,
+    councilorConfig: any,
+    customization?: { display_name?: string }
+  ): Promise<PromoteToCouncilorInstanceResponse> {
+    console.log(`⭐ [COUNCILOR SCHEDULER] Promovendo agente '${agentId}' para councilor instance`);
+
+    const request: PromoteToCouncilorInstanceRequest = {
+      agent_id: agentId,
+      councilor_config: councilorConfig,
+      customization: customization
+    };
+
+    const response = await fetch('/api/councilors/promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to promote: ${response.status}`);
+    }
+
+    const result: PromoteToCouncilorInstanceResponse = await response.json();
+    console.log('✅ [COUNCILOR SCHEDULER] Promoção concluída:', result);
+
+    // Recarregar lista de instances
+    await this.loadCouncilorInstances();
+
+    return result;
+  }
+
+  /**
+   * Remove um councilor instance (NEW)
+   * Usa o novo endpoint DELETE /api/councilors/instances/{instance_id}
+   */
+  async demoteCouncilorInstance(instanceId: string): Promise<void> {
+    console.log(`🔻 [COUNCILOR SCHEDULER] Demovendo councilor instance: ${instanceId}`);
+
+    const response = await fetch(`/api/councilors/instances/${instanceId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Failed to demote: ${response.status}`);
+    }
+
+    console.log(`✅ [COUNCILOR SCHEDULER] Instance '${instanceId}' demovida`);
+
+    // Atualizar lista local
+    const currentInstances = this.councilorInstancesSubject.value;
+    this.councilorInstancesSubject.next(
+      currentInstances.filter(i => i.instance_id !== instanceId)
+    );
+  }
+
+  /**
+   * Obtém lista de councilor instances ativos
+   */
+  getActiveCouncilorInstances(): CouncilorInstance[] {
+    return this.councilorInstancesSubject.value;
   }
 
   /**
@@ -158,29 +267,29 @@ export class CouncilorSchedulerService implements OnDestroy {
         `${displayName} iniciou patrulha: ${config.task.name}`
       );
 
-      // Criar ID de instância único para esta execução
-      const instanceId = this.agentService.generateInstanceId();
-
-      // Executar agente
       const startTime = Date.now();
 
-      const result = await this.agentService
-        .executeAgent(
-          councilor.agent_id,
-          config.task.prompt,
-          instanceId,
-          undefined, // cwd
-          undefined, // documentId
-          undefined  // aiProvider
-        )
-        .toPromise();
+      // Executar via endpoint do backend (que não requer conversation_id)
+      const response = await fetch(`/api/councilors/${agentId}/execute-now`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
 
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
       const duration = Date.now() - startTime;
 
-      console.log(`✅ [COUNCILOR SCHEDULER] ${displayName} completou tarefa em ${duration}ms`);
+      console.log(`✅ [COUNCILOR SCHEDULER] ${displayName} completou tarefa em ${duration}ms`, result);
 
-      // Analisar severidade do resultado
-      const severity = this.analyzeSeverity(result?.result || '');
+      // O resultado vem do backend com { success, message, execution: { status, agent_id, stats } }
+      const executionData = result.execution || {};
+
+      // Analisar severidade do resultado baseado nas stats
+      const severity = this.analyzeSeverityFromStats(executionData.stats);
 
       // Criar relatório de execução
       const executionResult: CouncilorExecutionResult = {
@@ -188,9 +297,9 @@ export class CouncilorSchedulerService implements OnDestroy {
         councilor_id: councilor.agent_id,
         started_at: new Date(startTime),
         completed_at: new Date(),
-        status: 'completed',
+        status: executionData.status || 'completed',
         severity,
-        output: result?.result || '',
+        output: result.message || 'Execução concluída',
         duration_ms: duration
       };
 
@@ -232,6 +341,26 @@ export class CouncilorSchedulerService implements OnDestroy {
     // Palavras-chave que indicam warning
     const warningKeywords = ['alerta', 'atenção', 'warning', 'aviso', 'vulnerab'];
     if (warningKeywords.some(keyword => lowerOutput.includes(keyword))) {
+      return 'warning';
+    }
+
+    return 'success';
+  }
+
+  /**
+   * Analisa as estatísticas da execução para determinar severidade
+   */
+  private analyzeSeverityFromStats(stats: any): 'success' | 'warning' | 'error' {
+    if (!stats) return 'success';
+
+    const successRate = stats.success_rate || 100;
+    const lastStatus = stats.last_status;
+
+    if (lastStatus === 'error' || successRate < 50) {
+      return 'error';
+    }
+
+    if (lastStatus === 'warning' || successRate < 80) {
       return 'warning';
     }
 

@@ -23,7 +23,7 @@
     <app-modal-header
       [title]="'⭐ Promover Agente a Conselheiro'"
       [showCloseButton]="true"
-      (closeClick)="onClose()"
+      (close)="onClose()"
       aria-label="Cabeçalho do modal de promoção">
     </app-modal-header>
 
@@ -51,6 +51,7 @@
               type="text"
               id="displayName"
               [(ngModel)]="displayName"
+              (ngModelChange)="onFormChange()"
               name="displayName"
               placeholder="Ex: Silva, Maria, João"
               required
@@ -64,10 +65,30 @@
               type="text"
               id="title"
               [(ngModel)]="title"
+              (ngModelChange)="onFormChange()"
               name="title"
               placeholder="Ex: Conselheiro de Qualidade, Conselheiro de Arquitetura"
               required
             />
+          </div>
+        </section>
+
+        <!-- Seção: Projeto -->
+        <section class="form-section">
+          <h3>📁 Diretório do Projeto</h3>
+
+          <div class="form-group">
+            <label for="projectPath">Caminho do Projeto *</label>
+            <input
+              type="text"
+              id="projectPath"
+              [(ngModel)]="projectPath"
+              (ngModelChange)="onFormChange()"
+              name="projectPath"
+              placeholder="Ex: /home/user/meu-projeto ou /mnt/ramdisk/primoia-main/primoia"
+              required
+            />
+            <small class="hint">Diretório raiz do projeto que o conselheiro irá monitorar. O agente executará comandos neste diretório.</small>
           </div>
         </section>
 
@@ -97,6 +118,7 @@
               type="text"
               id="taskName"
               [(ngModel)]="taskName"
+              (ngModelChange)="onFormChange()"
               name="taskName"
               placeholder="Ex: Verificar Arquivos Monolíticos"
               required
@@ -108,6 +130,7 @@
             <textarea
               id="taskPrompt"
               [(ngModel)]="taskPrompt"
+              (ngModelChange)="onFormChange()"
               name="taskPrompt"
               rows="8"
               placeholder="Descreva o que o conselheiro deve fazer...
@@ -176,11 +199,12 @@ Retorne lista com sugestões de refatoração."
               <input
                 type="number"
                 [(ngModel)]="intervalValue"
+                (ngModelChange)="onFormChange()"
                 name="intervalValue"
                 min="1"
                 max="999"
               />
-              <select [(ngModel)]="intervalUnit" name="intervalUnit">
+              <select [(ngModel)]="intervalUnit" (ngModelChange)="onFormChange()" name="intervalUnit">
                 <option value="m">minutos</option>
                 <option value="h">horas</option>
                 <option value="d">dias</option>
@@ -195,6 +219,7 @@ Retorne lista com sugestões de refatoração."
               type="text"
               id="cronValue"
               [(ngModel)]="cronValue"
+              (ngModelChange)="onFormChange()"
               name="cronValue"
               placeholder="0 9 * * 1"
             />

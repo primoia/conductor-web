@@ -39,8 +39,10 @@ export interface AgentSelectionData {
 })
 export class AgentSelectorModalComponent extends BaseModalComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() override isVisible: boolean = false;
-  @Input() screenplayWorkingDirectory?: string | null; // 📁 Diretório de trabalho do screenplay
+  @Input() screenplayWorkingDirectory?: string | null; // Diretorio de trabalho do screenplay
+  @Input() excludeCouncilors: boolean = false; // Exclui agentes ja promovidos a conselheiros
   @Output() agentSelected = new EventEmitter<AgentSelectionData>();
+  @Output() close = new EventEmitter<void>(); // Compatibilidade
   @Output() override closeModal = new EventEmitter<void>();
 
   @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
@@ -131,7 +133,8 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   }
 
   /**
-   * Carrega a lista de agentes disponíveis do backend.
+   * Carrega a lista de agentes disponiveis do backend.
+   * Se excludeCouncilors=true, filtra agentes ja promovidos a conselheiros.
    */
   loadAgents(): void {
     this.isLoading = true;
@@ -139,13 +142,19 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
 
     this.agentService.getAgents().subscribe({
       next: (agents) => {
-        this.agents = agents;
-        this.filteredAgents = agents; // Initialize filtered list
+        // Filtrar conselheiros se excludeCouncilors=true
+        if (this.excludeCouncilors) {
+          this.agents = agents.filter(agent => !agent.is_councilor);
+          console.log(`[AgentSelectorModal] Loaded ${this.agents.length} agents (excluded ${agents.length - this.agents.length} councilors)`);
+        } else {
+          this.agents = agents;
+          console.log('[AgentSelectorModal] Loaded agents:', agents.length);
+        }
+        this.filteredAgents = this.agents;
         this.isLoading = false;
-        console.log('[AgentSelectorModal] Loaded agents:', agents);
       },
       error: (error) => {
-        this.error = 'Falha ao carregar agentes. Verifique se o gateway está rodando.';
+        this.error = 'Falha ao carregar agentes. Verifique se o gateway esta rodando.';
         this.isLoading = false;
         console.error('[AgentSelectorModal] Error loading agents:', error);
       }
@@ -178,6 +187,7 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
 
   /**
    * Seleciona um agente e emite o evento de seleção.
+   * Não chama onClose() pois o componente pai é responsável por fechar o modal.
    * @param agent - Agente selecionado
    */
   selectAgent(agent: Agent): void {
@@ -195,7 +205,11 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
 
     console.log('[AgentSelectorModal] Agent selected:', selectionData);
     this.agentSelected.emit(selectionData);
-    this.onClose();
+
+    // Limpar estado interno mas NÃO emitir close
+    // O componente pai controla o fechamento via showAgentSelector
+    this.searchQuery = '';
+    this.filteredAgents = this.agents;
   }
 
   /**

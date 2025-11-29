@@ -1,12 +1,15 @@
-import { Component, EventEmitter, Input, Output, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  AgentWithCouncilor,
   CouncilorConfig,
   PromoteToCouncilorRequest,
-  COUNCILOR_TASK_TEMPLATES
+  COUNCILOR_TASK_TEMPLATES,
+  // NEW types for instance-based approach
+  PromoteToCouncilorInstanceRequest,
+  PromoteToCouncilorInstanceResponse
 } from '../../models/councilor.types';
+import { Agent } from '../../services/agent.service';
 import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
 import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
@@ -16,16 +19,16 @@ import { BaseModalComponent } from '../../shared/modals/base/base-modal.componen
  *
  * Permite configurar:
  * - Nome e cargo do conselheiro
- * - Tarefa automática (nome, prompt, arquivos de contexto)
+ * - Tarefa automatica (nome, prompt, arquivos de contexto)
  * - Periodicidade (interval ou cron)
- * - Notificações
+ * - Notificacoes
  *
  * @extends BaseModalComponent
- * ✓ Implementa BaseModalComponent
- * ✓ Usa isVisible para controle de exibição
- * ✓ Emite closeModal ao fechar
- * ✓ Suporta fechamento via ESC (gerenciado pelo BaseModalComponent)
- * ✓ Suporta fechamento via backdrop (gerenciado pelo BaseModalComponent)
+ *
+ * Outputs:
+ * - close: Emitido quando o modal fecha (compatibilidade)
+ * - closeModal: Emitido quando o modal fecha (padrao BaseModalComponent)
+ * - promote: Emitido com PromoteToCouncilorRequest quando usuario confirma
  *
  * @example
  * ```html
@@ -33,7 +36,7 @@ import { BaseModalComponent } from '../../shared/modals/base/base-modal.componen
  *   [isVisible]="showModal"
  *   [agent]="selectedAgent"
  *   (promote)="handlePromote($event)"
- *   (closeModal)="handleClose()">
+ *   (close)="handleClose()">
  * </app-promote-councilor-modal>
  * ```
  */
@@ -44,11 +47,19 @@ import { BaseModalComponent } from '../../shared/modals/base/base-modal.componen
   templateUrl: './promote-councilor-modal.component.html',
   styleUrls: ['./promote-councilor-modal.component.scss']
 })
-export class PromoteCouncilorModalComponent extends BaseModalComponent implements OnInit {
+export class PromoteCouncilorModalComponent extends BaseModalComponent implements OnInit, OnChanges {
   @Input() override isVisible = false;
-  @Input() agent?: AgentWithCouncilor;
+  @Input() agent: Agent | null = null;
+
+  // Outputs - close para compatibilidade, closeModal padrao
+  @Output() close = new EventEmitter<void>();
   @Output() override closeModal = new EventEmitter<void>();
   @Output() promote = new EventEmitter<PromoteToCouncilorRequest>();
+  // NEW: Output for instance-based promotion with response
+  @Output() promoteInstance = new EventEmitter<PromoteToCouncilorInstanceResponse>();
+
+  // Estado de erro vindo do componente pai
+  errorMessage: string = '';
 
   // Templates de tarefas disponíveis
   taskTemplates = COUNCILOR_TASK_TEMPLATES;
@@ -75,6 +86,9 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
   notifyToast: boolean = true;
   notifyEmail: boolean = false;
 
+  // Working directory (project path)
+  projectPath: string = '';
+
   // Estado de carregamento
   isSubmitting: boolean = false;
   footerButtons: ModalButton[] = [];
@@ -84,22 +98,72 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
   }
 
   ngOnInit(): void {
+    console.log('🏛️ [PROMOTE-MODAL] ngOnInit', { isVisible: this.isVisible, agent: this.agent });
     this.setupFooterButtons();
-    if (this.agent) {
-      // Pré-preencher com dados do agente
-      this.displayName = this.agent.customization?.display_name || this.generateDefaultName();
-      this.title = `Conselheiro de ${this.agent.title || this.agent.name}`;
+    this.initializeFormFromAgent();
+  }
 
-      // Se não há nome de tarefa, usar um padrão
-      if (!this.taskName) {
-        this.taskName = `Monitoramento de ${this.agent.name}`;
-      }
+  ngOnChanges(changes: SimpleChanges): void {
+    console.log('🏛️ [PROMOTE-MODAL] ngOnChanges', { changes, isVisible: this.isVisible, agent: this.agent });
 
-      // Se não há prompt de tarefa, usar um padrão
-      if (!this.taskPrompt) {
-        this.taskPrompt = `Analise o projeto e identifique possíveis melhorias relacionadas a ${this.agent.description || this.agent.name}.`;
-      }
+    // Quando o agente muda, reinicializar o formulario
+    if (changes['agent'] && this.agent) {
+      console.log('🏛️ [PROMOTE-MODAL] Agente mudou, reinicializando form');
+      this.initializeFormFromAgent();
     }
+
+    // Quando o modal abre, limpar erro
+    if (changes['isVisible'] && this.isVisible) {
+      console.log('🏛️ [PROMOTE-MODAL] Modal ficou visível');
+      this.errorMessage = '';
+    }
+  }
+
+  /**
+   * Chamado quando qualquer campo do formulário muda.
+   * Atualiza o estado dos botões.
+   */
+  onFormChange(): void {
+    this.updateFooterButtons();
+  }
+
+  /**
+   * Inicializa o formulario com dados do agente
+   */
+  private initializeFormFromAgent(): void {
+    if (!this.agent) return;
+
+    // Pre-preencher com dados do agente
+    this.displayName = this.generateDefaultName();
+    this.title = `Conselheiro de ${this.agent.title || this.agent.name}`;
+    this.taskName = `Monitoramento de ${this.agent.name}`;
+    this.taskPrompt = `Analise o projeto e identifique possiveis melhorias relacionadas a ${this.agent.description || this.agent.name}.`;
+
+    // Reset outros campos
+    this.contextFiles = [];
+    this.scheduleType = 'interval';
+    this.intervalValue = '30';
+    this.intervalUnit = 'm';
+    this.scheduleEnabled = true;
+    this.projectPath = '';  // Will be filled by user
+    this.errorMessage = '';
+  }
+
+  /**
+   * Define mensagem de erro externamente (chamado pelo componente pai)
+   */
+  setError(message: string): void {
+    this.errorMessage = message;
+    this.isSubmitting = false;
+    this.updateFooterButtons();
+  }
+
+  /**
+   * Reseta estado de submissao (chamado pelo componente pai apos sucesso)
+   */
+  resetSubmitState(): void {
+    this.isSubmitting = false;
+    this.updateFooterButtons();
   }
 
   /**
@@ -140,6 +204,10 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
    * @param action - Ação disparada pelo botão
    */
   handleFooterAction(action: string): void {
+    console.log('🏛️ [PROMOTE-MODAL] handleFooterAction:', action);
+    console.log('🏛️ [PROMOTE-MODAL] isValid:', this.isValid());
+    console.log('🏛️ [PROMOTE-MODAL] isSubmitting:', this.isSubmitting);
+
     switch (action) {
       case 'cancel':
         this.onCancel();
@@ -207,22 +275,51 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
    * Valida formulário
    */
   isValid(): boolean {
-    return (
-      this.displayName.trim().length > 0 &&
-      this.title.trim().length > 0 &&
-      this.taskName.trim().length > 0 &&
-      this.taskPrompt.trim().length > 0 &&
-      (this.scheduleType === 'interval' ? this.intervalValue.length > 0 : this.cronValue.length > 0)
-    );
+    // intervalValue pode ser string ou number dependendo do input
+    const intervalValid = this.intervalValue !== null &&
+                          this.intervalValue !== undefined &&
+                          String(this.intervalValue).trim().length > 0 &&
+                          Number(this.intervalValue) > 0;
+
+    const cronValid = this.cronValue?.trim().length > 0;
+
+    const validations = {
+      displayName: this.displayName.trim().length > 0,
+      title: this.title.trim().length > 0,
+      projectPath: this.projectPath.trim().length > 0,  // Required: working directory
+      taskName: this.taskName.trim().length > 0,
+      taskPrompt: this.taskPrompt.trim().length > 0,
+      schedule: this.scheduleType === 'interval' ? intervalValid : cronValid
+    };
+
+    const isValid = Object.values(validations).every(v => v);
+
+    if (!isValid) {
+      console.log('🏛️ [PROMOTE-MODAL] Validações:', validations);
+      console.log('🏛️ [PROMOTE-MODAL] Valores:', {
+        displayName: this.displayName,
+        title: this.title,
+        projectPath: this.projectPath,
+        taskName: this.taskName,
+        taskPrompt: this.taskPrompt?.substring(0, 50) + '...',
+        scheduleType: this.scheduleType,
+        intervalValue: this.intervalValue,
+        intervalValueType: typeof this.intervalValue
+      });
+    }
+
+    return isValid;
   }
 
   /**
    * Submete formulário de promoção
+   * UPDATED: Agora usa novo endpoint POST /api/councilors/promote
    */
   async onSubmit(): Promise<void> {
-    if (!this.isValid() || this.isSubmitting) return;
+    if (!this.isValid() || this.isSubmitting || !this.agent) return;
 
     this.isSubmitting = true;
+    this.errorMessage = '';
     this.updateFooterButtons();
 
     try {
@@ -258,20 +355,54 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
         }
       };
 
-      // Construir request de promoção
-      const request: PromoteToCouncilorRequest = {
+      // ============================================================
+      // NEW: Call POST /api/councilors/promote directly
+      // ============================================================
+      const promoteRequest: PromoteToCouncilorInstanceRequest = {
+        agent_id: this.agent.id,
         councilor_config: councilorConfig,
         customization: {
           display_name: this.displayName
-        }
+        },
+        cwd: this.projectPath.trim() || undefined  // Working directory for execution
       };
 
-      // Emitir evento de promoção
-      this.promote.emit(request);
+      console.log('🏛️ [PROMOTE COUNCILOR] Chamando POST /api/councilors/promote...', promoteRequest);
 
-      console.log('✅ [PROMOTE COUNCILOR] Promoção solicitada:', request);
+      const response = await fetch('/api/councilors/promote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(promoteRequest)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Falha ao promover: ${response.status}`);
+      }
+
+      const result: PromoteToCouncilorInstanceResponse = await response.json();
+
+      console.log('✅ [PROMOTE COUNCILOR] Promoção concluída:', result);
+      console.log(`   - Instance ID: ${result.instance_id}`);
+      console.log(`   - Screenplay ID: ${result.screenplay_id}`);
+      console.log(`   - Conversation ID: ${result.conversation_id}`);
+
+      // Emitir evento com resultado completo (para parent component atualizar)
+      this.promoteInstance.emit(result);
+
+      // LEGACY: Também emitir evento antigo para compatibilidade
+      const legacyRequest: PromoteToCouncilorRequest = {
+        councilor_config: councilorConfig,
+        customization: { display_name: this.displayName }
+      };
+      this.promote.emit(legacyRequest);
+
+      // Fechar modal após sucesso
+      this.onClose();
+
     } catch (error) {
       console.error('❌ [PROMOTE COUNCILOR] Erro ao promover:', error);
+      this.errorMessage = error instanceof Error ? error.message : 'Erro desconhecido ao promover conselheiro';
     } finally {
       this.isSubmitting = false;
       this.updateFooterButtons();
@@ -283,25 +414,25 @@ export class PromoteCouncilorModalComponent extends BaseModalComponent implement
   // ============================================================
 
   /**
-   * Fecha o modal emitindo evento closeModal.
+   * Fecha o modal emitindo eventos close e closeModal.
    * @override
    */
   override onClose(): void {
-    this.closeModal.emit();
+    if (this.isSubmitting) return;
+
+    this.close.emit();     // Compatibilidade com template que usa (close)
+    this.closeModal.emit(); // Padrao BaseModalComponent
     super.onClose();
   }
 
   /**
    * Manipula clique no backdrop.
-   * Previne fechamento se modal estiver processando.
+   * SEMPRE previne fechamento - usuario deve usar o X ou Cancelar.
    * @override
    */
   public override onBackdropClick(event: Event): void {
-    if (this.preventBackdropClose()) {
-      event.stopPropagation();
-      return;
-    }
-    super.onBackdropClick(event);
+    // Sempre previne fechamento pelo backdrop neste modal
+    event.stopPropagation();
   }
 
   /**

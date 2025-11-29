@@ -6,7 +6,12 @@
         <h2>🏛️ Conselho</h2>
         <p class="subtitle">Conselheiros ativos monitorando o projeto</p>
       </div>
-      <button class="close-btn" (click)="onClose()" title="Fechar">×</button>
+      <div class="header-actions">
+        <button class="icon-btn refresh-btn" (click)="refresh()" title="Recarregar" [disabled]="isLoading">
+          🔄
+        </button>
+        <button class="close-btn" (click)="onClose()" title="Fechar">×</button>
+      </div>
     </div>
 
     <!-- Body -->
@@ -18,15 +23,19 @@
       </div>
 
       <!-- Error State -->
-      <div *ngIf="errorMessage" class="error-state">
-        <p>❌ {{ errorMessage }}</p>
+      <div *ngIf="errorMessage && !isLoading" class="error-state">
+        <div class="error-content">
+          <span class="error-icon">❌</span>
+          <p>{{ errorMessage }}</p>
+          <button class="btn btn-small" (click)="clearError()">Fechar</button>
+        </div>
       </div>
 
       <!-- Empty State -->
-      <div *ngIf="!isLoading && councilors.length === 0" class="empty-state">
+      <div *ngIf="!isLoading && councilors.length === 0 && !errorMessage" class="empty-state">
         <div class="empty-icon">🏛️</div>
         <h3>Nenhum conselheiro ativo</h3>
-        <p>Promova um agente para conselheiro e configure tarefas automáticas de monitoramento.</p>
+        <p>Promova um agente para conselheiro e configure tarefas automaticas de monitoramento.</p>
         <button class="btn btn-primary" (click)="onPromoteNew()">
           ⭐ Promover Primeiro Conselheiro
         </button>
@@ -44,7 +53,7 @@
             <div class="councilor-info">
               <div class="councilor-avatar">
                 <span class="avatar-emoji">{{ councilor.emoji }}</span>
-                <span class="status-badge">{{ getStatusEmoji(councilor) }}</span>
+                <span class="status-badge" [title]="getStatusText(councilor)">{{ getStatusEmoji(councilor) }}</span>
               </div>
               <div class="councilor-details">
                 <h3>{{ councilor.customization?.display_name || councilor.name }}</h3>
@@ -52,37 +61,60 @@
               </div>
             </div>
             <div class="card-actions">
+              <!-- Executar Agora -->
+              <button
+                class="icon-btn execute-btn"
+                (click)="executeNow(councilor)"
+                [title]="isActionInProgress(councilor.agent_id) ? getActionInProgress(councilor.agent_id) : 'Executar Agora'"
+                [disabled]="isActionInProgress(councilor.agent_id)"
+                [class.executing]="isActionInProgress(councilor.agent_id)"
+              >
+                {{ isActionInProgress(councilor.agent_id) ? '⏳' : '🚀' }}
+              </button>
+              <!-- Ver Relatorio -->
               <button
                 class="icon-btn"
                 (click)="viewLastReport(councilor)"
-                title="Ver Último Relatório"
+                title="Ver Ultimo Relatorio"
+                [disabled]="isActionInProgress(councilor.agent_id)"
               >
                 📋
               </button>
+              <!-- Editar -->
               <button
                 class="icon-btn"
                 (click)="editCouncilor(councilor)"
-                title="Editar Configuração"
+                title="Editar Configuracao"
+                [disabled]="isActionInProgress(councilor.agent_id)"
               >
                 ⚙️
               </button>
+              <!-- Pausar/Retomar -->
               <button
-                *ngIf="councilor.councilor_config && councilor.councilor_config.schedule && councilor.councilor_config.schedule.enabled"
+                *ngIf="councilor.councilor_config?.schedule?.enabled"
                 class="icon-btn"
                 (click)="pauseCouncilor(councilor)"
                 title="Pausar"
+                [disabled]="isActionInProgress(councilor.agent_id)"
               >
                 ⏸️
               </button>
               <button
-                *ngIf="councilor.councilor_config && councilor.councilor_config.schedule && !councilor.councilor_config.schedule.enabled"
+                *ngIf="councilor.councilor_config?.schedule && !councilor.councilor_config?.schedule?.enabled"
                 class="icon-btn"
                 (click)="resumeCouncilor(councilor)"
                 title="Retomar"
+                [disabled]="isActionInProgress(councilor.agent_id)"
               >
                 ▶️
               </button>
             </div>
+          </div>
+
+          <!-- Action In Progress Indicator -->
+          <div *ngIf="isActionInProgress(councilor.agent_id)" class="action-progress">
+            <div class="progress-bar"></div>
+            <span class="progress-text">{{ getActionInProgress(councilor.agent_id) }}</span>
           </div>
 
           <!-- Card Body -->
@@ -94,14 +126,16 @@
                 <span class="value">{{ councilor.councilor_config?.task?.name || 'N/A' }}</span>
               </div>
               <div class="info-item">
-                <span class="label">Última execução:</span>
+                <span class="label">Ultima execucao:</span>
                 <span class="value">
                   {{ formatRelativeTime(councilor.stats?.last_execution) }}
                 </span>
               </div>
               <div class="info-item">
-                <span class="label">Próxima execução:</span>
-                <span class="value">{{ getNextExecution(councilor) }}</span>
+                <span class="label">Proxima execucao:</span>
+                <span class="value" [class.paused]="!councilor.councilor_config?.schedule?.enabled">
+                  {{ getNextExecution(councilor) }}
+                </span>
               </div>
             </div>
 
@@ -109,10 +143,12 @@
             <div class="stats-row">
               <div class="stat-item">
                 <div class="stat-value">{{ councilor.stats?.total_executions || 0 }}</div>
-                <div class="stat-label">Execuções</div>
+                <div class="stat-label">Execucoes</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ councilor.stats?.success_rate || 0 }}%</div>
+                <div class="stat-value" [class.success]="(councilor.stats?.success_rate || 0) >= 90" [class.warning]="(councilor.stats?.success_rate || 0) >= 70 && (councilor.stats?.success_rate || 0) < 90" [class.error]="(councilor.stats?.success_rate || 0) < 70 && councilor.stats?.total_executions">
+                  {{ (councilor.stats?.success_rate || 0).toFixed(0) }}%
+                </div>
                 <div class="stat-label">Taxa de Sucesso</div>
               </div>
               <div class="stat-item">
@@ -126,8 +162,12 @@
 
           <!-- Card Footer -->
           <div class="card-footer">
-            <button class="btn-text btn-danger" (click)="demoteCouncilor(councilor)">
-              Remover do Conselho
+            <button
+              class="btn-text btn-danger"
+              (click)="demoteCouncilor(councilor)"
+              [disabled]="isActionInProgress(councilor.agent_id)"
+            >
+              🔻 Remover do Conselho
             </button>
           </div>
         </div>
@@ -147,15 +187,18 @@
     <!-- Modals -->
     <app-councilor-report-modal
       *ngIf="showReportModal"
+      [isVisible]="showReportModal"
       [report]="selectedReport"
       [councilorName]="selectedCouncilor?.customization?.display_name || selectedCouncilor?.name || ''"
       (close)="closeReportModal()"
+      (closeModal)="closeReportModal()"
     ></app-councilor-report-modal>
 
     <app-councilor-edit-modal
       *ngIf="showEditModal"
+      [isVisible]="showEditModal"
       [councilor]="selectedCouncilor"
-      (close)="closeEditModal()"
+      (closeModal)="closeEditModal()"
       (save)="saveCouncilorConfig($event)"
     ></app-councilor-edit-modal>
   </div>

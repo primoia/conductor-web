@@ -14,6 +14,7 @@ export interface Agent {
   prompt?: string;
   model?: string;
   isSystemDefault?: boolean; // Flag for system/custom agents
+  is_councilor?: boolean; // Flag indicating agent is promoted to councilor
 }
 
 /**
@@ -102,7 +103,8 @@ export class AgentService {
           emoji: agent.emoji || '🤖',
           description: agent.description || agent.prompt || '',
           prompt: agent.prompt,
-          model: agent.model
+          model: agent.model,
+          is_councilor: agent.is_councilor || false  // Flag for councilor status
         }));
       }),
       catchError(error => {

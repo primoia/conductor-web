@@ -195,6 +195,7 @@
       <app-agent-selector-modal
         [isVisible]="showAgentSelector"
         [screenplayWorkingDirectory]="currentWorkingDirectory"
+        [excludeCouncilors]="isSelectingAgentForPromotion"
         (agentSelected)="onAgentSelected($event)"
         (close)="closeAgentSelector()">
       </app-agent-selector-modal>
@@ -351,6 +352,7 @@
       <!-- Promote Councilor Modal -->
       <app-promote-councilor-modal
         *ngIf="showPromoteCouncilorModal"
+        [isVisible]="showPromoteCouncilorModal"
         [agent]="selectedAgentForPromotion"
         (promote)="handlePromoteCouncilor($event)"
         (close)="closePromoteCouncilorModal()"

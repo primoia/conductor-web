@@ -206,6 +206,97 @@ export interface PromoteToCouncilorRequest {
   };
 }
 
+// ========== Instance-Based Councilor Types (NEW) ==========
+
+/**
+ * Councilor Instance stored in agent_instances collection.
+ * Unlike legacy councilors (stored in agents), instances have:
+ * - Dedicated screenplay_id for execution context
+ * - Dedicated conversation_id for history
+ * - Full audit trail
+ */
+export interface CouncilorInstance {
+  /** Unique instance ID (e.g., "councilor_quality_agent_1732900000") */
+  instance_id: string;
+
+  /** Agent template ID */
+  agent_id: string;
+
+  /** Screenplay ID for execution context - REQUIRED */
+  screenplay_id: string;
+
+  /** Conversation ID for history - REQUIRED */
+  conversation_id: string;
+
+  /** Flag to identify this as a councilor instance */
+  is_councilor_instance: true;
+
+  /** Councilor configuration */
+  councilor_config: CouncilorConfig;
+
+  /** Visual customization */
+  customization?: {
+    enabled?: boolean;
+    display_name?: string;
+    avatar_url?: string;
+    color?: string;
+  };
+
+  /** Execution statistics */
+  stats?: {
+    total_executions: number;
+    last_execution?: Date | string;
+    success_rate: number;
+  };
+
+  /** Current status */
+  status?: 'idle' | 'running' | 'paused';
+
+  /** Timestamps */
+  created_at?: string;
+  updated_at?: string;
+
+  // Agent template data (from join with agents collection)
+  agent_name?: string;
+  agent_emoji?: string;
+  agent_description?: string;
+}
+
+/**
+ * Response from POST /api/councilors/promote
+ */
+export interface PromoteToCouncilorInstanceResponse {
+  success: boolean;
+  message: string;
+  instance_id?: string;
+  screenplay_id?: string;
+  conversation_id?: string;
+}
+
+/**
+ * Response from GET /api/councilors/instances
+ */
+export interface CouncilorInstanceListResponse {
+  instances: CouncilorInstance[];
+  count: number;
+}
+
+/**
+ * Request payload for POST /api/councilors/promote
+ */
+export interface PromoteToCouncilorInstanceRequest {
+  agent_id: string;
+  councilor_config: CouncilorConfig;
+  customization?: {
+    display_name?: string;
+    avatar_url?: string;
+    color?: string;
+  };
+  /** Working directory for agent execution (project path) */
+  cwd?: string;
+}
+
+
 /**
  * Presets de agentes investigadores disponíveis
  */
