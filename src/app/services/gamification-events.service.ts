@@ -331,18 +331,9 @@ export class GamificationEventsService {
         break;
 
       case 'agent_execution_started':
-        // Regular agent execution started (DEBUG level)
-        this.pushEvent({
-          id: this.generateId(),
-          title: `${event.data.agent_name || event.data.agent_id} - Executando...`,
-          severity: 'info',
-          timestamp: Date.now(),
-          meta: event.data,
-          category: 'analysis',
-          level: event.data.level || 'debug',
-          agentEmoji: event.data.agent_emoji || '🤖',
-          agentName: event.data.agent_name || event.data.agent_id
-        });
+        // IGNORED: Redundant with task_started from Watcher which is more precise
+        // (task_started fires when processing actually starts, not just when task is created)
+        console.log('⏭️ Ignoring agent_execution_started (use task_started instead)');
         break;
 
       case 'agent_execution_completed':
