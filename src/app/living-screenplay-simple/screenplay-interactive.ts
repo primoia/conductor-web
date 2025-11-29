@@ -331,20 +331,90 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // Fase 3: abrir modal a partir do ticker
-  onTickerSelect(ev: GamificationEvent): void {
+  // Fase 3: abrir modal a partir do ticker + navegação contextual
+  async onTickerSelect(ev: GamificationEvent): Promise<void> {
+    const meta = ev.meta as Record<string, unknown> | undefined;
+
+    // Check if we have navigation data
+    const screenplayId = meta?.['screenplay_id'] as string | undefined;
+    const conversationId = meta?.['conversation_id'] as string | undefined;
+    const instanceId = meta?.['instance_id'] as string | undefined;
+
+    // If we have navigation data, navigate to context
+    if (screenplayId || conversationId || instanceId) {
+      console.log('🧭 Navegando para contexto:', { screenplayId, conversationId, instanceId });
+
+      // 1. Load screenplay if different from current
+      if (screenplayId && screenplayId !== this.currentScreenplay?.id) {
+        try {
+          await this.loadScreenplayByIdFromNavigation(screenplayId);
+          console.log('📜 Screenplay carregado:', screenplayId);
+        } catch (err) {
+          console.warn('⚠️ Falha ao carregar screenplay:', err);
+        }
+      }
+
+      // 2. Select conversation in chat
+      if (conversationId && this.conductorChat) {
+        try {
+          this.conductorChat.selectConversation(conversationId);
+          console.log('💬 Conversa selecionada:', conversationId);
+        } catch (err) {
+          console.warn('⚠️ Falha ao selecionar conversa:', err);
+        }
+      }
+
+      // 3. Highlight agent in dock (if instance exists)
+      if (instanceId) {
+        this.highlightAgentInDock(instanceId);
+      }
+
+      // Show notification
+      const agentName = ev.agentName || meta?.['agent_name'] as string || 'Agente';
+      console.log(`📣 [INFO] Navegando para ${agentName}`);
+    }
+
     // Extract task_id from event meta (execution_id)
-    const taskId = (ev.meta as any)?.execution_id || ev.id;
+    const taskId = meta?.['execution_id'] as string || ev.id;
 
     this.reportData = {
       title: ev.title,
       timestamp: ev.timestamp,
       severity: ev.severity,
-      taskId: taskId,  // ← NOVO: Passa taskId para o modal buscar detalhes completos
+      taskId: taskId,  // Passa taskId para o modal buscar detalhes completos
       details: ev.meta || null,
-      summary: ev.summary || (typeof (ev.meta as any)?.['result'] === 'string' ? (ev.meta as any)['result'] : null),
+      summary: ev.summary || (typeof meta?.['result'] === 'string' ? meta['result'] : null),
     } as any;
     this.showReportModal = true;
+  }
+
+  /**
+   * Highlight an agent in the dock temporarily
+   */
+  private highlightAgentInDock(instanceId: string): void {
+    // Find agent in contextualAgents
+    const agent = this.contextualAgents.find(a => a.id === instanceId);
+    if (agent && this.conductorChat) {
+      console.log('🎯 Destacando agente no dock:', instanceId);
+    }
+  }
+
+  /**
+   * Load a screenplay by ID (for navigation from ticker)
+   */
+  private async loadScreenplayByIdFromNavigation(screenplayId: string): Promise<void> {
+    const response = await fetch(`/api/screenplays/${screenplayId}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.screenplay) {
+        // Use existing load mechanism
+        this.currentScreenplay = data.screenplay;
+        this.editorContent = data.screenplay.content || '';
+        this.isDirty = false;
+      }
+    } else {
+      throw new Error(`Screenplay not found: ${screenplayId}`);
+    }
   }
 
   // Fase 4: Investigação a partir do ticker

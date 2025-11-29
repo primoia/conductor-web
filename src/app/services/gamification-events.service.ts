@@ -7,6 +7,7 @@ import { GamificationWebSocketService, GamificationWebSocketEvent } from './gami
 
 export type GamificationSeverity = 'info' | 'warning' | 'error';
 export type EventLevel = 'debug' | 'info' | 'result'; // Log levels
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'error'; // Task execution status
 
 export interface GamificationEvent {
   id: string;
@@ -19,6 +20,7 @@ export interface GamificationEvent {
   summary?: string; // Resumo para exibição em formato news
   agentEmoji?: string; // Emoji do agente
   agentName?: string; // Nome do agente
+  status?: TaskStatus; // Status da execução (para UI rica com cores e animações)
 }
 
 @Injectable({ providedIn: 'root' })
@@ -75,7 +77,30 @@ export class GamificationEventsService {
     // Check for duplicates based on execution_id in meta
     if (!skipDuplicateCheck && event.meta?.['execution_id']) {
       const executionId = event.meta['execution_id'] as string;
+
+      // For task status updates (task_completed, task_error), UPDATE existing event instead of skipping
       if (this.seenExecutionIds.has(executionId)) {
+        const newStatus = event.status;
+
+        // If this is a status update (completed/error), update the existing event
+        if (newStatus === 'completed' || newStatus === 'error') {
+          console.log(`🔄 Updating event status for execution_id: ${executionId} -> ${newStatus}`);
+          const list = this.eventsSubject.value.map(ev => {
+            if (ev.meta?.['execution_id'] === executionId) {
+              return {
+                ...ev,
+                ...event,
+                // Keep original timestamp for ordering, but update everything else
+                id: ev.id
+              };
+            }
+            return ev;
+          });
+          this.eventsSubject.next(list);
+          return;
+        }
+
+        // For other duplicates, skip
         console.log(`⏭️ Skipping duplicate event for execution_id: ${executionId}`);
         return;
       }
@@ -354,6 +379,68 @@ export class GamificationEventsService {
       case 'agent_metrics_updated':
         // Agent metrics updated (future use)
         console.log('📊 Agent metrics updated:', event.data);
+        break;
+
+      case 'task_started':
+        // Task execution started (from Watcher)
+        console.log('📡 [DEBUG] task_started raw data:', JSON.stringify(event.data, null, 2));
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `🔄 ${event.data.agent_name || event.data.agent_id} - Executando...`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'analysis',
+          level: 'debug',
+          summary: 'Tarefa iniciada, aguardando resultado...',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'processing'
+        });
+        break;
+
+      case 'task_completed':
+        // Task execution completed successfully (from Watcher)
+        const taskDurationSec = Math.round((event.data.duration_ms || 0) / 1000);
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `✅ ${event.data.agent_name || event.data.agent_id} - Concluído (${taskDurationSec}s)`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'success',
+          level: 'result',
+          summary: event.data.result_summary || 'Tarefa concluída com sucesso',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'completed'
+        });
+        break;
+
+      case 'task_error':
+        // Task execution failed (from Watcher)
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `❌ ${event.data.agent_name || event.data.agent_id} - Erro`,
+          severity: 'error',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'critical',
+          level: 'result',
+          summary: event.data.result_summary || 'Falha na execução da tarefa',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'error'
+        });
         break;
 
       case 'system_alert':

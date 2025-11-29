@@ -1,5 +1,5 @@
     <div class="screenplay-layout" [class.screenplay-modal-active]="screenplayModalOpen">
-      <div class="screenplay-container" [style.width.%]="screenplayWidth" [class.first-column-hidden]="!firstColumnVisible">
+      <div class="screenplay-container" [class.first-column-hidden]="!firstColumnVisible">
         <!-- Coluna 1: Sistema de Abas -->
         <div class="first-column">
           <!-- Tab Navigation -->
@@ -226,7 +226,7 @@
       </app-export-modal>
 
       <!-- Third Column: Chat + Footer -->
-      <div class="third-column" [style.width.%]="chatWidth">
+      <div class="third-column">
         <!-- Chat Panel with Agent Dock -->
         <div class="chat-panel">
           <app-conductor-chat
@@ -243,20 +243,19 @@
             (toggleFirstColumnRequested)="toggleFirstColumn()">
           </app-conductor-chat>
         </div>
+      </div>
 
-        <!-- Editor Footer - Abaixo do chat-panel, dentro da third-column -->
-        <div class="editor-footer">
-          <app-gamified-panel
-            [refreshMs]="30000"
-            [isSaving]="isSaving"
-            [isDirty]="isDirty"
-            [hasCurrentScreenplay]="!!currentScreenplay"
-            [showStatusInHeaderWhenCollapsed]="true"
-            (settings)="openAgentPersonalization()"
-            (stateChange)="onPanelStateChange($event)"
-            (loadScreenplay)="onLoadProjectScreenplay()">
-            <app-event-ticker [isExpanded]="isPanelExpanded" (select)="onTickerSelect($event)" (investigate)="onTickerInvestigate($event)"></app-event-ticker>
-          </app-gamified-panel>
+      <!-- Events Column: Agent News (right of chat) -->
+      <div class="events-column">
+        <div class="events-column-header">
+          <span class="events-title">📰 Notícias dos Agentes</span>
+        </div>
+        <div class="events-column-content">
+          <app-event-ticker
+            [isExpanded]="true"
+            (select)="onTickerSelect($event)"
+            (investigate)="onTickerInvestigate($event)">
+          </app-event-ticker>
         </div>
       </div>
     </div>

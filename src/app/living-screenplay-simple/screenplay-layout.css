@@ -73,7 +73,8 @@
 
 .screenplay-container {
   display: flex;
-  flex: 1; /* Ocupa espaço disponível */
+  flex: 0 0 40%; /* 40% para screenplay */
+  width: 40%;
   background: #fafbfc;
   font-family: inherit !important;
   transition: width 0.1s ease-out;
@@ -204,15 +205,70 @@
   display: none; /* Remover seção inferior */
 }
 
+/* Events Column: Agent News - à direita do chat */
+.events-column {
+  display: none; /* Hidden by default */
+  flex: 0 0 30%; /* 30% fixo para notícias */
+  width: 30%;
+  height: 100vh;
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Show events column on wide screens (>1200px) */
+@media (min-width: 1200px) {
+  .events-column {
+    display: flex;
+  }
+}
+
+.events-column-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.events-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.events-column-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.events-column-content app-event-ticker {
+  flex: 1;
+  overflow: hidden;
+}
+
 /* Third Column: Container que divide verticalmente chat + footer */
 .third-column {
+  flex: 0 0 30%; /* 30% fixo para chat - igual às notícias */
+  width: 30%;
   height: 100vh;
   overflow: hidden;
   transition: width 0.1s ease-out;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column; /* Layout vertical: chat em cima, footer embaixo */
   position: relative;
+}
+
+/* Quando events-column está escondida, chat expande */
+@media (max-width: 1199px) {
+  .third-column {
+    flex: 1 !important;
+    width: auto !important;
+  }
 }
 
 /* Chat Panel: ocupa espaço disponível, encolhe quando footer expande */
@@ -913,6 +969,11 @@
 
 /* Tablets e telas médias (até 768px) - LANDSCAPE APENAS */
 @media (max-width: 768px) and (orientation: landscape) {
+  /* Esconder coluna de notícias em telas médias */
+  .events-column {
+    display: none !important;
+  }
+
   /* Manter primeira coluna com proporção correta dentro do container */
   .first-column {
     width: 42% !important; /* 42% do screenplay-container */
@@ -926,12 +987,14 @@
 
   /* Ajustar proporções das colunas */
   .screenplay-container {
-    width: 60vw !important; /* 🔥 60% da tela (25% first + 35% canvas) */
+    flex: 0 0 50% !important;
+    width: 50% !important;
+    max-width: 50% !important;
   }
 
   .third-column {
-    width: 40vw !important; /* 🔥 40% da tela em landscape */
-    max-width: 40vw !important;
+    flex: 1 !important;
+    min-width: 50% !important;
   }
 
   .agent-launcher-dock {
@@ -1078,12 +1141,16 @@
 
 /* Query 1: Orientation-based (padrão - funciona em todos tablets e mobiles) */
 @media (orientation: portrait) {
-  /* DEFAULT: Esconder screenplay e roteiros quando NÃO está em modal */
+  /* DEFAULT: Esconder screenplay, roteiros e notícias quando NÃO está em modal */
   .screenplay-layout:not(.screenplay-modal-active) .screenplay-container {
     display: none !important;
   }
 
   .screenplay-layout:not(.screenplay-modal-active) .first-column {
+    display: none !important;
+  }
+
+  .screenplay-layout:not(.screenplay-modal-active) .events-column {
     display: none !important;
   }
 
@@ -1093,6 +1160,7 @@
     max-width: 100vw;
     height: 100vh !important;
     max-height: 100vh !important;
+    flex: 1 !important;
   }
 
   .screenplay-layout {
@@ -1120,9 +1188,14 @@
   display: none !important;
 }
 
+.force-mobile-layout .events-column {
+  display: none !important;
+}
+
 .force-mobile-layout .third-column {
   width: 100% !important;
   max-width: 100vw !important;
+  flex: 1 !important;
 }
 
 .force-mobile-layout .screenplay-layout {

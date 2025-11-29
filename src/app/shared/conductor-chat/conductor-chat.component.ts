@@ -3929,6 +3929,15 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Public method to select a conversation by ID (for external navigation)
+   * Used by screenplay-interactive to navigate from ticker events
+   */
+  selectConversation(conversationId: string): void {
+    console.log('🧭 [CHAT] Navegação externa - selecionando conversa:', conversationId);
+    this.setActiveConversation(conversationId);
+  }
+
+  /**
    * Deleta uma conversa
    */
   onDeleteConversation(conversationId: string): void {

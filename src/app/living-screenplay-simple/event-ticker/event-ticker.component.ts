@@ -11,26 +11,70 @@ import { marked } from 'marked';
   imports: [CommonModule],
   template: `
     <div class="news-feed" role="log" aria-live="polite">
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <button
+          class="filter-btn"
+          [class.active]="currentFilter === 'all'"
+          (click)="setFilter('all')">
+          Todos
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="currentFilter === 'result'"
+          (click)="setFilter('result')">
+          Resultados
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="currentFilter === 'info'"
+          (click)="setFilter('info')">
+          Info
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="currentFilter === 'debug'"
+          (click)="setFilter('debug')">
+          Debug
+        </button>
+      </div>
+
       <!-- News Items -->
       <div class="news-list">
         <ng-container *ngIf="filteredEvents.length > 0; else emptyState">
-          <div
+          <a
             class="news-article"
             *ngFor="let ev of filteredEvents; trackBy: trackById"
+            [href]="getEventUrl(ev)"
             [class.expanded]="isExpanded"
             [class.error]="ev.severity === 'error'"
             [class.warning]="ev.severity === 'warning'"
-            (click)="onSelect(ev)"
-            role="button"
+            [class.status-pending]="ev.status === 'pending'"
+            [class.status-processing]="ev.status === 'processing'"
+            [class.status-completed]="ev.status === 'completed'"
+            [class.status-error]="ev.status === 'error'"
+            [class.clickable]="hasNavigationData(ev)"
+            (click)="onLinkClick(ev, $event)"
             tabindex="0">
 
             <!-- Article Header -->
             <div class="article-header">
-              <span class="agent-icon" [title]="ev.agentName || 'Agent'">{{ ev.agentEmoji || '🤖' }}</span>
-            <div class="article-meta">
-              <span class="agent-name">{{ ev.agentName || 'Sistema' }}</span>
-              <span class="time" [title]="formatAbsolute(ev.timestamp)">{{ formatRelative(ev.timestamp) }}</span>
-            </div>
+              <div class="agent-icon-container" [class.running]="ev.status === 'processing'">
+                <span class="agent-icon" [title]="ev.agentName || 'Agent'">{{ ev.agentEmoji || '🤖' }}</span>
+                <span class="running-indicator" *ngIf="ev.status === 'processing'">
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                </span>
+              </div>
+              <div class="article-meta">
+                <span class="agent-name">{{ ev.agentName || 'Sistema' }}</span>
+                <span class="time" [title]="formatAbsolute(ev.timestamp)">{{ formatRelative(ev.timestamp) }}</span>
+              </div>
+              <!-- Status Badge -->
+              <span class="status-badge" [class]="'badge-' + (ev.status || 'info')" *ngIf="ev.status">
+                {{ getStatusLabel(ev.status) }}
+              </span>
             </div>
 
             <!-- Article Title -->
@@ -41,7 +85,8 @@ import { marked } from 'marked';
 
             <!-- Debug Badge -->
             <span class="level-badge" *ngIf="ev.level === 'debug'">LOG</span>
-          </div>
+
+          </a>
         </ng-container>
 
         <ng-template #emptyState>
@@ -67,7 +112,40 @@ import { marked } from 'marked';
       background: #ffffff;
     }
 
-    /* Filter Bar styles moved to panel header */
+    /* Filter Bar */
+    .filter-bar {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .filter-btn {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .filter-btn.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #ffffff;
+      border-color: transparent;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
 
     /* News List */
     .news-list {
@@ -84,8 +162,9 @@ import { marked } from 'marked';
     .load-more { padding: 4px 10px; font-size: 11px; font-weight: 600; color: #111827; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; }
     .load-more:hover { background: #e5e7eb; }
 
-    /* News Article */
-    .news-article {
+    /* News Article (as link) */
+    a.news-article {
+      display: block;
       position: relative;
       padding: 6px 10px;
       margin: 0;
@@ -95,6 +174,8 @@ import { marked } from 'marked';
       border-radius: 6px;
       cursor: pointer;
       transition: background 0.2s ease;
+      text-decoration: none;
+      color: inherit;
     }
 
     .news-article:hover {
@@ -105,6 +186,57 @@ import { marked } from 'marked';
     .news-article.warning { border-left-color: #f59e0b; }
     .news-article.expanded { border-left-color: #3b82f6; }
 
+    /* Status-based styling */
+    .news-article.status-pending {
+      border-left-color: #f59e0b;
+      background: linear-gradient(90deg, #fef3c7 0%, transparent 15%);
+    }
+
+    .news-article.status-processing {
+      border-left-color: #3b82f6;
+      background: linear-gradient(90deg, #dbeafe 0%, transparent 15%);
+      animation: pulse-bg 2s ease-in-out infinite;
+    }
+
+    .news-article.status-completed {
+      border-left-color: #10b981;
+    }
+
+    .news-article.status-error {
+      border-left-color: #ef4444;
+      background: linear-gradient(90deg, #fee2e2 0%, transparent 15%);
+    }
+
+    @keyframes pulse-bg {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+
+    /* Clickable indicator */
+    .news-article.clickable {
+      cursor: pointer;
+    }
+
+    .news-article.clickable:hover {
+      transform: translateX(2px);
+      background: #f3f4f6;
+    }
+
+    .nav-arrow {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .news-article.clickable:hover .nav-arrow {
+      opacity: 1;
+    }
+
     /* Article Header */
     .article-header {
       display: flex;
@@ -113,9 +245,78 @@ import { marked } from 'marked';
       margin-bottom: 3px;
     }
 
+    .agent-icon-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     .agent-icon {
       font-size: 16px;
       line-height: 1;
+    }
+
+    /* Running indicator animation */
+    .running-indicator {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2px;
+    }
+
+    .running-indicator .dot {
+      width: 3px;
+      height: 3px;
+      background: #3b82f6;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+
+    .running-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+    .running-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Status Badge */
+    .status-badge {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-badge.badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-badge.badge-processing {
+      background: #dbeafe;
+      color: #1e40af;
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+
+    .status-badge.badge-completed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-badge.badge-error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
     }
 
     .article-meta {
@@ -396,7 +597,68 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
     return this.sanitizer.bypassSecurityTrustHtml(rawHtml);
   }
 
+  /**
+   * Returns a human-readable label for the task status
+   */
+  getStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      'pending': 'Aguardando',
+      'processing': 'Executando',
+      'completed': 'Concluído',
+      'error': 'Erro'
+    };
+    return labels[status] || status;
+  }
+
+  /**
+   * Checks if the event has navigation data (screenplay_id, conversation_id)
+   * to allow clicking and navigating to the context
+   */
+  hasNavigationData(ev: GamificationEvent): boolean {
+    const meta = ev.meta as Record<string, unknown> | undefined;
+    if (!meta) return false;
+    return !!(meta['screenplay_id'] || meta['conversation_id'] || meta['instance_id']);
+  }
+
   onSelect(ev: GamificationEvent): void {
+    this.select.emit(ev);
+  }
+
+  /**
+   * Builds the URL for an event (used as href for the link)
+   */
+  getEventUrl(ev: GamificationEvent): string {
+    const meta = ev.meta as Record<string, unknown> | undefined;
+    if (!meta) return '#';
+
+    // Try both naming conventions (snake_case from backend, camelCase from elsewhere)
+    const screenplayId = (meta['screenplay_id'] || meta['screenplayId']) as string | undefined;
+    const conversationId = (meta['conversation_id'] || meta['conversationId']) as string | undefined;
+    const instanceId = (meta['instance_id'] || meta['instanceId']) as string | undefined;
+
+    if (!screenplayId && !conversationId && !instanceId) {
+      return '#';
+    }
+
+    const params = new URLSearchParams();
+    if (screenplayId) params.set('screenplayId', screenplayId);
+    if (conversationId) params.set('conversationId', conversationId);
+    if (instanceId) params.set('instanceId', instanceId);
+
+    return `/screenplay?${params.toString()}`;
+  }
+
+  /**
+   * Handle left-click on link - navigate in same tab via Angular
+   */
+  onLinkClick(ev: GamificationEvent, event: MouseEvent): void {
+    // If Ctrl/Cmd+click or middle click, let browser handle (opens in new tab)
+    if (event.ctrlKey || event.metaKey || event.button === 1) {
+      return; // Let the browser handle the link normally
+    }
+
+    // For normal click, prevent default and use Angular navigation
+    event.preventDefault();
     this.select.emit(ev);
   }
 }
