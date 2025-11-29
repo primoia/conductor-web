@@ -32,7 +32,7 @@
       </div>
 
       <!-- Empty State -->
-      <div *ngIf="!isLoading && councilors.length === 0 && !errorMessage" class="empty-state">
+      <div *ngIf="!isLoading && councilors.length === 0 && councilorInstances.length === 0 && !errorMessage" class="empty-state">
         <div class="empty-icon">🏛️</div>
         <h3>Nenhum conselheiro ativo</h3>
         <p>Promova um agente para conselheiro e configure tarefas automaticas de monitoramento.</p>
@@ -41,7 +41,139 @@
         </button>
       </div>
 
-      <!-- Councilors List -->
+      <!-- NEW: Councilor Instances List -->
+      <div *ngIf="!isLoading && councilorInstances.length > 0" class="councilors-list">
+        <div
+          *ngFor="let instance of councilorInstances"
+          class="councilor-card"
+          [ngClass]="getInstanceStatusClass(instance)"
+        >
+          <!-- Card Header -->
+          <div class="card-header">
+            <div class="councilor-info">
+              <div class="councilor-avatar">
+                <span class="avatar-emoji">{{ instance.emoji || '🏛️' }}</span>
+                <span class="status-badge" [title]="getInstanceStatusText(instance)">{{ getInstanceStatusEmoji(instance) }}</span>
+              </div>
+              <div class="councilor-details">
+                <h3>{{ instance.customization?.display_name || instance.agent_name || instance.agent_id }}</h3>
+                <p class="role">{{ instance.councilor_config?.title }}</p>
+              </div>
+            </div>
+            <div class="card-actions">
+              <!-- Executar Agora -->
+              <button
+                class="icon-btn execute-btn"
+                (click)="executeInstanceNow(instance)"
+                [title]="isActionInProgress(instance.instance_id) ? getActionInProgress(instance.instance_id) : 'Executar Agora'"
+                [disabled]="isActionInProgress(instance.instance_id)"
+                [class.executing]="isActionInProgress(instance.instance_id)"
+              >
+                {{ isActionInProgress(instance.instance_id) ? '⏳' : '🚀' }}
+              </button>
+              <!-- Ver Relatorio -->
+              <button
+                class="icon-btn"
+                (click)="viewInstanceReport(instance)"
+                title="Ver Ultimo Relatorio"
+                [disabled]="isActionInProgress(instance.instance_id)"
+              >
+                📋
+              </button>
+              <!-- Editar -->
+              <button
+                class="icon-btn"
+                (click)="editInstance(instance)"
+                title="Editar Configuracao"
+                [disabled]="isActionInProgress(instance.instance_id)"
+              >
+                ⚙️
+              </button>
+              <!-- Pausar/Retomar -->
+              <button
+                *ngIf="instance.councilor_config?.schedule?.enabled"
+                class="icon-btn"
+                (click)="pauseInstance(instance)"
+                title="Pausar"
+                [disabled]="isActionInProgress(instance.instance_id)"
+              >
+                ⏸️
+              </button>
+              <button
+                *ngIf="instance.councilor_config?.schedule && !instance.councilor_config?.schedule?.enabled"
+                class="icon-btn"
+                (click)="resumeInstance(instance)"
+                title="Retomar"
+                [disabled]="isActionInProgress(instance.instance_id)"
+              >
+                ▶️
+              </button>
+            </div>
+          </div>
+
+          <!-- Action In Progress Indicator -->
+          <div *ngIf="isActionInProgress(instance.instance_id)" class="action-progress">
+            <div class="progress-bar"></div>
+            <span class="progress-text">{{ getActionInProgress(instance.instance_id) }}</span>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body">
+            <!-- Task Info -->
+            <div class="task-info">
+              <div class="info-item">
+                <span class="label">Tarefa:</span>
+                <span class="value">{{ instance.councilor_config?.task?.name || 'N/A' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="label">Ultima execucao:</span>
+                <span class="value">
+                  {{ formatRelativeTime(instance.statistics?.last_execution || instance.last_execution) }}
+                </span>
+              </div>
+              <div class="info-item">
+                <span class="label">Proxima execucao:</span>
+                <span class="value" [class.paused]="!instance.councilor_config?.schedule?.enabled">
+                  {{ getInstanceNextExecution(instance) }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+              <div class="stat-item">
+                <div class="stat-value">{{ instance.statistics?.total_executions || instance.statistics?.task_count || 0 }}</div>
+                <div class="stat-label">Execucoes</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value" [class.success]="(instance.statistics?.success_rate || 0) >= 90" [class.warning]="(instance.statistics?.success_rate || 0) >= 70 && (instance.statistics?.success_rate || 0) < 90" [class.error]="(instance.statistics?.success_rate || 0) < 70 && instance.statistics?.total_executions">
+                  {{ (instance.statistics?.success_rate || 0).toFixed(0) }}%
+                </div>
+                <div class="stat-label">Taxa de Sucesso</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">
+                  {{ instance.councilor_config?.schedule?.value || 'N/A' }}
+                </div>
+                <div class="stat-label">Intervalo</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="card-footer">
+            <button
+              class="btn-text btn-danger"
+              (click)="demoteInstance(instance)"
+              [disabled]="isActionInProgress(instance.instance_id)"
+            >
+              🔻 Remover do Conselho
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEGACY: Councilors List (for backwards compatibility) -->
       <div *ngIf="!isLoading && councilors.length > 0" class="councilors-list">
         <div
           *ngFor="let councilor of councilors"
@@ -177,7 +309,7 @@
     <!-- Footer -->
     <div class="dashboard-footer">
       <div class="footer-info">
-        <span>{{ councilors.length }} conselheiro(s) ativo(s)</span>
+        <span>{{ councilorInstances.length + councilors.length }} conselheiro(s) ativo(s)</span>
       </div>
       <button class="btn btn-secondary" (click)="onPromoteNew()">
         ⭐ Promover Novo Conselheiro

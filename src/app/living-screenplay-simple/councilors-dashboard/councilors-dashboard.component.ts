@@ -509,7 +509,7 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
   getInstanceStatusClass(instance: CouncilorInstance): string {
     if (this.isActionInProgress(instance.instance_id)) return 'status-running';
     if (!instance.councilor_config?.schedule.enabled) return 'status-paused';
-    if (!instance.stats?.last_execution) return 'status-pending';
+    if (!instance.statistics?.last_execution && !instance.last_execution) return 'status-pending';
     return 'status-active';
   }
 
@@ -520,7 +520,7 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
     if (this.isActionInProgress(instance.instance_id)) return '⏳';
     if (!instance.councilor_config?.schedule.enabled) return '⏸️';
 
-    const successRate = instance.stats?.success_rate;
+    const successRate = instance.statistics?.success_rate;
     if (successRate === undefined) return '🔵';
     if (successRate >= 90) return '✅';
     if (successRate >= 70) return '⚠️';
@@ -536,9 +536,126 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
     }
     if (!instance.councilor_config?.schedule.enabled) return 'Pausado';
 
-    const successRate = instance.stats?.success_rate;
+    const successRate = instance.statistics?.success_rate;
     if (successRate === undefined) return 'Aguardando';
     return `${successRate.toFixed(0)}% sucesso`;
+  }
+
+  // ========== Instance action methods (NEW) ==========
+
+  /**
+   * Alias para demoteCouncilorInstance (usado no template)
+   */
+  demoteInstance(instance: CouncilorInstance): void {
+    this.demoteCouncilorInstance(instance);
+  }
+
+  /**
+   * Ver relatório de uma instance
+   */
+  viewInstanceReport(instance: CouncilorInstance): void {
+    this.selectedInstance = instance;
+    this.isLoadingReport = true;
+    this.showReportModal = true;
+    this.selectedReport = null;
+    this.errorMessage = '';
+
+    // Use agent_id for report (same endpoint as legacy)
+    this.councilorScheduler.getCouncilorReport(instance.agent_id).subscribe({
+      next: (report) => {
+        console.log('📋 Relatorio de instance carregado:', report);
+        this.selectedReport = report;
+        this.isLoadingReport = false;
+      },
+      error: (error) => {
+        console.error('❌ Erro ao carregar relatorio de instance:', error);
+        this.errorMessage = 'Erro ao carregar relatorio';
+        this.isLoadingReport = false;
+        this.showReportModal = false;
+      }
+    });
+  }
+
+  /**
+   * Editar configuração de uma instance
+   */
+  editInstance(instance: CouncilorInstance): void {
+    console.log('⚙️ Editando instance:', instance);
+    this.selectedInstance = instance;
+    // TODO: Implement instance edit modal
+    this.errorMessage = 'Edição de instances ainda não implementada';
+  }
+
+  /**
+   * Pausar uma instance
+   */
+  async pauseInstance(instance: CouncilorInstance): Promise<void> {
+    if (this.isActionInProgress(instance.instance_id)) return;
+
+    this.actionInProgress[instance.instance_id] = 'Pausando...';
+    this.errorMessage = '';
+
+    try {
+      const response = await fetch(`/api/councilors/instances/${instance.instance_id}/schedule`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Falha ao pausar: ${response.status}`);
+      }
+
+      const displayName = instance.customization?.display_name || instance.agent_name;
+      console.log(`⏸️ Instance ${displayName} pausada`);
+
+      // Atualizar status localmente
+      if (instance.councilor_config) {
+        instance.councilor_config.schedule.enabled = false;
+      }
+    } catch (error) {
+      const displayName = instance.customization?.display_name || instance.agent_name || instance.instance_id;
+      console.error('Erro ao pausar instance:', error);
+      this.errorMessage = `Erro ao pausar ${displayName}`;
+    } finally {
+      delete this.actionInProgress[instance.instance_id];
+    }
+  }
+
+  /**
+   * Retomar uma instance
+   */
+  async resumeInstance(instance: CouncilorInstance): Promise<void> {
+    if (this.isActionInProgress(instance.instance_id)) return;
+
+    this.actionInProgress[instance.instance_id] = 'Retomando...';
+    this.errorMessage = '';
+
+    try {
+      const response = await fetch(`/api/councilors/instances/${instance.instance_id}/schedule`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: true })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Falha ao retomar: ${response.status}`);
+      }
+
+      const displayName = instance.customization?.display_name || instance.agent_name;
+      console.log(`▶️ Instance ${displayName} retomada`);
+
+      // Atualizar status localmente
+      if (instance.councilor_config) {
+        instance.councilor_config.schedule.enabled = true;
+      }
+    } catch (error) {
+      const displayName = instance.customization?.display_name || instance.agent_name || instance.instance_id;
+      console.error('Erro ao retomar instance:', error);
+      this.errorMessage = `Erro ao retomar ${displayName}`;
+    } finally {
+      delete this.actionInProgress[instance.instance_id];
+    }
   }
 
   /**

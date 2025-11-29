@@ -242,12 +242,53 @@ export interface CouncilorInstance {
     color?: string;
   };
 
-  /** Execution statistics */
+  /** Working directory for execution */
+  cwd?: string;
+
+  /** Emoji for display */
+  emoji?: string;
+
+  /** Display order in list */
+  display_order?: number;
+
+  /** Definition data from agent */
+  definition?: {
+    title?: string;
+    description?: string;
+    unicode?: string;
+  };
+
+  /** Visual position */
+  position?: {
+    x: number;
+    y: number;
+  };
+
+  /** Execution statistics (NEW normalized format) */
+  statistics?: {
+    task_count: number;
+    total_execution_time: number;
+    average_execution_time: number;
+    last_task_duration: number;
+    last_task_completed_at?: string;
+    success_count: number;
+    error_count: number;
+    last_exit_code?: number;
+    // Councilor-specific
+    total_executions: number;
+    success_rate: number;
+    last_execution?: string;
+  };
+
+  /** Execution statistics (LEGACY - for backwards compatibility) */
   stats?: {
     total_executions: number;
     last_execution?: Date | string;
     success_rate: number;
   };
+
+  /** Last execution timestamp (top-level) */
+  last_execution?: string;
 
   /** Current status */
   status?: 'idle' | 'running' | 'paused';
