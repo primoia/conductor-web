@@ -383,7 +383,6 @@ export class GamificationEventsService {
 
       case 'task_started':
         // Task execution started (from Watcher)
-        console.log('📡 [DEBUG] task_started raw data:', JSON.stringify(event.data, null, 2));
         this.pushEvent({
           id: event.data.task_id || this.generateId(),
           title: `🔄 ${event.data.agent_name || event.data.agent_id} - Executando...`,
