@@ -585,57 +585,32 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Promove agente a conselheiro
+   * Promove agente a conselheiro (LEGACY callback)
    * Chamado pelo PromoteCouncilorModalComponent via (promote) event
+   *
+   * NOTA: O modal agora chama POST /api/councilors/promote internamente.
+   * Este handler apenas mostra notificação e atualiza a UI.
+   * NÃO deve chamar endpoint legado para evitar duplicação.
    */
   async handlePromoteCouncilor(request: any): Promise<void> {
     if (!this.selectedAgentForPromotion) {
       console.error('❌ [COUNCILOR] Nenhum agente selecionado para promocao');
-      this.notificationService.showError('Nenhum agente selecionado');
       return;
     }
 
-    const agentId = this.selectedAgentForPromotion.id;
     const displayName = request.customization?.display_name || this.selectedAgentForPromotion.name;
 
-    console.log(`⭐ [COUNCILOR] Promovendo agente ${agentId} a conselheiro:`, request);
+    console.log(`⭐ [COUNCILOR] Promocao concluida pelo modal para: ${displayName}`);
 
-    try {
-      const response = await fetch(`/api/councilors/${agentId}/promote-councilor`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(request)
-      });
+    // Mostrar notificacao de sucesso
+    this.notificationService.showSuccess(`${displayName} promovido a conselheiro!`);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.detail || `Erro ${response.status}: ${response.statusText}`;
-        throw new Error(errorMessage);
-      }
+    // Fechar modal e abrir dashboard
+    this.closePromoteCouncilorModal();
+    this.showCouncilorsDashboard = true;
 
-      const result = await response.json();
-      console.log('✅ [COUNCILOR] Agente promovido com sucesso:', result);
-
-      // Mostrar notificacao de sucesso
-      this.notificationService.showSuccess(`${displayName} promovido a conselheiro!`);
-
-      // Fechar modal e abrir dashboard
-      this.closePromoteCouncilorModal();
-      this.showCouncilorsDashboard = true;
-
-      // Recarregar conselheiros no scheduler
-      await this.councilorScheduler.initialize();
-
-    } catch (error) {
-      console.error('❌ [COUNCILOR] Erro ao promover agente:', error);
-
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      this.notificationService.showError(`Erro ao promover conselheiro: ${errorMessage}`);
-
-      // Nao fecha o modal em caso de erro - usuario pode tentar novamente
-    }
+    // Recarregar conselheiros no scheduler
+    await this.councilorScheduler.initialize();
   }
 
   // Specialized loggers for different contexts
