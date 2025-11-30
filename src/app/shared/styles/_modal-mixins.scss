@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: center;
   z-index: $modal-backdrop-z-index;
-  backdrop-filter: blur($modal-backdrop-blur);
+  // REMOVIDO: backdrop-filter: blur() - muito pesado para performance
   animation: backdropFadeIn $modal-backdrop-fade-duration $modal-animation-easing;
 
   @keyframes backdropFadeIn {

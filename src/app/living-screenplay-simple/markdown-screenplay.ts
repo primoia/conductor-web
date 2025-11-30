@@ -281,7 +281,7 @@ interface ModalData {
     .control-panel {
       width: 300px;
       background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
+      /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
       border-right: 1px solid rgba(255, 255, 255, 0.1);
       padding: 20px;
       overflow-y: auto;
@@ -622,7 +622,7 @@ interface ModalData {
       min-width: 300px;
       z-index: 1001;
       animation: modalFadeIn 0.3s ease;
-      backdrop-filter: blur(10px);
+      /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
     }
 
     .modal-header {
@@ -754,7 +754,7 @@ interface ModalData {
       background: rgba(0, 123, 255, 0.8);
       border: 2px solid rgba(255, 255, 255, 0.9);
       box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
-      backdrop-filter: blur(8px);
+      /* REMOVIDO: backdrop-filter: blur(8px); - performance issue */
     }
 
     .interactive-circle:hover {

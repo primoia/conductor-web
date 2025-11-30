@@ -255,7 +255,7 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  /* REMOVIDO: backdrop-filter: blur(4px); - performance issue */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -773,7 +773,7 @@
   animation: miniMapPopupFadeIn 0.2s ease-out;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
   font-size: 12px;
   line-height: 1.4;
 }

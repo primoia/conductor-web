@@ -209,7 +209,7 @@ $btn-danger-hover-bg: #c82333;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(4px);
+  /* REMOVIDO: backdrop-filter: blur(4px); - causa problemas de performance */
   animation: backdropFadeIn 0.3s ease-out;
 }
 
@@ -224,7 +224,7 @@ $btn-danger-hover-bg: #c82333;
 ```
 
 **Requisitos:**
-- Backdrop **DEVE** ter `backdrop-filter: blur(4px)` para efeito de desfoque
+- Backdrop **NÃO DEVE** usar `backdrop-filter: blur()` - causa problemas severos de performance
 - Z-index **DEVE** ser 1000 (reservado para modais)
 - Animação de entrada **DEVE** ser `backdropFadeIn` com duração de 0.3s
 

@@ -4,7 +4,7 @@
     background: rgba(255, 255, 255, 0.95);
     border-radius: 15px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(10px);
+    /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
     display: flex;
     flex-direction: column;
     overflow: hidden;

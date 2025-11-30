@@ -308,7 +308,7 @@
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.6),
     0 0 20px rgba(255, 215, 0, 0.15);
-  backdrop-filter: blur(12px);
+  // REMOVIDO: backdrop-filter: blur(12px); - performance issue
   min-width: 320px;
   max-width: 400px;
 

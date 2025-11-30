@@ -2017,7 +2017,7 @@ Erro: 'invalid_token' na response..."
       left: 0;
       right: 0;
       background: rgba(33, 150, 243, 0.9);
-      backdrop-filter: blur(2px);
+      /* REMOVIDO: backdrop-filter: blur(2px); - performance issue */
       z-index: 1000;
       display: flex;
       align-items: center;
@@ -2371,7 +2371,7 @@ Erro: 'invalid_token' na response..."
         height: 48px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
+        /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
         border: none;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         color: #333;

@@ -16,7 +16,7 @@
     <app-modal-header
       [title]="'🤖 Selecionar Agente'"
       [showCloseButton]="true"
-      (closeClick)="onClose()"
+      (close)="onClose()"
       aria-label="Cabeçalho do modal de seleção de agente">
     </app-modal-header>
 
@@ -53,7 +53,7 @@
       </div>
 
       <!-- Agents list -->
-      <div *ngIf="!isLoading && !error" class="agents-list">
+      <div *ngIf="!isLoading && !error" class="agents-list" (scroll)="onListScroll()">
         <div *ngIf="filteredAgents.length === 0 && agents.length > 0" class="empty-state" role="status">
           <div class="empty-icon" aria-hidden="true">🔍</div>
           <p>Nenhum agente encontrado</p>
@@ -67,11 +67,12 @@
         </div>
 
         <div
-          *ngFor="let agent of filteredAgents"
+          *ngFor="let agent of filteredAgents; trackBy: trackByAgentId"
           class="agent-item"
+          [class.disabled]="isScrolling"
           (click)="selectAgent(agent)"
           (keydown.enter)="selectAgent(agent)"
-          [title]="agent.description"
+          [title]="isScrolling ? 'Aguarde o scroll parar...' : agent.description"
           role="button"
           tabindex="0"
           [attr.aria-label]="'Selecionar agente: ' + agent.name">
@@ -80,7 +81,7 @@
             <div class="agent-name">{{ agent.name }}</div>
             <div class="agent-description">{{ agent.description }}</div>
           </div>
-          <div class="select-indicator" aria-hidden="true">→</div>
+          <div class="select-indicator" aria-hidden="true">{{ isScrolling ? '⏳' : '→' }}</div>
         </div>
       </div>
     </div>

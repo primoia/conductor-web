@@ -13,7 +13,7 @@
 .persona-edit-modal {
   .modal-backdrop {
     @include mixins.modal-backdrop();
-    backdrop-filter: blur(4px);
+    // REMOVIDO: backdrop-filter: blur(4px); - performance issue
   }
 
   .modal-container {

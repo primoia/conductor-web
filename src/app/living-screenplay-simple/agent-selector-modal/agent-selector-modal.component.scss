@@ -13,8 +13,23 @@
 @use '../../shared/styles/modal-mixins' as mixins;
 
 .modal-backdrop {
-  @include mixins.modal-overlay;
-  z-index: 10100 !important; // Above screenplay modal (10000)
+  // NÃO usar mixin para evitar backdrop-filter: blur() que é muito pesado
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6); // Igual ao screenplay-manager
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10100; // Above screenplay modal (10000)
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-container {
@@ -85,6 +100,9 @@
   @include mixins.modal-body;
   overflow-y: auto;
   flex: 1;
+  // Otimização de scroll
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 
   .loading-state,
   .error-state,
@@ -145,6 +163,9 @@
     display: flex;
     flex-direction: column;
     gap: $spacing-md;
+    // Otimização de scroll
+    contain: content;
+    will-change: scroll-position;
 
     .agent-item {
       display: flex;
@@ -153,22 +174,25 @@
       border: 2px solid $border-color;
       border-radius: $border-radius-md;
       cursor: pointer;
-      transition: all $transition-normal;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
       background: $background-color-primary;
+      // Otimização de performance - evita repaints
+      will-change: border-color, background-color;
+      contain: layout style;
 
       &:hover,
       &:focus {
         border-color: $primary-color;
         background: lighten($primary-color, 45%);
-        transform: translateY(-2px);
+        // Removido transform para evitar repaints durante scroll
         box-shadow: 0 4px 12px rgba($primary-color, 0.15);
         outline: none;
       }
 
       .agent-emoji {
-        font-size: 36px;
-        width: 60px;
-        height: 60px;
+        font-size: 28px; // Reduzido de 36px para melhor performance
+        width: 48px; // Reduzido de 60px
+        height: 48px; // Reduzido de 60px
         display: flex;
         align-items: center;
         justify-content: center;
@@ -176,6 +200,8 @@
         background: $background-color-light;
         margin-right: $spacing-md;
         flex-shrink: 0;
+        // Força composição em GPU
+        transform: translateZ(0);
 
         @media (max-width: $breakpoint-mobile) {
           font-size: 28px;
@@ -219,16 +245,41 @@
         font-size: 24px;
         color: $text-color-muted;
         margin-left: $spacing-md;
-        transition: all $transition-normal;
+        transition: color 0.15s ease;
       }
 
       &:hover .select-indicator,
       &:focus .select-indicator {
         color: $primary-color;
-        transform: translateX(4px);
+        // Removido transform para evitar repaints
+      }
+
+      // Estado disabled durante scroll
+      &.disabled {
+        pointer-events: none;
+        opacity: 0.6;
+        cursor: not-allowed;
+
+        &:hover {
+          border-color: $border-color;
+          background: $background-color-primary;
+          transform: none;
+          box-shadow: none;
+        }
+
+        .select-indicator {
+          color: $text-color-muted;
+          animation: pulse 1s infinite;
+        }
       }
     }
   }
+}
+
+// Animação de pulse para indicador de scroll
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 // Advanced Settings

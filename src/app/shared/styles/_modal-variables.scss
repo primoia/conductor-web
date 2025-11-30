@@ -12,7 +12,7 @@
 
 // Backdrop
 $modal-backdrop-color: rgba(0, 0, 0, 0.6) !default;
-$modal-backdrop-blur: 4px !default;
+// REMOVIDO: $modal-backdrop-blur - muito pesado para performance
 
 // Container
 $modal-background: #ffffff !default;

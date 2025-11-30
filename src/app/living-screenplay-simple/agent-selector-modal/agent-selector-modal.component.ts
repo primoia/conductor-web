@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, ViewChild, ElementRef, AfterViewInit, SimpleChanges, OnChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, ViewChild, ElementRef, AfterViewInit, SimpleChanges, OnChanges, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentService, Agent } from '../../services/agent.service';
@@ -35,7 +35,8 @@ export interface AgentSelectionData {
   standalone: true,
   imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
   templateUrl: './agent-selector-modal.component.html',
-  styleUrls: ['./agent-selector-modal.component.scss']
+  styleUrls: ['./agent-selector-modal.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AgentSelectorModalComponent extends BaseModalComponent implements OnInit, AfterViewInit, OnChanges {
   @Input() override isVisible: boolean = false;
@@ -54,12 +55,19 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   error: string | null = null;
   footerButtons: ModalButton[] = [];
 
+  // Debounce para seleção após scroll
+  private scrollDebounceTimer: any = null;
+  isScrolling: boolean = false;
+
   // Advanced settings
   showAdvancedSettings: boolean = false;
   workingDirectory: string = '';
   recentDirectories: string[] = [];
 
-  constructor(private agentService: AgentService) {
+  constructor(
+    private agentService: AgentService,
+    private cdr: ChangeDetectorRef
+  ) {
     super();
     this.loadRecentDirectories();
     this.setupFooterButtons();
@@ -145,17 +153,19 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
         // Filtrar conselheiros se excludeCouncilors=true
         if (this.excludeCouncilors) {
           this.agents = agents.filter(agent => !agent.is_councilor);
-          console.log(`[AgentSelectorModal] Loaded ${this.agents.length} agents (excluded ${agents.length - this.agents.length} councilors)`);
+          console.log(`[AgentSelectorModal] Loaded ${this.agents.length} agents (excluded councilors)`);
         } else {
           this.agents = agents;
-          console.log('[AgentSelectorModal] Loaded agents:', agents.length);
+          console.log('[AgentSelectorModal] Loaded agents:', this.agents.length);
         }
         this.filteredAgents = this.agents;
         this.isLoading = false;
+        this.cdr.markForCheck(); // OnPush: notificar mudança
       },
       error: (error) => {
         this.error = 'Falha ao carregar agentes. Verifique se o gateway esta rodando.';
         this.isLoading = false;
+        this.cdr.markForCheck(); // OnPush: notificar mudança
         console.error('[AgentSelectorModal] Error loading agents:', error);
       }
     });
@@ -175,6 +185,7 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
         agent.emoji.includes(query)
       );
     }
+    this.cdr.markForCheck(); // OnPush: notificar mudança
   }
 
   /**
@@ -188,9 +199,16 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   /**
    * Seleciona um agente e emite o evento de seleção.
    * Não chama onClose() pois o componente pai é responsável por fechar o modal.
+   * Bloqueia seleção durante scroll (debounce de 1 segundo).
    * @param agent - Agente selecionado
    */
   selectAgent(agent: Agent): void {
+    // Bloqueia seleção durante scroll
+    if (this.isScrolling) {
+      console.log('[AgentSelectorModal] Seleção bloqueada - aguardando fim do scroll');
+      return;
+    }
+
     const instanceId = this.agentService.generateInstanceId();
     const selectionData: AgentSelectionData = {
       agent,
@@ -268,10 +286,42 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
    * Override do BaseModalComponent para adicionar limpeza de estados específicos.
    */
   override onClose(): void {
+    console.log('[AgentSelectorModal] onClose() chamado');
     this.searchQuery = '';
     this.filteredAgents = this.agents;
-    this.closeModal.emit();
-    super.onClose();
+    this.close.emit();      // Compatibilidade com (close)
+    this.closeModal.emit(); // Padrão BaseModalComponent
+    // NÃO chamar super.onClose() pois já emitimos closeModal
+  }
+
+  /**
+   * Track by function para otimizar *ngFor de agentes
+   */
+  trackByAgentId(index: number, agent: Agent): string {
+    return agent.id;
+  }
+
+  /**
+   * Handler de scroll - bloqueia seleção durante scroll
+   * A seleção só é liberada 1 segundo após o último scroll
+   */
+  onListScroll(): void {
+    // Não fazer nada durante scroll para evitar change detection
+    if (!this.isScrolling) {
+      this.isScrolling = true;
+      this.cdr.markForCheck();
+    }
+
+    // Limpa timer anterior
+    if (this.scrollDebounceTimer) {
+      clearTimeout(this.scrollDebounceTimer);
+    }
+
+    // Aguarda 1 segundo após o último scroll para liberar seleção
+    this.scrollDebounceTimer = setTimeout(() => {
+      this.isScrolling = false;
+      this.cdr.markForCheck();
+    }, 1000);
   }
 
   /**

@@ -112,7 +112,7 @@ interface Circle extends CircleData {
     .header {
       padding: 20px 40px;
       background: rgba(0, 0, 0, 0.2);
-      backdrop-filter: blur(10px);
+      /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
@@ -229,7 +229,7 @@ interface Circle extends CircleData {
       top: 20px;
       right: 20px;
       background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
+      /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
       padding: 20px;
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -305,7 +305,7 @@ interface Circle extends CircleData {
       bottom: 20px;
       left: 20px;
       background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
+      /* REMOVIDO: backdrop-filter: blur(10px); - performance issue */
       padding: 15px;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.2);

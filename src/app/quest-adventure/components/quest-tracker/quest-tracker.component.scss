@@ -7,7 +7,7 @@
     0 20px 60px rgba(0, 0, 0, 0.6),
     0 0 40px rgba(255, 215, 0, 0.3),
     inset 0 1px 0 rgba(255, 215, 0, 0.2);
-  backdrop-filter: blur(15px);
+  // REMOVIDO: backdrop-filter: blur(15px); - performance issue
   z-index: 1000;
   transition: all 0.3s ease-in-out;
   animation: slideInFromRight 0.3s ease-out;

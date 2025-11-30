@@ -283,7 +283,7 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  backdrop-filter: blur(4px);
+  /* REMOVIDO: backdrop-filter: blur(4px); - performance issue */
   animation: fadeIn 0.2s ease-out;
 }
 
