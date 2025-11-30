@@ -400,6 +400,9 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
 
       console.log(`🔻 Conselheiro ${displayName} removido`);
 
+      // 🔥 Cancelar timer agendado no scheduler
+      this.councilorScheduler.cancelTask(councilor.agent_id);
+
       // Remover da lista local
       this.councilors = this.councilors.filter(c => c.agent_id !== councilor.agent_id);
 
@@ -439,6 +442,9 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
       }
 
       console.log(`🔻 Councilor instance ${displayName} removida`);
+
+      // 🔥 Cancelar timer agendado no scheduler
+      this.councilorScheduler.cancelTask(instance.agent_id);
 
       // Remover da lista local
       this.councilorInstances = this.councilorInstances.filter(i => i.instance_id !== instance.instance_id);

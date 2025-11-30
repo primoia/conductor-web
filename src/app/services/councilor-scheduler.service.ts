@@ -50,42 +50,56 @@ export class CouncilorSchedulerService implements OnDestroy {
   }
 
   /**
-   * Inicializa o scheduler carregando conselheiros do backend
-   * Deve ser chamado no app.component.ts ou similar
+   * Inicializa o serviço carregando conselheiros do backend
+   *
+   * ⚠️ IMPORTANTE: O agendamento (setInterval) foi REMOVIDO do frontend!
+   * O backend (CouncilorBackendScheduler) agora é responsável por executar
+   * os conselheiros nos intervalos configurados. Isso garante que:
+   * - Jobs não param quando o navegador fecha
+   * - Jobs não duplicam quando abrir em outro navegador
+   * - Jobs sobrevivem a reload da página
+   *
+   * O frontend apenas:
+   * - Carrega lista de conselheiros para exibição
+   * - Permite execução manual via /api/councilors/{id}/execute-now
+   * - Recebe eventos via WebSocket (councilor_started, councilor_completed)
    */
   async initialize(): Promise<void> {
     try {
-      console.log('🏛️ [COUNCILOR SCHEDULER] Inicializando scheduler...');
+      console.log('🏛️ [COUNCILOR SCHEDULER] Inicializando serviço (modo display-only)...');
+      console.log('📡 Backend scheduler é responsável pela execução periódica');
 
-      // Carregar conselheiros ativos do backend
+      // Carregar conselheiros ativos do backend (apenas para exibição)
       const councilors = await this.loadCouncilorsFromBackend();
 
       console.log(`🏛️ [COUNCILOR SCHEDULER] ${councilors.length} conselheiros carregados`);
 
-      // Agendar tarefas de cada conselheiro ativo
-      for (const councilor of councilors) {
-        if (councilor.councilor_config?.schedule.enabled) {
-          this.scheduleTask(councilor);
-        }
-      }
+      // ⚠️ NÃO agendar tarefas no frontend - backend faz isso!
+      // for (const councilor of councilors) {
+      //   if (councilor.councilor_config?.schedule.enabled) {
+      //     this.scheduleTask(councilor);
+      //   }
+      // }
 
-      // Atualizar subject
+      // Atualizar subject para exibição no dashboard
       this.councilorSubject.next(councilors);
 
-      this.gamificationEvents.pushEvent({
-        id: this.generateId(),
-        title: `🏛️ Conselho ativado com ${councilors.length} conselheiros`,
-        severity: 'info',
-        timestamp: Date.now(),
-        category: 'success'
-      });
+      if (councilors.length > 0) {
+        this.gamificationEvents.pushEvent({
+          id: this.generateId(),
+          title: `🏛️ Conselho: ${councilors.length} conselheiros ativos (backend scheduler)`,
+          severity: 'info',
+          timestamp: Date.now(),
+          category: 'success'
+        });
+      }
 
-      console.log('✅ [COUNCILOR SCHEDULER] Scheduler inicializado com sucesso');
+      console.log('✅ [COUNCILOR SCHEDULER] Serviço inicializado (backend controla execução)');
     } catch (error) {
       console.error('❌ [COUNCILOR SCHEDULER] Erro ao inicializar:', error);
 
       this.gamificationEvents.pushCriticalEvent(
-        'Falha ao inicializar Conselho',
+        'Falha ao carregar Conselho',
         { error: String(error) }
       );
     }
@@ -211,9 +225,17 @@ export class CouncilorSchedulerService implements OnDestroy {
   }
 
   /**
-   * Agenda uma tarefa periódica para um conselheiro
+   * @deprecated O agendamento agora é feito pelo backend (CouncilorBackendScheduler)
+   * Este método não deve mais ser usado. Mantido apenas para compatibilidade.
+   *
+   * O backend scheduler garante:
+   * - Jobs continuam mesmo fechando o navegador
+   * - Jobs não duplicam em múltiplos navegadores
+   * - Jobs sobrevivem a restart do servidor
    */
   scheduleTask(councilor: AgentWithCouncilor): void {
+    console.warn('⚠️ [COUNCILOR SCHEDULER] scheduleTask() está DEPRECATED! Backend controla agendamento.');
+
     const config = councilor.councilor_config;
 
     if (!config) {
@@ -221,23 +243,23 @@ export class CouncilorSchedulerService implements OnDestroy {
       return;
     }
 
-    // Cancelar tarefa anterior se existir
+    // ⚠️ NÃO criar timer local - backend é responsável
+    // Cancelar qualquer timer existente para evitar duplicação
     this.cancelTask(councilor.agent_id);
 
-    if (config.schedule.type === 'interval') {
-      const intervalMs = this.parseInterval(config.schedule.value);
+    // Logging apenas para debug - não cria timer
+    console.log(`📡 [COUNCILOR SCHEDULER] Backend scheduler controla: ${councilor.customization?.display_name || councilor.name} (${config.schedule.value})`);
 
-      console.log(`⏰ [COUNCILOR SCHEDULER] Agendando ${councilor.customization?.display_name || councilor.name} a cada ${config.schedule.value}`);
+    // ⚠️ REMOVIDO: setInterval no frontend
+    // if (config.schedule.type === 'interval') {
+    //   const intervalMs = this.parseInterval(config.schedule.value);
+    //   const timer = window.setInterval(() => {
+    //     this.executeTask(councilor);
+    //   }, intervalMs);
+    //   this.scheduledTasks.set(councilor.agent_id, timer);
+    // }
 
-      const timer = window.setInterval(() => {
-        this.executeTask(councilor);
-      }, intervalMs);
-
-      this.scheduledTasks.set(councilor.agent_id, timer);
-
-      // Executar imediatamente na primeira vez (opcional)
-      // this.executeTask(councilor);
-    } else {
+    if (config.schedule.type !== 'interval') {
       // TODO: Implementar suporte a cron usando biblioteca como node-cron
       console.warn(`⚠️ [COUNCILOR SCHEDULER] Cron ainda não implementado para ${councilor.agent_id}`);
     }
@@ -508,11 +530,14 @@ export class CouncilorSchedulerService implements OnDestroy {
 
   /**
    * Retoma a tarefa de um conselheiro
+   *
+   * ⚠️ Não cria timer local - apenas atualiza backend que controla o scheduler
    */
   async resumeTask(councilor: AgentWithCouncilor): Promise<void> {
-    this.scheduleTask(councilor);
+    // ⚠️ NÃO chamar scheduleTask - backend scheduler é responsável
+    // this.scheduleTask(councilor);
 
-    // Atualizar no backend
+    // Atualizar no backend (que vai recarregar no CouncilorBackendScheduler)
     try {
       await fetch(`/api/agents/${councilor.agent_id}/councilor-schedule`, {
         method: 'PATCH',
@@ -520,7 +545,7 @@ export class CouncilorSchedulerService implements OnDestroy {
         body: JSON.stringify({ enabled: true })
       });
 
-      console.log(`▶️ [COUNCILOR SCHEDULER] Conselheiro retomado: ${councilor.agent_id}`);
+      console.log(`▶️ [COUNCILOR SCHEDULER] Conselheiro retomado no backend: ${councilor.agent_id}`);
     } catch (error) {
       console.error('❌ [COUNCILOR SCHEDULER] Erro ao retomar:', error);
     }
