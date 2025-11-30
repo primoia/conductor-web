@@ -319,7 +319,7 @@ export class GamificationEventsService {
         // Preserve success label/emoji if backend marked success and no error detected
         const displayIsSuccess = !hasExplicitError && !errorHeuristics && payload.severity === 'success';
         const emoji = displayIsSuccess ? '✅' : this.getSeverityEmoji(derivedSeverity);
-        const label = displayIsSuccess ? 'Sucesso' : this.getSeverityLabel(derivedSeverity);
+        const label = displayIsSuccess ? 'Concluído' : this.getSeverityLabel(derivedSeverity); // Use 'Concluído' for consistency
 
         this.pushEvent({
           id: this.generateId(),
@@ -345,49 +345,10 @@ export class GamificationEventsService {
         break;
 
       case 'agent_execution_completed':
-        // Regular agent execution completed (RESULT level)
-        // NOTE: This event comes from SSE streaming and may be redundant with task_completed
-        // We use task_id as execution_id to deduplicate with task_completed events
-        const agentDurationSec = Math.round(event.data.duration_ms / 1000);
-
-        // Derive severity and summary, prefer result/status
-        const a = event.data || {};
-
-        // Use task_id as execution_id for deduplication with task_completed
-        const agentExecutionId = a.task_id || a.execution_id || a.instance_id;
-
-        // Skip if we already have a task_completed for this execution
-        if (agentExecutionId && this.seenExecutionIds.has(agentExecutionId)) {
-          console.log(`⏭️ Skipping agent_execution_completed - already have task event for: ${agentExecutionId}`);
-          break;
-        }
-
-        const agentResultText: string | undefined = typeof a.result === 'string' ? a.result : (typeof a.summary === 'string' ? a.summary : undefined);
-        const agentExplicitError = (a.status === 'error') || (typeof a.exit_code === 'number' && a.exit_code !== 0);
-        const agentErrorHeuristics = typeof agentResultText === 'string' && /não encontrado|not found|erro|error|failed/i.test(agentResultText);
-        const agentDerivedSeverity = (agentExplicitError || agentErrorHeuristics)
-          ? 'error'
-          : this.mapSeverityToGamification(a.severity);
-
-        const agentDisplayIsSuccess = !agentExplicitError && !agentErrorHeuristics && a.severity === 'success';
-        const agentEmoji = agentDisplayIsSuccess ? '✅' : this.getSeverityEmoji(agentDerivedSeverity);
-        const agentLabel = agentDisplayIsSuccess ? 'Sucesso' : this.getSeverityLabel(agentDerivedSeverity);
-
-        this.pushEvent({
-          id: agentExecutionId || this.generateId(),
-          title: `${agentEmoji} ${a.agent_name || a.agent_id} - ${agentLabel}`,
-          severity: agentDerivedSeverity,
-          timestamp: Date.now(),
-          meta: {
-            ...a,
-            execution_id: agentExecutionId // Ensure execution_id for deduplication
-          },
-          category: agentDerivedSeverity === 'error' ? 'critical' : 'success',
-          level: a.level || 'result',
-          summary: agentResultText || `Execução completada em ${agentDurationSec}s`,
-          agentEmoji: a.agent_emoji || '🤖',
-          agentName: a.agent_name || a.agent_id
-        });
+        // DEPRECATED: This event was sent by SSE streaming but is now disabled
+        // The Watcher sends task_completed events instead which are more reliable
+        // Keeping this case for backwards compatibility but it should not be triggered
+        console.log('⏭️ Ignoring agent_execution_completed (deprecated - use task_completed from Watcher)');
         break;
 
       case 'agent_metrics_updated':
