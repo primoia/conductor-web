@@ -144,35 +144,43 @@ export class GamificationEventsService {
       for (const backendEvent of eventsToAdd) {
         const data = backendEvent.data || {};
 
+        // Generate unique ID for this historical event
+        // Use execution_id if available, otherwise generate from timestamp + instance_id
+        const eventTimestamp = backendEvent.timestamp || Date.now();
+        const uniqueId = data.execution_id && data.execution_id.length > 0
+          ? data.execution_id
+          : `hist_${eventTimestamp}_${data.instance_id || data.agent_id || 'unknown'}`;
+
         // Determine severity
         const severity = this.mapSeverityToGamification(data.severity || 'success');
 
-        // Determine emoji and label
-        const isSuccess = data.severity === 'success' && data.status !== 'error';
-        const emoji = isSuccess ? '✅' : this.getSeverityEmoji(severity);
-        const label = isSuccess ? 'Sucesso' : this.getSeverityLabel(severity);
+        // Determine emoji and label based on status
+        const isSuccess = data.status === 'completed' || (data.severity === 'success' && data.status !== 'error');
+        const isError = data.status === 'error';
+        const emoji = isError ? '❌' : (isSuccess ? '✅' : this.getSeverityEmoji(severity));
+        const label = isError ? 'Erro' : (isSuccess ? 'Concluído' : this.getSeverityLabel(severity));
 
-        // Build title
+        // Build title with duration if available
         const agentName = data.agent_name || data.agent_id || 'Agente';
-        const title = data.is_councilor
-          ? `${emoji} ${agentName} - ${label}`
-          : `${emoji} ${agentName} - ${label}`;
+        const durationStr = data.duration_ms ? ` (${Math.round(data.duration_ms / 1000)}s)` : '';
+        const title = `${emoji} ${agentName} - ${label}${durationStr}`;
 
         // Create GamificationEvent
         const gamificationEvent: GamificationEvent = {
-          id: data.execution_id || this.generateId(),
+          id: uniqueId,
           title,
-          severity,
-          timestamp: backendEvent.timestamp || Date.now(),
+          severity: isError ? 'error' : severity,
+          timestamp: eventTimestamp,
           meta: {
             ...data,
-            execution_id: data.execution_id // Ensure execution_id is in meta for deduplication
+            execution_id: uniqueId // Use our generated unique ID for deduplication
           },
-          category: severity === 'error' ? 'critical' : 'success',
+          category: isError ? 'critical' : 'success',
           level: data.level || 'result',
           summary: data.summary || '',
           agentEmoji: data.agent_emoji || '🤖',
-          agentName
+          agentName,
+          status: data.status || 'completed'
         };
 
         // Push event (deduplication will prevent duplicates)
@@ -338,10 +346,22 @@ export class GamificationEventsService {
 
       case 'agent_execution_completed':
         // Regular agent execution completed (RESULT level)
+        // NOTE: This event comes from SSE streaming and may be redundant with task_completed
+        // We use task_id as execution_id to deduplicate with task_completed events
         const agentDurationSec = Math.round(event.data.duration_ms / 1000);
 
         // Derive severity and summary, prefer result/status
         const a = event.data || {};
+
+        // Use task_id as execution_id for deduplication with task_completed
+        const agentExecutionId = a.task_id || a.execution_id || a.instance_id;
+
+        // Skip if we already have a task_completed for this execution
+        if (agentExecutionId && this.seenExecutionIds.has(agentExecutionId)) {
+          console.log(`⏭️ Skipping agent_execution_completed - already have task event for: ${agentExecutionId}`);
+          break;
+        }
+
         const agentResultText: string | undefined = typeof a.result === 'string' ? a.result : (typeof a.summary === 'string' ? a.summary : undefined);
         const agentExplicitError = (a.status === 'error') || (typeof a.exit_code === 'number' && a.exit_code !== 0);
         const agentErrorHeuristics = typeof agentResultText === 'string' && /não encontrado|not found|erro|error|failed/i.test(agentResultText);
@@ -354,11 +374,14 @@ export class GamificationEventsService {
         const agentLabel = agentDisplayIsSuccess ? 'Sucesso' : this.getSeverityLabel(agentDerivedSeverity);
 
         this.pushEvent({
-          id: this.generateId(),
+          id: agentExecutionId || this.generateId(),
           title: `${agentEmoji} ${a.agent_name || a.agent_id} - ${agentLabel}`,
           severity: agentDerivedSeverity,
           timestamp: Date.now(),
-          meta: a,
+          meta: {
+            ...a,
+            execution_id: agentExecutionId // Ensure execution_id for deduplication
+          },
           category: agentDerivedSeverity === 'error' ? 'critical' : 'success',
           level: a.level || 'result',
           summary: agentResultText || `Execução completada em ${agentDurationSec}s`,
