@@ -14,7 +14,14 @@ export class ConductorApiService {
 
   sendMessage(
     message: string,
-    config: ApiConfig
+    config: ApiConfig,
+    context?: {
+      agent_id?: string;
+      instance_id?: string;
+      conversation_id?: string;
+      screenplay_id?: string;
+      cwd?: string;
+    }
   ): Observable<StreamEvent | ApiResponse> {
     const subject = new Subject<StreamEvent | ApiResponse>();
 
@@ -43,7 +50,13 @@ export class ConductorApiService {
             targetType: "conductor",
             isTemplate: false,
             createdAt: Date.now(),
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
+            // Context for task tracking
+            agent_id: context?.agent_id,
+            instance_id: context?.instance_id,
+            conversation_id: context?.conversation_id,
+            screenplay_id: context?.screenplay_id,
+            cwd: context?.cwd
           }),
         });
 
