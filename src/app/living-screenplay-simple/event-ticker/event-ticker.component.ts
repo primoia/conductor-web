@@ -530,7 +530,7 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
   @Output() investigate = new EventEmitter<GamificationEvent>();
 
   filteredEvents: GamificationEvent[] = [];
-  currentFilter: 'all' | EventLevel = 'result';
+  currentFilter: 'all' | EventLevel = 'all';
   totalAvailable = 0;
 
   private allEvents: GamificationEvent[] = [];

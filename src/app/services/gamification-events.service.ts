@@ -1,10 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { AgentMetricsService, AgentExecutionMetrics } from './agent-metrics.service';
 import { AgentPersonalizationService } from './agent-personalization.service';
 import { GamificationWebSocketService, GamificationWebSocketEvent } from './gamification-websocket.service';
-import { TaskObservabilityService, TaskEvent } from './task-observability.service';
 
 export type GamificationSeverity = 'info' | 'warning' | 'error';
 export type EventLevel = 'debug' | 'info' | 'result'; // Log levels
@@ -34,12 +33,14 @@ export class GamificationEventsService {
   private readonly seenExecutionIds = new Set<string>(); // Track execution_id to prevent duplicates
   private historicalEventsLoaded = false; // Flag to load historical events only once
 
+  // 🔥 Subject para receber eventos locais de task (sem dependência circular)
+  private localTaskEventSubject = new Subject<{type: string; data: any; timestamp?: number}>();
+
   constructor(
     private readonly metricsService: AgentMetricsService,
     private readonly personalization: AgentPersonalizationService,
     private readonly websocketService: GamificationWebSocketService,
-    private readonly http: HttpClient,
-    private readonly taskObservabilityService: TaskObservabilityService
+    private readonly http: HttpClient
   ) {
     // 🔔 Subscribe to WebSocket events (PRIMARY mechanism - real-time)
     this.websocketService.events$.subscribe(event => {
@@ -50,21 +51,18 @@ export class GamificationEventsService {
       }
     });
 
-    // 🔥 Subscribe to local task events from TaskObservabilityService
-    // These are emitted immediately when user sends a message (before network)
-    this.taskObservabilityService.localTaskEvents$.subscribe((event: TaskEvent) => {
+    // 🔥 Subscribe to local task events (via Subject, não via serviço)
+    this.localTaskEventSubject.subscribe((event) => {
       try {
-        this.handleLocalTaskEvent(event);
+        console.log('📨 [GamificationEvents] Handling local task event:', event.type);
+        this.handleWebSocketEvent(event as GamificationWebSocketEvent);
       } catch (err) {
         console.error('❌ Error handling local task event:', err);
       }
     });
 
     // 📊 Subscribe to metrics (FALLBACK mechanism - only if WebSocket disconnected)
-    // NOTE: This is kept as fallback but should rarely be used in practice
-    // since WebSocket provides real-time events directly from backend
     this.metricsService.metrics$.subscribe(metricsMap => {
-      // Only derive events if WebSocket is disconnected
       if (!this.websocketService.isConnected()) {
         try {
           this.deriveExecutionEvents(metricsMap);
@@ -77,27 +75,16 @@ export class GamificationEventsService {
     // 📜 Load historical events from MongoDB on initialization
     this.loadHistoricalEvents();
 
-    console.log('🎮 GamificationEventsService initialized with WebSocket (primary) + local task events + metrics polling (fallback) + historical events loading');
+    console.log('🎮 GamificationEventsService initialized');
   }
 
   /**
-   * Handle local task events from TaskObservabilityService
-   * These provide immediate feedback before network round-trip
+   * Método público para emitir eventos locais de task
+   * Chamado diretamente pelo MessageHandlingService
    */
-  private handleLocalTaskEvent(event: TaskEvent): void {
-    console.log('📨 Handling local task event:', event.type, event.data);
-
-    // Convert TaskEvent to WebSocket-compatible format and handle
-    const wsEvent: GamificationWebSocketEvent = {
-      type: event.type,
-      data: event.data,
-      timestamp: event.timestamp
-    };
-
-    this.handleWebSocketEvent(wsEvent);
-
-    // Also notify TaskObservabilityService about the event being processed
-    this.taskObservabilityService.handleWebSocketEvent(event);
+  emitLocalTaskEvent(type: string, data: any): void {
+    console.log(`📡 [GamificationEvents] Emitting local event: ${type}`);
+    this.localTaskEventSubject.next({ type, data, timestamp: Date.now() });
   }
 
   getRecent(limit: number): GamificationEvent[] {
@@ -106,24 +93,24 @@ export class GamificationEventsService {
   }
 
   pushEvent(event: GamificationEvent, skipDuplicateCheck = false): void {
-    // Check for duplicates based on execution_id in meta
-    if (!skipDuplicateCheck && event.meta?.['execution_id']) {
-      const executionId = event.meta['execution_id'] as string;
+    // Check for duplicates based on task_id or execution_id in meta
+    const taskId = (event.meta?.['task_id'] || event.meta?.['execution_id']) as string | undefined;
 
+    if (!skipDuplicateCheck && taskId) {
       // For task status updates (task_completed, task_error), UPDATE existing event instead of skipping
-      if (this.seenExecutionIds.has(executionId)) {
+      if (this.seenExecutionIds.has(taskId)) {
         const newStatus = event.status;
 
         // If this is a status update (completed/error), update the existing event
         if (newStatus === 'completed' || newStatus === 'error') {
-          console.log(`🔄 Updating event status for execution_id: ${executionId} -> ${newStatus}`);
+          console.log(`🔄 Updating event status for task_id: ${taskId} -> ${newStatus}`);
           const list = this.eventsSubject.value.map(ev => {
-            if (ev.meta?.['execution_id'] === executionId) {
+            const evTaskId = ev.meta?.['task_id'] || ev.meta?.['execution_id'];
+            if (evTaskId === taskId) {
               return {
                 ...ev,
                 ...event,
-                // Keep original timestamp for ordering, but update everything else
-                id: ev.id
+                id: ev.id // Keep original id for ordering
               };
             }
             return ev;
@@ -133,10 +120,10 @@ export class GamificationEventsService {
         }
 
         // For other duplicates, skip
-        console.log(`⏭️ Skipping duplicate event for execution_id: ${executionId}`);
+        console.log(`⏭️ Skipping duplicate event for task_id: ${taskId}`);
         return;
       }
-      this.seenExecutionIds.add(executionId);
+      this.seenExecutionIds.add(taskId);
     }
 
     const list = [...this.eventsSubject.value, event];
@@ -177,11 +164,18 @@ export class GamificationEventsService {
         const data = backendEvent.data || {};
 
         // Generate unique ID for this historical event
-        // Use execution_id if available, otherwise generate from timestamp + instance_id
+        // Use task_id (primary) or execution_id (legacy) for deduplication
         const eventTimestamp = backendEvent.timestamp || Date.now();
-        const uniqueId = data.execution_id && data.execution_id.length > 0
-          ? data.execution_id
+        const taskId = data.task_id || data.execution_id;
+        const uniqueId = taskId && taskId.length > 0
+          ? taskId
           : `hist_${eventTimestamp}_${data.instance_id || data.agent_id || 'unknown'}`;
+
+        // Skip if we already have this event (deduplication)
+        if (this.seenExecutionIds.has(uniqueId)) {
+          console.log(`⏭️ Skipping duplicate historical event: ${uniqueId}`);
+          continue;
+        }
 
         // Determine severity
         const severity = this.mapSeverityToGamification(data.severity || 'success');
@@ -205,18 +199,20 @@ export class GamificationEventsService {
           timestamp: eventTimestamp,
           meta: {
             ...data,
-            execution_id: uniqueId // Use our generated unique ID for deduplication
+            task_id: uniqueId,
+            execution_id: uniqueId // Keep for backward compatibility
           },
           category: isError ? 'critical' : 'success',
           level: data.level || 'result',
-          summary: data.summary || '',
+          summary: data.summary || data.result_summary || '',
           agentEmoji: data.agent_emoji || '🤖',
           agentName,
           status: data.status || 'completed'
         };
 
-        // Push event (deduplication will prevent duplicates)
-        this.pushEvent(gamificationEvent);
+        // Mark as seen and push event
+        this.seenExecutionIds.add(uniqueId);
+        this.pushEvent(gamificationEvent, true); // Skip duplicate check since we already checked
       }
 
       this.historicalEventsLoaded = true;

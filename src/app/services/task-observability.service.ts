@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Status de uma task no fluxo de observabilidade
@@ -106,10 +105,54 @@ export class TaskObservabilityService {
   }
 
   /**
-   * Gera um novo task_id único
+   * Gera um novo task_id único (UUID v4)
    */
   generateTaskId(): string {
-    return uuidv4();
+    // Usar crypto.randomUUID() se disponível, senão fallback
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    // Fallback para browsers antigos
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  /**
+   * Emite evento local task_inputted para feedback imediato na UI
+   * NÃO chama API, apenas emite evento local para o event-ticker
+   *
+   * @param payload Dados da task (sem task_id obrigatório, será gerado se não existir)
+   */
+  emitInputtedEvent(payload: Partial<TaskSubmitPayload> & { agent_id: string; agent_name: string; instance_id: string; conversation_id: string; input_text: string }): void {
+    const now = new Date();
+    const taskId = payload.task_id || this.generateTaskId();
+
+    // Criar task local com status "inputted"
+    const task: ObservableTask = {
+      task_id: taskId,
+      agent_id: payload.agent_id,
+      agent_name: payload.agent_name,
+      agent_emoji: payload.agent_emoji || '🤖',
+      instance_id: payload.instance_id,
+      conversation_id: payload.conversation_id,
+      screenplay_id: payload.screenplay_id,
+      status: 'inputted',
+      input_text: payload.input_text,
+      created_at: now,
+      updated_at: now
+    };
+
+    // Salvar localmente
+    this.activeTasks.set(taskId, task);
+    this.updateActiveTasksList();
+
+    // Emitir evento local imediatamente
+    this.emitLocalEvent('task_inputted', task);
+
+    console.log(`📝 [TaskObservability] Emitted task_inputted for immediate feedback`);
   }
 
   /**
