@@ -1,8 +1,8 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, OnChanges, SimpleChanges, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
-import { AgentWithCouncilor } from '../../models/councilor.types';
+import { AgentWithCouncilor, CouncilorInstance } from '../../models/councilor.types';
 import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
 import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 
@@ -30,9 +30,10 @@ import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/moda
   templateUrl: './councilor-edit-modal.component.html',
   styleUrls: ['./councilor-edit-modal.component.scss']
 })
-export class CouncilorEditModalComponent extends BaseModalComponent implements OnInit {
+export class CouncilorEditModalComponent extends BaseModalComponent implements OnInit, OnChanges {
   @Input() override isVisible: boolean = false;
   @Input() councilor: AgentWithCouncilor | null = null;
+  @Input() instance: CouncilorInstance | null = null;  // NEW: Support for instances
   @Output() override closeModal = new EventEmitter<void>();
   @Output() save = new EventEmitter<any>();
 
@@ -51,14 +52,32 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
   isSaving: boolean = false;
   errorMessage: string = '';
 
+  // Track which type we're editing
+  isEditingInstance: boolean = false;
+
   constructor() {
     super(); // Call parent constructor
   }
 
   ngOnInit(): void {
-    if (this.councilor && this.councilor.councilor_config) {
-      const config = this.councilor.councilor_config;
+    this.initializeForm();
+  }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['councilor'] || changes['instance']) {
+      this.initializeForm();
+    }
+  }
+
+  /**
+   * Initialize form from councilor or instance data
+   */
+  private initializeForm(): void {
+    // Check if we're editing an instance or legacy councilor
+    const config = this.instance?.councilor_config || this.councilor?.councilor_config;
+    this.isEditingInstance = !!this.instance;
+
+    if (config) {
       // Populate form with current values
       this.title = config.title || '';
       this.taskName = config.task?.name || '';
@@ -67,8 +86,8 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
 
       // Notification preferences
       this.notifyOnSuccess = config.notifications?.on_success || false;
-      this.notifyOnWarning = config.notifications?.on_warning || true;
-      this.notifyOnError = config.notifications?.on_error || true;
+      this.notifyOnWarning = config.notifications?.on_warning ?? true;
+      this.notifyOnError = config.notifications?.on_error ?? true;
     }
   }
 
@@ -150,29 +169,34 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
    */
   async onSave(): Promise<void> {
     if (!this.validateForm()) return;
-    if (!this.councilor) return;
+    if (!this.councilor && !this.instance) return;
 
     this.isSaving = true;
     this.errorMessage = '';
 
     try {
+      const config = this.instance?.councilor_config || this.councilor?.councilor_config;
+
       const updateData = {
+        // Include instance_id if editing an instance
+        instance_id: this.instance?.instance_id,
+        is_instance: this.isEditingInstance,
         title: this.title.trim(),
         task: {
           name: this.taskName.trim(),
           prompt: this.taskPrompt.trim(),
-          context_files: this.councilor.councilor_config?.task?.context_files || []
+          context_files: config?.task?.context_files || []
         },
         schedule: {
           type: 'interval',
           value: this.scheduleValue,
-          enabled: this.councilor.councilor_config?.schedule?.enabled || true
+          enabled: config?.schedule?.enabled ?? true
         },
         notifications: {
           on_success: this.notifyOnSuccess,
           on_warning: this.notifyOnWarning,
           on_error: this.notifyOnError,
-          channels: this.councilor.councilor_config?.notifications?.channels || ['panel']
+          channels: config?.notifications?.channels || ['panel']
         }
       };
 

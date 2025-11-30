@@ -323,6 +323,18 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
   closeEditModal(): void {
     this.showEditModal = false;
     this.selectedCouncilor = null;
+    this.selectedInstance = null;
+  }
+
+  /**
+   * Handler para salvar configuração (decide se é instance ou legacy)
+   */
+  async handleSaveConfig(updateData: any): Promise<void> {
+    if (updateData.is_instance || this.selectedInstance) {
+      await this.saveInstanceConfig(updateData);
+    } else {
+      await this.saveCouncilorConfig(updateData);
+    }
   }
 
   /**
@@ -588,8 +600,56 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
   editInstance(instance: CouncilorInstance): void {
     console.log('⚙️ Editando instance:', instance);
     this.selectedInstance = instance;
-    // TODO: Implement instance edit modal
-    this.errorMessage = 'Edição de instances ainda não implementada';
+    this.selectedCouncilor = null;  // Clear legacy selection
+    this.showEditModal = true;
+    this.errorMessage = '';
+  }
+
+  /**
+   * Salva alterações de configuração de instance
+   */
+  async saveInstanceConfig(updateData: any): Promise<void> {
+    if (!this.selectedInstance) return;
+
+    // Set loading state
+    if (this.editModal) {
+      this.editModal.setLoadingState(true);
+    }
+
+    try {
+      const response = await fetch(`/api/councilors/instances/${this.selectedInstance.instance_id}/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Falha ao atualizar: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Configuração de instance atualizada:', result);
+
+      // Update locally
+      const index = this.councilorInstances.findIndex(i => i.instance_id === this.selectedInstance!.instance_id);
+      if (index !== -1 && result.instance) {
+        this.councilorInstances[index] = result.instance;
+      }
+
+      // Close modal
+      this.closeEditModal();
+
+      // Reload to ensure data is fresh
+      await this.loadCouncilorsFromApi();
+
+    } catch (error) {
+      console.error('❌ Erro ao salvar configuração de instance:', error);
+
+      if (this.editModal) {
+        this.editModal.setError(error instanceof Error ? error.message : 'Erro ao salvar configuração. Tente novamente.');
+      }
+    }
   }
 
   /**

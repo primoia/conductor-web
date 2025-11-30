@@ -330,8 +330,9 @@
       *ngIf="showEditModal"
       [isVisible]="showEditModal"
       [councilor]="selectedCouncilor"
+      [instance]="selectedInstance"
       (closeModal)="closeEditModal()"
-      (save)="saveCouncilorConfig($event)"
+      (save)="handleSaveConfig($event)"
     ></app-councilor-edit-modal>
   </div>
 </div>
