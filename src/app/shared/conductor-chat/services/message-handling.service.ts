@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import { map, catchError, tap, switchMap } from 'rxjs/operators';
 import { ConversationService, AgentInfo as ConvAgentInfo } from '../../../services/conversation.service';
 import { AgentService } from '../../../services/agent.service';
 import { AgentExecutionService, AgentExecutionState } from '../../../services/agent-execution';
+import { TaskObservabilityService, TaskSubmitPayload } from '../../../services/task-observability.service';
 import { Message } from '../models/chat.models';
 
 /**
@@ -60,17 +61,30 @@ export class MessageHandlingService {
   constructor(
     private conversationService: ConversationService,
     private agentService: AgentService,
-    private agentExecutionService: AgentExecutionService
+    private agentExecutionService: AgentExecutionService,
+    private taskObservabilityService: TaskObservabilityService
   ) {}
 
   /**
    * Enviar mensagem usando modelo de conversas globais (NOVO)
+   *
+   * 🔥 FLUXO DE OBSERVABILIDADE:
+   * 1. Gera task_id no frontend
+   * 2. Submete task para MongoDB via /api/tasks/submit (status: pending)
+   * 3. Emite evento local task_inputted
+   * 4. Gateway emite task_submitted via WebSocket
+   * 5. Watcher pega job e emite task_picked
+   * 6. Watcher finaliza e emite task_completed/error
    */
   sendMessageWithConversationModel(
     params: MessageParams,
     callbacks: MessageHandlingCallbacks
   ): Observable<MessageExecutionResult> {
-    console.log('🔥 [MESSAGE-SERVICE] Enviando mensagem usando modelo de conversas');
+    console.log('🔥 [MESSAGE-SERVICE] Enviando mensagem usando modelo de conversas COM OBSERVABILIDADE');
+
+    // 🔥 PASSO 1: Gerar task_id no frontend
+    const taskId = this.taskObservabilityService.generateTaskId();
+    console.log(`📝 [MESSAGE-SERVICE] Task ID gerado: ${taskId}`);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -89,14 +103,49 @@ export class MessageHandlingService {
     // Notificar loading
     callbacks.onLoadingChange(true);
 
-    // Adicionar mensagem ao backend
-    return this.conversationService.addMessage(params.conversationId!, {
-      user_input: params.message.trim()
-    }).pipe(
+    // 🔥 PASSO 2: Submeter task para observabilidade imediata
+    const taskPayload: TaskSubmitPayload = {
+      task_id: taskId,
+      agent_id: params.agentDbId,
+      agent_name: params.agentName,
+      agent_emoji: params.agentEmoji || '🤖',
+      instance_id: params.instanceId,
+      conversation_id: params.conversationId!,
+      screenplay_id: params.screenplayId,
+      input_text: params.message.trim(),
+      cwd: params.cwd,
+      ai_provider: params.provider
+    };
+
+    // Primeiro submeter a task, depois salvar mensagem na conversa
+    return this.taskObservabilityService.submitTask(taskPayload).pipe(
+      tap((response) => {
+        console.log('✅ [MESSAGE-SERVICE] Task submetida com sucesso:', response);
+      }),
+      switchMap(() => {
+        // Adicionar mensagem do usuário ao backend de conversas
+        return this.conversationService.addMessage(params.conversationId!, {
+          user_input: params.message.trim()
+        });
+      }),
       tap(() => console.log('✅ [MESSAGE-SERVICE] Mensagem do usuário salva no backend')),
       map(() => {
-        // Executar agente
-        this.executeAgentWithConversationModel(params, agentInfo, callbacks);
+        // O watcher vai processar a task automaticamente
+        // Apenas aguardamos a resposta via WebSocket
+
+        // Notificar AgentExecutionService para mostrar status na UI
+        const executionState: AgentExecutionState = {
+          id: params.instanceId,
+          emoji: params.agentEmoji || '🤖',
+          title: params.agentName || 'Unknown Agent',
+          prompt: params.message.trim(),
+          status: 'running',
+          logs: ['🚀 Task submitted to queue', `📋 Task ID: ${taskId}`]
+        };
+        this.agentExecutionService.executeAgent(executionState);
+
+        // Configurar callback para quando a task completar (via WebSocket)
+        this.setupTaskCompletionHandler(taskId, params, agentInfo, callbacks);
 
         return {
           success: true,
@@ -104,15 +153,64 @@ export class MessageHandlingService {
         };
       }),
       catchError((error) => {
-        console.error('❌ [MESSAGE-SERVICE] Erro ao salvar mensagem do usuário:', error);
+        console.error('❌ [MESSAGE-SERVICE] Erro ao submeter task:', error);
         callbacks.onLoadingChange(false);
         return of({
           success: false,
           userMessage,
-          error: error.message || 'Erro ao salvar mensagem'
+          error: error.message || 'Erro ao submeter task'
         });
       })
     );
+  }
+
+  /**
+   * Configura handler para quando a task completar via WebSocket
+   */
+  private setupTaskCompletionHandler(
+    taskId: string,
+    params: MessageParams,
+    agentInfo: ConvAgentInfo,
+    callbacks: MessageHandlingCallbacks
+  ): void {
+    // Assinar eventos locais do TaskObservabilityService
+    const subscription = this.taskObservabilityService.localTaskEvents$.subscribe((event) => {
+      if (event.data.task_id !== taskId) return;
+
+      console.log(`📡 [MESSAGE-SERVICE] Evento recebido para task ${taskId}: ${event.type}`);
+
+      if (event.type === 'task_completed') {
+        // Limpar progresso
+        callbacks.onProgressUpdate('', params.instanceId);
+        this.agentExecutionService.completeAgent(params.instanceId, { result: event.data.result_summary });
+
+        // Salvar resposta no backend
+        this.conversationService.addMessage(params.conversationId!, {
+          agent_response: event.data.result_summary || 'Execução concluída',
+          agent_info: agentInfo
+        }).subscribe({
+          next: () => {
+            console.log('✅ [MESSAGE-SERVICE] Resposta do agente salva no backend');
+            if (callbacks.onConversationReload) {
+              callbacks.onConversationReload(params.conversationId!);
+            }
+            callbacks.onLoadingChange(false);
+          },
+          error: (error) => {
+            console.error('❌ [MESSAGE-SERVICE] Erro ao salvar resposta:', error);
+            callbacks.onLoadingChange(false);
+          }
+        });
+
+        subscription.unsubscribe();
+
+      } else if (event.type === 'task_error') {
+        callbacks.onProgressUpdate('', params.instanceId);
+        this.agentExecutionService.cancelAgent(params.instanceId);
+        callbacks.onLoadingChange(false);
+        subscription.unsubscribe();
+      }
+    });
   }
 
   /**

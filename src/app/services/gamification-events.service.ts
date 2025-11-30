@@ -4,10 +4,11 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { AgentMetricsService, AgentExecutionMetrics } from './agent-metrics.service';
 import { AgentPersonalizationService } from './agent-personalization.service';
 import { GamificationWebSocketService, GamificationWebSocketEvent } from './gamification-websocket.service';
+import { TaskObservabilityService, TaskEvent } from './task-observability.service';
 
 export type GamificationSeverity = 'info' | 'warning' | 'error';
 export type EventLevel = 'debug' | 'info' | 'result'; // Log levels
-export type TaskStatus = 'pending' | 'processing' | 'completed' | 'error'; // Task execution status
+export type TaskStatus = 'inputted' | 'submitted' | 'pending' | 'processing' | 'completed' | 'error'; // Task execution status
 
 export interface GamificationEvent {
   id: string;
@@ -37,7 +38,8 @@ export class GamificationEventsService {
     private readonly metricsService: AgentMetricsService,
     private readonly personalization: AgentPersonalizationService,
     private readonly websocketService: GamificationWebSocketService,
-    private readonly http: HttpClient
+    private readonly http: HttpClient,
+    private readonly taskObservabilityService: TaskObservabilityService
   ) {
     // 🔔 Subscribe to WebSocket events (PRIMARY mechanism - real-time)
     this.websocketService.events$.subscribe(event => {
@@ -45,6 +47,16 @@ export class GamificationEventsService {
         this.handleWebSocketEvent(event);
       } catch (err) {
         console.error('❌ Error handling WebSocket event:', err);
+      }
+    });
+
+    // 🔥 Subscribe to local task events from TaskObservabilityService
+    // These are emitted immediately when user sends a message (before network)
+    this.taskObservabilityService.localTaskEvents$.subscribe((event: TaskEvent) => {
+      try {
+        this.handleLocalTaskEvent(event);
+      } catch (err) {
+        console.error('❌ Error handling local task event:', err);
       }
     });
 
@@ -65,7 +77,27 @@ export class GamificationEventsService {
     // 📜 Load historical events from MongoDB on initialization
     this.loadHistoricalEvents();
 
-    console.log('🎮 GamificationEventsService initialized with WebSocket (primary) + metrics polling (fallback) + historical events loading');
+    console.log('🎮 GamificationEventsService initialized with WebSocket (primary) + local task events + metrics polling (fallback) + historical events loading');
+  }
+
+  /**
+   * Handle local task events from TaskObservabilityService
+   * These provide immediate feedback before network round-trip
+   */
+  private handleLocalTaskEvent(event: TaskEvent): void {
+    console.log('📨 Handling local task event:', event.type, event.data);
+
+    // Convert TaskEvent to WebSocket-compatible format and handle
+    const wsEvent: GamificationWebSocketEvent = {
+      type: event.type,
+      data: event.data,
+      timestamp: event.timestamp
+    };
+
+    this.handleWebSocketEvent(wsEvent);
+
+    // Also notify TaskObservabilityService about the event being processed
+    this.taskObservabilityService.handleWebSocketEvent(event);
   }
 
   getRecent(limit: number): GamificationEvent[] {
@@ -354,8 +386,72 @@ export class GamificationEventsService {
         console.log('📊 Agent metrics updated:', event.data);
         break;
 
+      // ========================================================================
+      // 🔥 Task Observability Events - Novos status de observabilidade
+      // ========================================================================
+
+      case 'task_inputted':
+        // Task input received (from Frontend - local event)
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `📝 ${event.data.agent_name || event.data.agent_id} - Mensagem recebida`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'analysis',
+          level: 'debug',
+          summary: 'Mensagem do usuário recebida, enviando para o servidor...',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'pending'
+        });
+        break;
+
+      case 'task_submitted':
+        // Task submitted to MongoDB (from Gateway)
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `📤 ${event.data.agent_name || event.data.agent_id} - Na fila`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'analysis',
+          level: 'debug',
+          summary: 'Tarefa salva no MongoDB, aguardando processamento...',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'pending'
+        });
+        break;
+
+      case 'task_picked':
+        // Task picked by Watcher (from Watcher)
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `⚡ ${event.data.agent_name || event.data.agent_id} - Processando...`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: {
+            ...event.data,
+            execution_id: event.data.task_id
+          },
+          category: 'analysis',
+          level: 'debug',
+          summary: 'Watcher pegou a tarefa da fila, iniciando execução...',
+          agentEmoji: event.data.agent_emoji || '🤖',
+          agentName: event.data.agent_name || event.data.agent_id,
+          status: 'processing'
+        });
+        break;
+
       case 'task_started':
-        // Task execution started (from Watcher)
+        // Task execution started (from Watcher) - kept for backward compatibility
         this.pushEvent({
           id: event.data.task_id || this.generateId(),
           title: `🔄 ${event.data.agent_name || event.data.agent_id} - Executando...`,

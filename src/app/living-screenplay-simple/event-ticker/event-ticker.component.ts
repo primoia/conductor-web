@@ -49,6 +49,8 @@ import { marked } from 'marked';
             [class.expanded]="isExpanded"
             [class.error]="ev.severity === 'error'"
             [class.warning]="ev.severity === 'warning'"
+            [class.status-inputted]="ev.status === 'inputted'"
+            [class.status-submitted]="ev.status === 'submitted'"
             [class.status-pending]="ev.status === 'pending'"
             [class.status-processing]="ev.status === 'processing'"
             [class.status-completed]="ev.status === 'completed'"
@@ -187,6 +189,16 @@ import { marked } from 'marked';
     .news-article.expanded { border-left-color: #3b82f6; }
 
     /* Status-based styling */
+    .news-article.status-inputted {
+      border-left-color: #8b5cf6;
+      background: linear-gradient(90deg, #ede9fe 0%, transparent 15%);
+    }
+
+    .news-article.status-submitted {
+      border-left-color: #6366f1;
+      background: linear-gradient(90deg, #e0e7ff 0%, transparent 15%);
+    }
+
     .news-article.status-pending {
       border-left-color: #f59e0b;
       background: linear-gradient(90deg, #fef3c7 0%, transparent 15%);
@@ -291,6 +303,16 @@ import { marked } from 'marked';
       border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
+    }
+
+    .status-badge.badge-inputted {
+      background: #ede9fe;
+      color: #6b21a8;
+    }
+
+    .status-badge.badge-submitted {
+      background: #e0e7ff;
+      color: #4338ca;
     }
 
     .status-badge.badge-pending {
@@ -602,7 +624,9 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
    */
   getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
-      'pending': 'Aguardando',
+      'inputted': 'Digitado',
+      'submitted': 'Enviado',
+      'pending': 'Na Fila',
       'processing': 'Executando',
       'completed': 'Concluído',
       'error': 'Erro'
