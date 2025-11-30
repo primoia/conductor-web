@@ -97,30 +97,23 @@ export class GamificationEventsService {
     const taskId = (event.meta?.['task_id'] || event.meta?.['execution_id']) as string | undefined;
 
     if (!skipDuplicateCheck && taskId) {
-      // For task status updates (task_completed, task_error), UPDATE existing event instead of skipping
+      // If we've seen this task_id before, UPDATE the existing event instead of creating new
       if (this.seenExecutionIds.has(taskId)) {
         const newStatus = event.status;
+        console.log(`🔄 Updating event for task_id: ${taskId} -> status: ${newStatus}`);
 
-        // If this is a status update (completed/error), update the existing event
-        if (newStatus === 'completed' || newStatus === 'error') {
-          console.log(`🔄 Updating event status for task_id: ${taskId} -> ${newStatus}`);
-          const list = this.eventsSubject.value.map(ev => {
-            const evTaskId = ev.meta?.['task_id'] || ev.meta?.['execution_id'];
-            if (evTaskId === taskId) {
-              return {
-                ...ev,
-                ...event,
-                id: ev.id // Keep original id for ordering
-              };
-            }
-            return ev;
-          });
-          this.eventsSubject.next(list);
-          return;
-        }
-
-        // For other duplicates, skip
-        console.log(`⏭️ Skipping duplicate event for task_id: ${taskId}`);
+        const list = this.eventsSubject.value.map(ev => {
+          const evTaskId = ev.meta?.['task_id'] || ev.meta?.['execution_id'];
+          if (evTaskId === taskId) {
+            return {
+              ...ev,
+              ...event,
+              id: ev.id // Keep original id for ordering
+            };
+          }
+          return ev;
+        });
+        this.eventsSubject.next(list);
         return;
       }
       this.seenExecutionIds.add(taskId);
@@ -386,26 +379,6 @@ export class GamificationEventsService {
       // 🔥 Task Observability Events - Novos status de observabilidade
       // ========================================================================
 
-      case 'task_inputted':
-        // Task input received (from Frontend - local event)
-        this.pushEvent({
-          id: event.data.task_id || this.generateId(),
-          title: `📝 ${event.data.agent_name || event.data.agent_id} - Mensagem recebida`,
-          severity: 'info',
-          timestamp: Date.now(),
-          meta: {
-            ...event.data,
-            execution_id: event.data.task_id
-          },
-          category: 'analysis',
-          level: 'debug',
-          summary: 'Mensagem do usuário recebida, enviando para o servidor...',
-          agentEmoji: event.data.agent_emoji || '🤖',
-          agentName: event.data.agent_name || event.data.agent_id,
-          status: 'pending'
-        });
-        break;
-
       case 'task_submitted':
         // Task submitted to MongoDB (from Gateway)
         this.pushEvent({
@@ -440,26 +413,6 @@ export class GamificationEventsService {
           category: 'analysis',
           level: 'debug',
           summary: 'Watcher pegou a tarefa da fila, iniciando execução...',
-          agentEmoji: event.data.agent_emoji || '🤖',
-          agentName: event.data.agent_name || event.data.agent_id,
-          status: 'processing'
-        });
-        break;
-
-      case 'task_started':
-        // Task execution started (from Watcher) - kept for backward compatibility
-        this.pushEvent({
-          id: event.data.task_id || this.generateId(),
-          title: `🔄 ${event.data.agent_name || event.data.agent_id} - Executando...`,
-          severity: 'info',
-          timestamp: Date.now(),
-          meta: {
-            ...event.data,
-            execution_id: event.data.task_id
-          },
-          category: 'analysis',
-          level: 'debug',
-          summary: 'Tarefa iniciada, aguardando resultado...',
           agentEmoji: event.data.agent_emoji || '🤖',
           agentName: event.data.agent_name || event.data.agent_id,
           status: 'processing'
