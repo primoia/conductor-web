@@ -345,10 +345,8 @@ export class GamificationEventsService {
         break;
 
       case 'agent_execution_completed':
-        // DEPRECATED: This event was sent by SSE streaming but is now disabled
-        // The Watcher sends task_completed events instead which are more reliable
-        // Keeping this case for backwards compatibility but it should not be triggered
-        console.log('⏭️ Ignoring agent_execution_completed (deprecated - use task_completed from Watcher)');
+        // DEPRECATED: Use task_completed instead
+        console.log('⏭️ Ignoring agent_execution_completed (use task_completed)');
         break;
 
       case 'agent_metrics_updated':
