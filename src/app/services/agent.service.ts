@@ -61,6 +61,7 @@ interface ExecutionRequest {
   document_id?: string; // SAGA-006: Add document_id for screenplay association
   ai_provider?: string; // Phase 2: Add ai_provider for provider selection
   conversation_id?: string; // Conversation ID for context
+  screenplay_id?: string; // Screenplay ID for project context
 }
 
 @Injectable({
@@ -101,7 +102,7 @@ export class AgentService {
         const agents = Array.isArray(response) ? response : (response.agents || []);
         // Transform API response to Agent model
         return agents.map((agent: any) => ({
-          id: agent.agent_id || agent.name,  // Use agent_id (name) not _id (ObjectId)
+          id: agent.id || agent.agent_id || agent.name,  // Priority: id (from API), agent_id, then name as fallback
           name: agent.name,
           emoji: agent.emoji || '🤖',
           description: agent.description || agent.prompt || '',
@@ -159,8 +160,9 @@ export class AgentService {
    * @param documentId - Optional document ID for screenplay association
    * @param aiProvider - Optional AI provider override (e.g., 'claude', 'gemini')
    * @param conversationId - Optional conversation ID for context
+   * @param screenplayId - Optional screenplay ID for project context
    */
-  executeAgent(agentId: string, inputText: string, instanceId: string, cwd?: string, documentId?: string, aiProvider?: string, conversationId?: string): Observable<ExecutionResult> {
+  executeAgent(agentId: string, inputText: string, instanceId: string, cwd?: string, documentId?: string, aiProvider?: string, conversationId?: string, screenplayId?: string): Observable<ExecutionResult> {
     const requestBody: ExecutionRequest = {
       input_text: inputText,
       instance_id: instanceId
@@ -186,6 +188,11 @@ export class AgentService {
       requestBody.conversation_id = conversationId;
     }
 
+    // Add screenplay_id to request body if provided
+    if (screenplayId) {
+      requestBody.screenplay_id = screenplayId;
+    }
+
     console.log('🚀 [AGENT SERVICE] executeAgent chamado:');
     console.log('   - agentId (agent_id):', agentId);
     console.log('   - inputText:', inputText);
@@ -194,6 +201,7 @@ export class AgentService {
     console.log('   - document_id:', documentId || 'não fornecido');
     console.log('   - ai_provider:', aiProvider || 'padrão (config.yaml)');
     console.log('   - conversation_id:', conversationId || 'não fornecido');
+    console.log('   - screenplay_id:', screenplayId || 'não fornecido');
     console.log('   - Request Body:', JSON.stringify(requestBody, null, 2));
     console.log('   - URL:', `${this.baseUrl}/api/agents/${agentId}/execute`);
 

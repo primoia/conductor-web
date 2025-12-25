@@ -3408,8 +3408,17 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       const documentId = this.currentScreenplay?.id;
 
       this.screenplayKpis.incrementInvestigations();
-      this.agentService.executeAgent(agent.id, prompt, instanceId, selectionData.cwd, documentId)
-        .subscribe({
+      // Pass all required IDs: cwd, documentId, aiProvider (undefined), conversationId, screenplayId
+      this.agentService.executeAgent(
+        agent.id,
+        prompt,
+        instanceId,
+        selectionData.cwd,
+        documentId,
+        undefined, // aiProvider - use default
+        this.activeConversationId || undefined,
+        this.currentScreenplay?.id
+      ).subscribe({
           next: (res) => {
             this.logging.info('🔎 [INVESTIGATION] Execução concluída', 'ScreenplayInteractive', { success: res.success });
           },
@@ -3545,7 +3554,17 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Use the MongoDB agent_id if available, fallback to instance id
     const agentId = agent.agent_id ?? agent.id;
 
-    this.agentService.executeAgent(agentId, inputText, agent.id).subscribe({
+    // Pass all required IDs for proper execution context
+    this.agentService.executeAgent(
+      agentId,
+      inputText,
+      agent.id,
+      agent.config?.cwd || undefined,  // cwd from agent instance config
+      this.currentScreenplay?.id, // documentId
+      undefined, // aiProvider - use default
+      this.activeConversationId || undefined,
+      this.currentScreenplay?.id
+    ).subscribe({
       next: (result) => {
         this.previewLoading = false;
         if (result.success && result.result) {

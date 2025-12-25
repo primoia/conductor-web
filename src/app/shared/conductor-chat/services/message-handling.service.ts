@@ -209,9 +209,10 @@ export class MessageHandlingService {
       params.message.trim(),
       params.instanceId,
       cwd,
-      params.screenplayId,
-      params.provider,
-      params.conversationId  // 🔥 Passar conversation_id
+      params.screenplayId,  // documentId
+      params.provider,      // aiProvider
+      params.conversationId,  // 🔥 Passar conversation_id
+      params.screenplayId   // 🔥 Passar screenplay_id
     ).subscribe({
       next: (result) => {
         callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso
@@ -303,9 +304,10 @@ export class MessageHandlingService {
       params.message.trim(),
       params.instanceId,
       cwd,
-      params.screenplayId,
-      params.provider,
-      params.conversationId  // 🔥 Passar conversation_id
+      params.screenplayId,  // documentId
+      params.provider,      // aiProvider
+      params.conversationId,  // 🔥 Passar conversation_id
+      params.screenplayId   // 🔥 Passar screenplay_id
     ).subscribe({
       next: (result) => {
         callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso
