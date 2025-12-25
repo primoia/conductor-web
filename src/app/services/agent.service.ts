@@ -15,6 +15,7 @@ export interface Agent {
   model?: string;
   isSystemDefault?: boolean; // Flag for system/custom agents
   is_councilor?: boolean; // Flag indicating agent is promoted to councilor
+  mcp_configs?: string[]; // List of MCP sidecars assigned to this agent
 }
 
 /**
@@ -104,12 +105,45 @@ export class AgentService {
           description: agent.description || agent.prompt || '',
           prompt: agent.prompt,
           model: agent.model,
-          is_councilor: agent.is_councilor || false  // Flag for councilor status
+          is_councilor: agent.is_councilor || false,  // Flag for councilor status
+          mcp_configs: agent.mcp_configs || [] // List of MCP sidecars
         }));
       }),
       catchError(error => {
         console.error('[AgentService] Error fetching agents:', error);
         return throwError(() => new Error('Failed to fetch agents'));
+      })
+    );
+  }
+
+  /**
+   * Get available MCP sidecars from the discovery service
+   */
+  getAvailableSidecars(): Observable<string[]> {
+    return from(
+      fetch(`${this.baseUrl}/api/system/mcp/sidecars`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch sidecars: ${response.status} ${response.statusText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        // Extract sidecar names from response
+        // Response format: { count: number, sidecars: [{ name, url, port, container_id }] }
+        if (response && response.sidecars && Array.isArray(response.sidecars)) {
+          return response.sidecars.map((s: any) => s.name);
+        }
+        return [];
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error fetching sidecars:', error);
+        return throwError(() => new Error('Failed to fetch sidecars'));
       })
     );
   }
@@ -160,17 +194,17 @@ export class AgentService {
     console.log('   - conversation_id:', conversationId || 'não fornecido');
     console.log('   - Request Body:', JSON.stringify(requestBody, null, 2));
     console.log('   - URL:', `${this.baseUrl}/api/agents/${agentId}/execute`);
-    
+
     if (!agentId) {
       console.error('❌ [AGENT SERVICE] ERRO: agentId está undefined/null!');
       console.error('   O agente não pode ser executado sem um agent_id válido.');
     }
-    
+
     if (!instanceId) {
       console.warn('⚠️ [AGENT SERVICE] AVISO: instanceId está undefined/null!');
       console.warn('   O histórico não será isolado por instância.');
     }
-    
+
     console.log('   - Enviando requisição POST para o gateway...');
 
     return from(

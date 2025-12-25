@@ -1,6 +1,7 @@
-import { Component, Output, EventEmitter, Input } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { AgentService } from '../../services/agent.service';
 
 export interface AgentCreationData {
   emoji: string;
@@ -8,6 +9,7 @@ export interface AgentCreationData {
   description: string;
   color: string;
   position?: { x: number; y: number };
+  mcp_configs?: string[];
 }
 
 @Component({
@@ -105,6 +107,27 @@ export interface AgentCreationData {
                 <div class="preview-description">{{ agentDescription || 'Descrição do agente' }}</div>
               </div>
             </div>
+          </div>
+
+          <!-- MCP Sidecars -->
+          <div class="form-section">
+            <label class="form-label">Ferramentas & Habilidades (MCP):</label>
+            <div class="mcp-grid" *ngIf="availableSidecars.length > 0; else noSidecars">
+              <div 
+                *ngFor="let sidecar of availableSidecars" 
+                class="mcp-option"
+                [class.selected]="isSidecarSelected(sidecar)"
+                (click)="toggleSidecar(sidecar)">
+                <span class="mcp-check">{{ isSidecarSelected(sidecar) ? '✅' : '⬜' }}</span>
+                <span class="mcp-name">{{ sidecar }}</span>
+              </div>
+            </div>
+            <ng-template #noSidecars>
+              <div class="no-sidecars">
+                <p>Nenhuma ferramenta MCP descoberta.</p>
+                <small>Verifique se os sidecars estão rodando no Docker.</small>
+              </div>
+            </ng-template>
           </div>
         </div>
 
@@ -412,12 +435,67 @@ export interface AgentCreationData {
     .btn-primary:hover:not(:disabled) {
       background: #0056b3;
     }
+
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #dee2e6;
+    }
+
+    .mcp-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: white;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .mcp-option:hover {
+      border-color: #007bff;
+      background: #e3f2fd;
+    }
+
+    .mcp-option.selected {
+      border-color: #007bff;
+      background: #e3f2fd;
+      color: #0056b3;
+      font-weight: 500;
+    }
+
+    .mcp-check {
+      font-size: 16px;
+    }
+
+    .no-sidecars {
+      padding: 15px;
+      text-align: center;
+      background: #f8f9fa;
+      border-radius: 8px;
+      color: #666;
+    }
   `]
 })
-export class AgentCreatorComponent {
+export class AgentCreatorComponent implements OnInit {
   @Input() isVisible: boolean = false;
   @Output() agentCreated = new EventEmitter<AgentCreationData>();
   @Output() close = new EventEmitter<void>();
+
+  constructor(private agentService: AgentService) { }
+
+  ngOnInit(): void {
+    this.loadSidecars();
+  }
 
   // Available emojis from the main component
   availableEmojis = ['🚀', '🔐', '📊', '🛡️', '⚡', '🎯', '🧠', '💻', '📱', '🌐', '🔍', '🎪', '🏆', '🔮', '💎', '⭐', '🌟', '🧪'];
@@ -436,6 +514,33 @@ export class AgentCreatorComponent {
   agentDescription: string = '';
   selectedColor: string = '#007bff';
   customColor: string = '#007bff';
+
+  // MCP Data
+  availableSidecars: string[] = [];
+  selectedSidecars: string[] = [];
+
+  loadSidecars(): void {
+    this.agentService.getAvailableSidecars().subscribe({
+      next: (sidecars) => {
+        this.availableSidecars = sidecars.sort();
+        console.log('✅ [CREATOR] Loaded sidecars:', sidecars.length);
+      },
+      error: (err) => console.error('❌ [CREATOR] Error loading sidecars:', err)
+    });
+  }
+
+  toggleSidecar(sidecar: string): void {
+    const index = this.selectedSidecars.indexOf(sidecar);
+    if (index > -1) {
+      this.selectedSidecars.splice(index, 1);
+    } else {
+      this.selectedSidecars.push(sidecar);
+    }
+  }
+
+  isSidecarSelected(sidecar: string): boolean {
+    return this.selectedSidecars.includes(sidecar);
+  }
 
   // Emoji definitions for titles
   private emojiTitles: { [key: string]: string } = {
@@ -502,7 +607,8 @@ export class AgentCreatorComponent {
         emoji: this.getSelectedEmoji(),
         title: this.agentTitle.trim(),
         description: this.agentDescription.trim(),
-        color: this.selectedColor
+        color: this.selectedColor,
+        mcp_configs: [...this.selectedSidecars]
       };
 
       this.agentCreated.emit(agentData);
@@ -530,5 +636,6 @@ export class AgentCreatorComponent {
     this.agentDescription = '';
     this.selectedColor = '#007bff';
     this.customColor = '#007bff';
+    this.selectedSidecars = [];
   }
 }
