@@ -96,9 +96,11 @@ export class AgentService {
         return response.json();
       })
     ).pipe(
-      map((agents: any[]) => {
+      map((response: any) => {
+        // API returns {total, agents} - extract the agents array
+        const agents = Array.isArray(response) ? response : (response.agents || []);
         // Transform API response to Agent model
-        return agents.map(agent => ({
+        return agents.map((agent: any) => ({
           id: agent.agent_id || agent.name,  // Use agent_id (name) not _id (ObjectId)
           name: agent.name,
           emoji: agent.emoji || '🤖',
