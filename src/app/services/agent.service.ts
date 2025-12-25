@@ -521,4 +521,70 @@ export class AgentService {
   generateInstanceId(): string {
     return `instance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
+
+  /**
+   * Create a new agent definition (normalized format)
+   * @param agentData - The agent data to create
+   * @returns Observable with the creation result
+   */
+  createAgent(agentData: {
+    name: string;           // Must end with _Agent
+    description: string;    // 10-200 chars
+    persona_content: string; // Min 50 chars, must start with #
+    emoji?: string;
+    tags?: string[];
+    mcp_configs?: string[];
+  }): Observable<{ status: string; agent_id: string; message: string }> {
+    console.log('🛠️ [AGENT SERVICE] createAgent chamado (normalized):');
+    console.log('   - name:', agentData.name);
+    console.log('   - description:', agentData.description);
+    console.log('   - emoji:', agentData.emoji);
+    console.log('   - tags:', agentData.tags);
+    console.log('   - mcp_configs:', agentData.mcp_configs);
+    console.log('   - persona_content:', agentData.persona_content?.substring(0, 50) + '...');
+
+    const payload = {
+      name: agentData.name,
+      description: agentData.description,
+      persona_content: agentData.persona_content,
+      emoji: agentData.emoji || '🤖',
+      tags: agentData.tags || [],
+      mcp_configs: agentData.mcp_configs || []
+    };
+
+    console.log('   - Payload:', JSON.stringify(payload, null, 2));
+    console.log('   - URL:', `${this.baseUrl}/api/agents`);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de createAgent:');
+        console.log('   - Status:', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+          throw new Error(errorData.detail || `Failed to create agent: ${response.status}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Agente criado:', response);
+        return {
+          status: response.status || 'success',
+          agent_id: response.agent_id,
+          message: response.message || 'Agent created successfully'
+        };
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error creating agent:', error);
+        return throwError(() => new Error(error.message || 'Failed to create agent'));
+      })
+    );
+  }
 }

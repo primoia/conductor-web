@@ -719,6 +719,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         payload.display_order = (instance as any).display_order;
       }
 
+      // 🔥 NOVO: Include mcp_configs if it exists
+      if (instance && (instance as any).mcp_configs) {
+        payload.mcp_configs = (instance as any).mcp_configs;
+      }
+
       if (cwd) {
         payload.cwd = cwd;
       }
@@ -3160,50 +3165,102 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   onAgentCreated(agentData: AgentCreationData): void {
     const canvas = this.canvas.nativeElement;
-    const agentId = `custom-${this.generateUUID()}`;
 
-    // Add the new emoji to definitions if it doesn't exist
-    if (!AGENT_DEFINITIONS[agentData.emoji]) {
-      AGENT_DEFINITIONS[agentData.emoji] = {
-        title: agentData.title,
-        description: agentData.description,
-        unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
-      };
+    // Validate screenplay context
+    if (!this.currentScreenplay?.id) {
+      this.logging.error('❌ [AGENT-CREATOR] Cannot create agent: screenplay_id is not set', 'ScreenplayInteractive');
+      alert('Erro: Não é possível criar agente sem um roteiro ativo.');
+      return;
     }
 
-    const newInstance: AgentInstance = {
-      id: agentId,
+    this.logging.info('🛠️ [AGENT-CREATOR] Creating new agent via API (normalized)...', 'ScreenplayInteractive', agentData);
+
+    // 1. First, persist the agent definition to the backend (normalized format)
+    this.agentService.createAgent({
+      name: agentData.name,                    // Must end with _Agent
+      description: agentData.description,      // 10-200 chars
+      persona_content: agentData.persona_content, // Min 50 chars, starts with #
       emoji: agentData.emoji,
-      definition: {
-        title: agentData.title,
-        description: agentData.description,
-        unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
+      tags: agentData.tags,
+      mcp_configs: agentData.mcp_configs
+    }).subscribe({
+      next: (result) => {
+        this.logging.info('✅ [AGENT-CREATOR] Agent created in backend:', 'ScreenplayInteractive', result);
+
+        // Use the agent_id returned by the API
+        const agentId = result.agent_id;
+        const instanceId = this.agentService.generateInstanceId();
+
+        // Add the new emoji to definitions if it doesn't exist
+        if (!AGENT_DEFINITIONS[agentData.emoji]) {
+          AGENT_DEFINITIONS[agentData.emoji] = {
+            title: agentData.name,
+            description: agentData.description,
+            unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
+          };
+        }
+
+        const position = agentData.position || {
+          x: Math.random() * (canvas.offsetWidth - 100) + 50,
+          y: Math.random() * (canvas.offsetHeight - 100) + 50
+        };
+
+        const newInstance: AgentInstance & { mcp_configs?: string[] } = {
+          id: instanceId,
+          emoji: agentData.emoji,
+          definition: {
+            title: agentData.name,
+            description: agentData.description,
+            unicode: agentData.emoji.codePointAt(0)?.toString(16) || ''
+          },
+          status: 'pending',
+          position: position,
+          agent_id: agentId, // Link to the persisted agent
+          conversation_id: (this.currentScreenplay as any)?.conversation_id || this.generateUUID(),
+          mcp_configs: agentData.mcp_configs // MCP sidecars to bind
+        };
+
+        // Add to local state first (needed by _createAgentInstanceInMongoDB)
+        this.agentInstances.set(instanceId, newInstance);
+        this.updateLegacyAgentsFromInstances();
+
+        // 2. Persist the instance to MongoDB using existing method
+        this._createAgentInstanceInMongoDB(instanceId, agentId, position, { isSystemDefault: false })
+          .then(() => {
+            this.logging.info('✅ [AGENT-CREATOR] Instance persisted to MongoDB', 'ScreenplayInteractive');
+
+            // Add agent to the game map
+            if (this.agentGame) {
+              this.agentGame.addAgent({
+                emoji: agentData.emoji,
+                name: agentData.name,
+                agentId: agentId,
+                screenplayId: this.currentScreenplay?.id || 'unknown',
+                instanceId: instanceId
+              });
+              this.logging.info('🎮 [AGENT-GAME] Custom agent added to map:', 'ScreenplayInteractive', { name: agentData.name });
+            }
+
+            this.closeAgentCreator();
+            this.logging.info('✨ Agente personalizado criado com sucesso:', 'ScreenplayInteractive', {
+              name: agentData.name,
+              emoji: agentData.emoji,
+              agent_id: agentId,
+              instance_id: instanceId,
+              tags: agentData.tags,
+              mcp_configs: agentData.mcp_configs
+            });
+          })
+          .catch((err) => {
+            this.logging.error('❌ [AGENT-CREATOR] Failed to persist instance:', 'ScreenplayInteractive', err);
+            // Instance is already in local state, just log the error
+          });
       },
-      status: 'pending',
-      position: agentData.position || {
-        x: Math.random() * (canvas.offsetWidth - 100) + 50,
-        y: Math.random() * (canvas.offsetHeight - 100) + 50
+      error: (err) => {
+        this.logging.error('❌ [AGENT-CREATOR] Failed to create agent:', 'ScreenplayInteractive', err);
+        alert(`Erro ao criar agente: ${err.message}`);
       }
-    };
-
-    this.agentInstances.set(agentId, newInstance);
-    this.updateLegacyAgentsFromInstances();
-
-    // Add agent to the game map
-    if (this.agentGame) {
-      this.agentGame.addAgent({
-        emoji: agentData.emoji,
-        name: agentData.title,
-        agentId: agentId,
-        screenplayId: this.currentScreenplay?.id || 'unknown',
-        instanceId: agentId
-      });
-      this.logging.info('🎮 [AGENT-GAME] Custom agent added to map:', 'ScreenplayInteractive', { name: agentData.title });
-    }
-
-    this.closeAgentCreator();
-
-    this.logging.info('✨ Agente personalizado criado:', 'ScreenplayInteractive', { title: agentData.title, emoji: agentData.emoji });
+    });
   }
 
   openAgentSelector(): void {
