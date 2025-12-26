@@ -103,6 +103,32 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       </ng-template>
     </div>
 
+    <!-- Modal de Confirmação de Delete -->
+    <div class="modal-overlay delete-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+      <div class="modal-content delete-confirm-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header delete-header">
+          <h3>🗑️ Excluir Conversa</h3>
+          <button class="modal-close-btn" (click)="closeDeleteModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="conversation-display" *ngIf="conversationToDelete">
+            <div class="conversation-icon">💬</div>
+            <div class="conversation-delete-details">
+              <div class="conversation-name-large">{{ conversationToDelete.title }}</div>
+              <div class="conversation-meta-large">{{ conversationToDelete.message_count }} mensagens</div>
+            </div>
+          </div>
+          <p class="delete-warning">Esta ação não pode ser desfeita. Todas as mensagens serão perdidas.</p>
+        </div>
+
+        <div class="modal-footer">
+          <button class="modal-cancel-btn" (click)="closeDeleteModal()">Cancelar</button>
+          <button class="modal-delete-btn" (click)="confirmDeleteConversation()">Excluir Conversa</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal de Edição -->
     <div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
       <div class="modal-content" (click)="$event.stopPropagation()">
@@ -510,6 +536,85 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     .modal-save-btn:hover {
       background: #0056b3;
     }
+
+    /* Delete Confirmation Modal Styles */
+    .delete-overlay {
+      z-index: 10001;
+    }
+
+    .delete-confirm-modal {
+      max-width: 450px;
+    }
+
+    .delete-header h3 {
+      color: #dc3545;
+    }
+
+    .conversation-display {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .conversation-icon {
+      font-size: 48px;
+      flex-shrink: 0;
+    }
+
+    .conversation-delete-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .conversation-name-large {
+      font-weight: 600;
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .conversation-meta-large {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .delete-warning {
+      color: #856404;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .modal-delete-btn {
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: #dc3545;
+      color: white;
+    }
+
+    .modal-delete-btn:hover {
+      background: #c82333;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    .modal-delete-btn:active {
+      background: #bd2130;
+      transform: translateY(0);
+    }
   `]
 })
 export class ConversationListComponent implements OnInit {
@@ -528,6 +633,10 @@ export class ConversationListComponent implements OnInit {
   editingConversation: ConversationSummary | null = null;
   editModalTitle = '';
   editModalContext = '';
+
+  // 🔥 NOVO: Estado do modal de confirmação de delete
+  showDeleteModal = false;
+  conversationToDelete: ConversationSummary | null = null;
 
   constructor(private conversationService: ConversationService) {}
 
@@ -679,10 +788,16 @@ export class ConversationListComponent implements OnInit {
   }
 
   /**
-   * Close edit modal with ESC key
+   * Close modals with ESC key
    */
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
+    if (this.showDeleteModal) {
+      this.closeDeleteModal();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (this.showEditModal) {
       this.closeEditModal();
       event.preventDefault();
@@ -691,11 +806,37 @@ export class ConversationListComponent implements OnInit {
   }
 
   onDeleteConversation(event: Event, conversationId: string): void {
+    console.log('🗑️ [CONV-LIST] onDeleteConversation called:', conversationId);
     event.stopPropagation(); // Prevent selecting the conversation
+    event.preventDefault();
 
-    if (confirm('Tem certeza que deseja deletar esta conversa?')) {
-      this.conversationDeleted.emit(conversationId);
+    // Encontrar a conversa para mostrar no modal
+    const conversation = this.conversations.find(c => c.conversation_id === conversationId);
+    if (conversation) {
+      this.conversationToDelete = conversation;
+      this.showDeleteModal = true;
     }
+  }
+
+  /**
+   * 🔥 NOVO: Fecha modal de confirmação de delete
+   */
+  closeDeleteModal(): void {
+    this.showDeleteModal = false;
+    this.conversationToDelete = null;
+  }
+
+  /**
+   * 🔥 NOVO: Confirma e executa a exclusão da conversa
+   */
+  confirmDeleteConversation(): void {
+    if (!this.conversationToDelete) return;
+
+    const conversationId = this.conversationToDelete.conversation_id;
+    console.log('🗑️ [CONV-LIST] Confirming delete for:', conversationId);
+
+    this.closeDeleteModal();
+    this.conversationDeleted.emit(conversationId);
   }
 
   formatDate(dateString: string): string {
