@@ -18,6 +18,7 @@ import { MessageHandlingService, MessageParams, MessageHandlingCallbacks } from 
 import { ModalStateService, ModalType } from './services/modal-state.service';
 import { environment } from '../../../environments/environment';
 import { ConversationService, Conversation, AgentInfo as ConvAgentInfo, Message as ConvMessage } from '../../services/conversation.service';
+import { NavigationStateService } from '../../services/navigation-state.service';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 
 const DEFAULT_CONFIG: ConductorConfig = {
@@ -2541,7 +2542,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private speechService: SpeechRecognitionService,
     private conversationService: ConversationService,  // 🔥 NOVO
     private messageHandlingService: MessageHandlingService,  // 🔥 FASE 1.1
-    public modalStateService: ModalStateService  // 🔥 FASE 1.2 (public para template)
+    public modalStateService: ModalStateService,  // 🔥 FASE 1.2 (public para template)
+    private navigationStateService: NavigationStateService  // 🔥 Estado de navegação
   ) { }
 
   ngOnInit(): void {
@@ -3948,29 +3950,55 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   onDeleteConversation(conversationId: string): void {
     console.log('🗑️ [CHAT] Deletando conversa:', conversationId);
 
+    const wasActiveConversation = this.activeConversationId === conversationId;
+
     this.conversationService.deleteConversation(conversationId).subscribe({
       next: () => {
         console.log('✅ [CHAT] Conversa deletada com sucesso');
 
-        // Se deletou a conversa ativa, limpar o chat
-        if (this.activeConversationId === conversationId) {
-          this.activeConversationId = null;
-          this.activeConversationChanged.emit(null); // 🔥 NOVO: Notificar mudança
-          this.chatState.messages = [{
-            id: `empty-${Date.now()}`,
-            content: 'Selecione uma conversa ou crie uma nova.',
-            type: 'system',
-            timestamp: new Date()
-          }];
+        // 🔥 Deletar estado de navegação do MongoDB
+        if (this.activeScreenplayId) {
+          this.navigationStateService.deleteConversationState(this.activeScreenplayId, conversationId);
         }
 
-        // Refresh the conversation list
+        // Refresh the conversation list primeiro
         this.refreshConversationList();
+
+        // Se deletou a conversa ativa, selecionar a última conversa restante
+        if (wasActiveConversation) {
+          // Aguardar o refresh completar e selecionar última conversa
+          setTimeout(() => {
+            this.selectLastConversationAfterDelete();
+          }, 100);
+        }
       },
       error: (error) => {
         console.error('❌ [CHAT] Erro ao deletar conversa:', error);
       }
     });
+  }
+
+  /**
+   * 🔥 NOVO: Seleciona a última conversa após deletar a ativa
+   */
+  private selectLastConversationAfterDelete(): void {
+    if (this._conversations.length > 0) {
+      // Selecionar a última conversa (mais recente)
+      const lastConversation = this._conversations[0]; // Já vem ordenado por data
+      console.log('🔄 [CHAT] Selecionando última conversa após delete:', lastConversation.conversation_id);
+      this.setActiveConversation(lastConversation.conversation_id);
+    } else {
+      // Sem conversas restantes, limpar o chat
+      console.log('🔄 [CHAT] Sem conversas restantes, limpando chat');
+      this.activeConversationId = null;
+      this.activeConversationChanged.emit(null);
+      this.chatState.messages = [{
+        id: `empty-${Date.now()}`,
+        content: 'Selecione uma conversa ou crie uma nova.',
+        type: 'system',
+        timestamp: new Date()
+      }];
+    }
   }
 
   /**

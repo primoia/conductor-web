@@ -39,6 +39,7 @@ import { CouncilorsDashboardComponent } from './councilors-dashboard/councilors-
 import { PromoteCouncilorModalComponent } from './promote-councilor-modal/promote-councilor-modal.component';
 import { CouncilorSchedulerService } from '../services/councilor-scheduler.service';
   import { ConversationManagementService } from '../services/conversation-management.service';
+import { NavigationStateService } from '../services/navigation-state.service';
 
 interface AgentConfig {
   id: string;
@@ -303,7 +304,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     private gamificationEvents: GamificationEventsService,
     private screenplayKpis: ScreenplayKpiService,
     private councilorScheduler: CouncilorSchedulerService,
-    private conversationManagement: ConversationManagementService
+    private conversationManagement: ConversationManagementService,
+    private navigationState: NavigationStateService
   ) {
     // Create specialized loggers for different contexts
     this.logger = this.logging.createChildLogger('ScreenplayInteractive');
@@ -795,6 +797,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    const conversationId = agent.conversation_id;
+
     // Remove from memory
     this.agentInstances.delete(instanceId);
 
@@ -812,7 +816,47 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       this.logging.info('🎮 [AGENT-GAME] Agent removed from map', 'ScreenplayInteractive');
     }
 
+    // 🔥 Atualizar navigation state se o agente excluído era o ativo
+    if (this.activeAgentId === instanceId && conversationId) {
+      this.updateNavigationAfterAgentDelete(conversationId);
+    }
+
     this.logging.info('✅ [DELETE AGENT] Agent deleted successfully', 'ScreenplayInteractive');
+  }
+
+  /**
+   * 🔥 NOVO: Atualiza navigation state após exclusão de agente
+   * Se ainda houver agentes na conversa → seleciona o último
+   * Se não houver mais → seta instance_id como null
+   */
+  private updateNavigationAfterAgentDelete(conversationId: string): void {
+    // Buscar agentes restantes na conversa
+    const remainingAgents = Array.from(this.agentInstances.values())
+      .filter(a => a.conversation_id === conversationId);
+
+    this.logging.info(`🔍 [NAV-STATE] Agentes restantes na conversa: ${remainingAgents.length}`, 'ScreenplayInteractive');
+
+    if (remainingAgents.length === 0) {
+      // Sem agentes → limpar instance_id
+      this.activeAgentId = null;
+      this.navigationState.setInstance(null);
+      this.logging.info('🧭 [NAV-STATE] Sem agentes restantes, instance_id setado para null', 'ScreenplayInteractive');
+    } else {
+      // Selecionar último agente (mais recente)
+      const sortedAgents = remainingAgents.sort((a, b) => {
+        const dateA = a.config?.updatedAt || a.config?.createdAt || new Date(0);
+        const dateB = b.config?.updatedAt || b.config?.createdAt || new Date(0);
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+
+      const lastAgent = sortedAgents[0];
+      this.activeAgentId = lastAgent.id;
+      this.navigationState.setInstance(lastAgent.id);
+      this.logging.info(`🧭 [NAV-STATE] Novo agente ativo: ${lastAgent.emoji} ${lastAgent.definition.title}`, 'ScreenplayInteractive');
+
+      // Carregar contexto do novo agente no chat
+      this.loadAgentContextInChat(lastAgent);
+    }
   }
 
   /**
@@ -857,44 +901,35 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Load screenplays list for tree view
     this.loadScreenplaysList();
 
-    // Subscribe to URL query parameter changes
-    this.route.queryParamMap.subscribe(params => {
-      const screenplayId = params.get('screenplayId');
-      const conversationId = params.get('conversationId');
-      const instanceId = params.get('instanceId');
+    // 🔥 NOVO: Inicializar NavigationStateService
+    // O service busca estado da URL ou MongoDB e sincroniza
+    this.navigationState.initialize(this.route).then(state => {
+      this.logging.info('🧭 [NAV-STATE] Estado inicial recebido:', 'ScreenplayInteractive', state);
 
-      // 🔥 NOVO: Store conversation and instance params for later application
-      this.pendingConversationId = conversationId;
-      this.pendingInstanceId = instanceId;
+      // Salvar estado pendente para aplicar no ngAfterViewInit
+      this.pendingScreenplayId = state.screenplayId;
+      this.pendingConversationId = state.conversationId;
+      this.pendingInstanceId = state.instanceId;
+    }).catch(error => {
+      this.logging.error('❌ [NAV-STATE] Erro ao inicializar:', error, 'ScreenplayInteractive');
+    });
 
-      // Apply conversation/instance if screenplay is already loaded and hasn't changed
-      if (screenplayId === this.currentScreenplay?.id) {
-        this.logging.info(`🔗 [URL-PARAMS] Screenplay já carregado, aplicando conversationId=${conversationId}, instanceId=${instanceId}`, 'ScreenplayInteractive');
-        this.applyPendingSelections();
-        return;
-      }
-
-      // Check for unsaved changes before loading new screenplay
-      if (this.isDirty && screenplayId !== this.currentScreenplay?.id) {
-        const confirmed = confirm(
-          'Você tem alterações não salvas. Deseja descartá-las e carregar um novo screenplay?'
-        );
-        if (!confirmed) {
-          // Revert URL to current screenplay
-          this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: {
-              screenplayId: this.currentScreenplay?.id || null,
-              conversationId: this.activeConversationId,
-              instanceId: this.activeAgentId
-            },
-            replaceUrl: true
-          });
-          return;
+    // 🔥 NOVO: Subscrever a mudanças de estado do NavigationStateService
+    // Isso permite que outros componentes/eventos atualizem o estado
+    this.navigationState.screenplayChanged$.subscribe(screenplayId => {
+      if (screenplayId && screenplayId !== this.currentScreenplay?.id) {
+        this.logging.info(`🔄 [NAV-STATE] Screenplay mudou externamente: ${screenplayId}`, 'ScreenplayInteractive');
+        // Check for unsaved changes
+        if (this.isDirty) {
+          const confirmed = confirm('Você tem alterações não salvas. Deseja descartá-las?');
+          if (!confirmed) {
+            // Reverter estado no service
+            this.navigationState.setScreenplayPreservingSelections(this.currentScreenplay?.id || null);
+            return;
+          }
         }
+        this.loadScreenplayById(screenplayId);
       }
-
-      this.pendingScreenplayId = screenplayId;
     });
 
     // Listen for force save events from chat
@@ -1411,46 +1446,34 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * 🔥 REFATORADO: Usa NavigationStateService para gerenciar estado
+   * FLUXO 1: Troca de roteiro - limpa conversa e agente
+   */
   private updateUrlWithScreenplayId(id: string): void {
-    // 🔥 CRITICAL: Ao trocar de screenplay, limpar conversationId e instanceId
-    // porque pertencem ao screenplay anterior
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: {
-        screenplayId: id,
-        conversationId: null,  // Limpa conversa do screenplay anterior
-        instanceId: null       // Limpa instância do screenplay anterior
-      },
-      queryParamsHandling: 'merge',
-      replaceUrl: true
+    this.logging.info(`🧭 [NAV-STATE] FLUXO 1: setScreenplay(${id})`, 'ScreenplayInteractive');
+    // Fire and forget - não bloqueia o carregamento do roteiro
+    // O estado será salvo no MongoDB e a URL será atualizada
+    this.navigationState.setScreenplay(id).catch(err => {
+      console.error('🧭 [NAV-STATE] Error saving state:', err);
     });
   }
 
   /**
-   * 🔥 NOVO: Atualiza URL com todos os parâmetros (screenplay, conversation, instance)
+   * 🔥 REFATORADO: Usa NavigationStateService para sincronizar estado
+   * Chamado quando qualquer parte do estado muda
    */
   private updateUrlWithAllParams(): void {
-    const queryParams: any = {};
+    this.logging.info('🧭 [NAV-STATE] updateUrlWithAllParams', 'ScreenplayInteractive', {
+      screenplayId: this.currentScreenplay?.id,
+      conversationId: this.activeConversationId,
+      instanceId: this.activeAgentId
+    });
 
-    // Sempre incluir screenplayId se disponível
-    if (this.currentScreenplay?.id) {
-      queryParams.screenplayId = this.currentScreenplay.id;
-    }
-
-    // Incluir conversationId se ativo
-    if (this.activeConversationId) {
-      queryParams.conversationId = this.activeConversationId;
-    }
-
-    // Incluir instanceId se ativo
-    if (this.activeAgentId) {
-      queryParams.instanceId = this.activeAgentId;
-    }
-
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams,
-      replaceUrl: true
+    this.navigationState.setState({
+      screenplayId: this.currentScreenplay?.id || null,
+      conversationId: this.activeConversationId,
+      instanceId: this.activeAgentId
     });
   }
 
@@ -3047,8 +3070,30 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  onTreeScreenplayOpen(screenplay: ScreenplayListItem): void {
+  async onTreeScreenplayOpen(screenplay: ScreenplayListItem): Promise<void> {
     console.log('🎬 [TREE] Opening screenplay:', screenplay.name);
+
+    // 🔥 FLUXO 1: Trocar roteiro
+    // 1. Salvar estado do roteiro anterior
+    // 2. Buscar estado salvo do novo roteiro (conversation_id, instance_id)
+    // 3. Aplicar estado e atualizar URL
+    const savedState = await this.navigationState.setScreenplay(screenplay.id);
+
+    // Se o MongoDB retornou conversation/instance salvos, usar como pending
+    if (savedState) {
+      this.pendingConversationId = savedState.conversationId;
+      this.pendingInstanceId = savedState.instanceId;
+      console.log('🎬 [TREE] Restored state from MongoDB:', {
+        conversationId: savedState.conversationId,
+        instanceId: savedState.instanceId
+      });
+    } else {
+      // Limpar pending se não há estado salvo
+      this.pendingConversationId = null;
+      this.pendingInstanceId = null;
+    }
+
+    // Carregar o roteiro (vai usar pendingConversationId/pendingInstanceId)
     this.loadScreenplayById(screenplay.id);
     this.closeScreenplayManager();
   }
@@ -3675,105 +3720,137 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.logging.info(`🔄 Dock atualizado: ${this.contextualAgents.length} agentes ${this.activeConversationId ? `na conversa ${this.activeConversationId}` : 'no documento'} (ordem por display_order ou criação)`, 'ScreenplayInteractive');
   }
 
+  /**
+   * 🔥 REFATORADO: Handler para clique no agente do dock
+   * FLUXO 3: Troca de agente - atualiza URL, NÃO recarrega histórico
+   */
   public onDockAgentClick(agent: AgentInstance): void {
-    this.logging.info(`🔄 [DOCK-CLICK] Carregando agente: ${agent.definition.title}`, 'ScreenplayInteractive', {
-      agentId: agent.id,
+    this.logging.info(`🧭 [NAV-STATE] FLUXO 3: onDockAgentClick(${agent.id})`, 'ScreenplayInteractive', {
       agentTitle: agent.definition.title,
-      agentEmoji: agent.emoji,
-      agent_agent_id: agent.agent_id,
-      agentCwd: agent.config?.cwd,
-      currentScreenplayId: this.currentScreenplay?.id,
-      conductorChatAvailable: !!this.conductorChat
+      agentEmoji: agent.emoji
     });
 
     this.activeAgentId = agent.id;
 
-    // 🔥 NOVO: Atualizar URL quando agente muda
-    this.updateUrlWithAllParams();
+    // FLUXO 3: Atualizar navegação (apenas instanceId muda)
+    this.navigationState.setInstance(agent.id);
 
+    // Carregar contexto do agente no chat (sem recarregar histórico - regra 3.4)
     if (this.conductorChat) {
-      this.logging.debug('🎯 [DOCK-CLICK] Calling conductorChat.loadContextForAgent...', 'ScreenplayInteractive');
       this.conductorChat.loadContextForAgent(
         agent.id,
         agent.definition.title,
         agent.emoji,
         agent.agent_id,
         agent.config?.cwd,
-        this.currentScreenplay?.id // SAGA-006: Pass screenplay ID for document association
+        this.currentScreenplay?.id
       );
-      this.logging.debug('✅ [DOCK-CLICK] loadContextForAgent called successfully', 'ScreenplayInteractive');
     } else {
       this.logging.error('❌ [DOCK-CLICK] ConductorChat is not available!', undefined, 'ScreenplayInteractive');
     }
   }
 
   /**
-   * 🔥 NOVO: Handler para mudanças de conversa ativa
-   * ✅ REFATORADO: Sincroniza com ConversationManagementService
+   * 🔥 REFATORADO: Handler para mudanças de conversa ativa
+   * FLUXO 2: Troca de conversa - atualiza URL, carrega histórico, seleciona agente
+   *
+   * PRIORIDADE DE SELEÇÃO DE AGENTE:
+   * 1. MongoDB: Se há instance_id salvo para esta conversa → usar esse
+   * 2. Fallback: Se não há salvo → usar último agente e salvar
    */
   public onActiveConversationChanged(conversationId: string | null): void {
-    this.logging.info(`🔄 [CONVERSATION-CHANGED] Conversa ativa mudou para: ${conversationId || 'nenhuma'}`, 'ScreenplayInteractive');
+    this.logging.info(`🧭 [NAV-STATE] FLUXO 2: onActiveConversationChanged(${conversationId || 'null'})`, 'ScreenplayInteractive');
 
     // Atualizar estado local
     this.activeConversationId = conversationId;
 
-    // Sincronizar com o serviço de gerenciamento e salvar no localStorage
+    // Sincronizar com o serviço de gerenciamento
     this.conversationManagement.setActiveConversation(conversationId, this.currentScreenplay?.id);
 
     // Atualizar o dock para mostrar apenas agentes da conversa ativa
     this.updateAgentDockLists();
 
-    // 🔥 FIX: Se mudou de conversa manualmente, limpar pendingInstanceId (não se aplica mais)
-    if (!this.isApplyingUrlParams && conversationId !== this.pendingConversationId) {
-      this.pendingInstanceId = null;
+    // Se estamos aplicando parâmetros da URL, não auto-selecionar agente
+    if (this.isApplyingUrlParams) {
+      this.logging.info('⏭️ [NAV-STATE] Aplicando URL params, pulando auto-seleção de agente', 'ScreenplayInteractive');
+      return;
     }
 
-    // 🔥 NOVO: Auto-selecionar último agente da conversa (apenas se não estamos aplicando URL)
-    if (conversationId && !this.isApplyingUrlParams) {
-      // 🔥 FIX: Pequeno delay para garantir que updateAgentDockLists() terminou
-      setTimeout(() => {
-        const agentsInConversation = Array.from(this.agentInstances.values())
-          .filter(agent => agent.conversation_id === conversationId);
+    // Troca de conversa: buscar estado do MongoDB primeiro
+    if (conversationId) {
+      this.handleConversationChange(conversationId);
+    } else {
+      this.activeAgentId = null;
+      this.navigationState.setConversation(null);
+    }
+  }
 
-        this.logging.info(`🔍 [CONVERSATION-CHANGED] Encontrados ${agentsInConversation.length} agentes na conversa`, 'ScreenplayInteractive', {
-          conversationId,
-          agentIds: agentsInConversation.map(a => a.id)
-        });
+  /**
+   * 🔥 NOVO: Handler async para troca de conversa
+   * Busca primeiro do MongoDB, depois fallback para último agente
+   */
+  private async handleConversationChange(conversationId: string): Promise<void> {
+    // 1. Buscar instance_id salvo do MongoDB (setConversation é async e busca do banco)
+    const savedInstanceId = await this.navigationState.setConversation(conversationId);
 
-        if (agentsInConversation.length === 0) {
-          this.logging.info('🤖 [CONVERSATION-CHANGED] Conversa sem agentes', 'ScreenplayInteractive');
-          this.activeAgentId = null;
-          this.updateUrlWithAllParams();
-        } else {
-          // 🔥 FIX: Selecionar o último agente (mais recente) da conversa
-          const sortedAgents = agentsInConversation.sort((a, b) => {
-            const dateA = a.config?.updatedAt || a.config?.createdAt || new Date(0);
-            const dateB = b.config?.updatedAt || b.config?.createdAt || new Date(0);
-            return new Date(dateB).getTime() - new Date(dateA).getTime();
-          });
+    this.logging.info(`🔍 [NAV-STATE] MongoDB retornou instance_id: ${savedInstanceId || 'null'}`, 'ScreenplayInteractive');
 
-          const lastAgent = sortedAgents[0];
-          this.logging.info(`🎯 [CONVERSATION-CHANGED] Auto-selecionando último agente: ${lastAgent.emoji} ${lastAgent.definition.title}`, 'ScreenplayInteractive');
+    // 2. Buscar agentes disponíveis nesta conversa
+    const agentsInConversation = Array.from(this.agentInstances.values())
+      .filter(agent => agent.conversation_id === conversationId);
 
-          this.activeAgentId = lastAgent.id;
+    this.logging.info(`🔍 [NAV-STATE] Encontrados ${agentsInConversation.length} agentes na conversa`, 'ScreenplayInteractive');
 
-          // Atualizar URL com o agente auto-selecionado (acontece dentro do !isApplyingUrlParams check acima)
-          this.updateUrlWithAllParams();
+    // 3. Se não há agentes, limpar seleção
+    if (agentsInConversation.length === 0) {
+      this.activeAgentId = null;
+      return;
+    }
 
-          // Carregar contexto do agente no chat
-          if (this.conductorChat) {
-            this.conductorChat.loadContextForAgent(
-              lastAgent.id,
-              lastAgent.definition.title,
-              lastAgent.emoji,
-              lastAgent.agent_id,
-              lastAgent.config?.cwd,
-              this.currentScreenplay?.id
-            );
-            this.logging.info('✅ [CONVERSATION-CHANGED] Contexto do último agente carregado', 'ScreenplayInteractive');
-          }
-        }
-      }, 50);
+    // 4. Se MongoDB tem instance_id salvo E o agente existe na conversa → usar esse
+    if (savedInstanceId) {
+      const savedAgent = agentsInConversation.find(a => a.id === savedInstanceId);
+      if (savedAgent) {
+        this.logging.info(`✅ [NAV-STATE] Restaurando agente do MongoDB: ${savedAgent.emoji} ${savedAgent.definition.title}`, 'ScreenplayInteractive');
+        this.activeAgentId = savedInstanceId;
+        this.loadAgentContextInChat(savedAgent);
+        return;
+      } else {
+        this.logging.warn(`⚠️ [NAV-STATE] Agente salvo ${savedInstanceId} não encontrado na conversa, usando fallback`, 'ScreenplayInteractive');
+      }
+    }
+
+    // 5. FALLBACK: MongoDB não tem ou agente não existe → usar último agente
+    const sortedAgents = agentsInConversation.sort((a, b) => {
+      const dateA = a.config?.updatedAt || a.config?.createdAt || new Date(0);
+      const dateB = b.config?.updatedAt || b.config?.createdAt || new Date(0);
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+
+    const lastAgent = sortedAgents[0];
+    this.logging.info(`🎯 [NAV-STATE] Fallback: selecionando último agente: ${lastAgent.emoji} ${lastAgent.definition.title}`, 'ScreenplayInteractive');
+
+    this.activeAgentId = lastAgent.id;
+
+    // Salvar no MongoDB (apenas se não tinha salvo)
+    this.navigationState.setInstance(lastAgent.id);
+
+    this.loadAgentContextInChat(lastAgent);
+  }
+
+  /**
+   * Carrega contexto do agente no chat
+   */
+  private loadAgentContextInChat(agent: any): void {
+    if (this.conductorChat) {
+      this.conductorChat.loadContextForAgent(
+        agent.id,
+        agent.definition.title,
+        agent.emoji,
+        agent.agent_id,
+        agent.config?.cwd,
+        this.currentScreenplay?.id
+      );
     }
   }
 
