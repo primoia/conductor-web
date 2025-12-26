@@ -1,9 +1,7 @@
 import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
-import { Agent } from '../../services/agent.service';
-import { environment } from '../../../environments/environment';
+import { Agent, AgentService } from '../../services/agent.service';
 
 @Component({
   selector: 'app-agent-catalog',
@@ -25,7 +23,7 @@ export class AgentCatalogComponent implements OnInit {
   // Filter state
   selectedFilter: 'all' | 'system' | 'custom' = 'all';
 
-  constructor(private http: HttpClient) {}
+  constructor(private agentService: AgentService) {}
 
   ngOnInit(): void {
     this.loadAgents();
@@ -35,8 +33,7 @@ export class AgentCatalogComponent implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    const gatewayUrl = (environment as any).gatewayUrl || environment.apiUrl || 'http://localhost:3001';
-    this.http.get<Agent[]>(`${gatewayUrl}/api/agents`).subscribe({
+    this.agentService.getAgents().subscribe({
       next: (agents) => {
         this.agents = agents;
         this.applyFilters();
