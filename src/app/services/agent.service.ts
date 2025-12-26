@@ -102,7 +102,7 @@ export class AgentService {
         const agents = Array.isArray(response) ? response : (response.agents || []);
         // Transform API response to Agent model
         return agents.map((agent: any) => ({
-          id: agent.agent_id,  // Backend always provides agent_id
+          id: agent.id,  // Backend returns agent_id as 'id' field
           name: agent.name,
           emoji: agent.emoji || '🤖',
           description: agent.description || agent.prompt || '',
