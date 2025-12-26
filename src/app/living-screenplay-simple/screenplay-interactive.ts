@@ -2382,7 +2382,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // 🔥 CRITICAL: Limpar conversationId e instanceId do screenplay anterior
     this.activeConversationId = null;
     this.activeAgentId = null;
-    this.pendingConversationId = null; // Limpa também o pending da URL
+    // 🔥 FIX: NÃO limpar pending - precisam sobreviver até applyPendingSelections()
     this.contextualAgents = [];
 
     // 🔍 DEBUG: Log complete screenplay object to verify workingDirectory is coming from backend
@@ -2407,8 +2407,11 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     this.sourceOrigin = 'database';
     this.sourceIdentifier = screenplay.id;
 
-    // Update URL with screenplay ID (e limpa conversation/instance IDs)
-    this.updateUrlWithScreenplayId(screenplay.id);
+    // Update URL with screenplay ID
+    // 🔥 FIX: Não limpar conversation/instance se vieram da URL
+    if (!this.pendingConversationId && !this.pendingInstanceId) {
+      this.updateUrlWithScreenplayId(screenplay.id);
+    }
 
     this.logging.info(`📖 [LOAD] Loading screenplay into editor:`, 'ScreenplayInteractive', {
       name: screenplay.name,
@@ -3720,12 +3723,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     // Atualizar o dock para mostrar apenas agentes da conversa ativa
     this.updateAgentDockLists();
 
-    // 🔥 FIX: Atualizar URL apenas se não estamos aplicando parâmetros da URL (evita loop)
-    if (!this.isApplyingUrlParams) {
-      this.updateUrlWithAllParams();
+    // 🔥 FIX: Se mudou de conversa manualmente, limpar pendingInstanceId (não se aplica mais)
+    if (!this.isApplyingUrlParams && conversationId !== this.pendingConversationId) {
+      this.pendingInstanceId = null;
     }
 
-    // 🔥 NOVO: Auto-selecionar último agente da conversa (apenas se não estamos aplicando URL params)
+    // 🔥 NOVO: Auto-selecionar último agente da conversa (apenas se não estamos aplicando URL)
     if (conversationId && !this.isApplyingUrlParams) {
       // 🔥 FIX: Pequeno delay para garantir que updateAgentDockLists() terminou
       setTimeout(() => {
@@ -3738,9 +3741,9 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
         });
 
         if (agentsInConversation.length === 0) {
-          this.logging.info('🤖 [CONVERSATION-CHANGED] Nova conversa vazia, criando agente default...', 'ScreenplayInteractive');
-          // 🔒 DESABILITADO: Criação automática de agente comentada para testar apenas criação manual
-          // this.createDefaultAgentInstance(conversationId);
+          this.logging.info('🤖 [CONVERSATION-CHANGED] Conversa sem agentes', 'ScreenplayInteractive');
+          this.activeAgentId = null;
+          this.updateUrlWithAllParams();
         } else {
           // 🔥 FIX: Selecionar o último agente (mais recente) da conversa
           const sortedAgents = agentsInConversation.sort((a, b) => {

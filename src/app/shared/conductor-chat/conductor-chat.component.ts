@@ -3048,13 +3048,17 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     this.activeAgentCwd = cwd || null;
     console.log('📁 [CHAT] CWD do agente ativo atualizado:', this.activeAgentCwd);
 
-    this.chatState.isLoading = true;
-
     // 🔥 NOVO MODELO: Usar conversas globais
     if (environment.features?.useConversationModel) {
+      // 🔥 FIX: Só mostrar loading se não for apenas troca de agente na mesma conversa
+      if (!this.activeConversationId) {
+        this.chatState.isLoading = true;
+      }
       this.loadContextWithConversationModel(instanceId, agentName, agentEmoji, agentDbId, cwd, screenplayId);
       return;
     }
+
+    this.chatState.isLoading = true;
 
     // 🔄 MODELO LEGADO: Usar históricos isolados (código original)
     this.loadContextWithLegacyModel(instanceId, cwd);
@@ -3082,8 +3086,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.conversationService.setActiveAgent(this.activeConversationId, { agent_info: agentInfo }).subscribe({
         next: () => {
           console.log('✅ [CHAT] Agente ativo atualizado com sucesso');
-          // Recarregar conversa para mostrar mensagens atualizadas
-          this.loadConversation(this.activeConversationId!);
+          // 🔥 FIX: NÃO recarregar conversa - ela já está carregada
+          // Apenas atualizar o estado do agente localmente
+          this.chatState.isLoading = false;
         },
         error: (error) => {
           console.error('❌ [CHAT] Erro ao atualizar agente ativo:', error);
