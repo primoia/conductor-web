@@ -6,7 +6,7 @@
 // Descrição: Componente reutilizável para footer de modais
 // =============================================================================
 
-import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 /**
@@ -104,7 +104,7 @@ export interface ModalButton {
       </div>
 
       <!-- Botões de ação -->
-      <div class="footer-actions" (click)="debugClick($event)">
+      <div class="footer-actions">
         <button
           *ngFor="let button of buttons; let i = index"
           type="button"
@@ -113,7 +113,8 @@ export interface ModalButton {
           [attr.aria-label]="button.ariaLabel || button.label"
           [attr.data-action]="button.action"
           [attr.data-index]="i"
-          (click)="onButtonClick(button); $event.stopPropagation()">
+          onclick="console.log('🔴 VANILLA JS CLICK:', this.dataset.action)"
+          (click)="onButtonClick(button)">
 
           <!-- Spinner de loading -->
           <span *ngIf="button.loading" class="spinner"></span>
@@ -134,7 +135,7 @@ export interface ModalButton {
   `,
   styleUrls: ['./modal-footer.component.scss']
 })
-export class ModalFooterComponent implements OnInit, OnChanges {
+export class ModalFooterComponent {
   // ===========================================================================
   // INPUTS
   // ===========================================================================
@@ -211,29 +212,8 @@ export class ModalFooterComponent implements OnInit, OnChanges {
   @Output() buttonClick = new EventEmitter<string>();
 
   // ===========================================================================
-  // LIFECYCLE HOOKS (DEBUG)
-  // ===========================================================================
-
-  ngOnInit(): void {
-    console.log('🟢 [MODAL-FOOTER] ngOnInit - buttons:', this.buttons);
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['buttons']) {
-      console.log('🟢 [MODAL-FOOTER] ngOnChanges - buttons changed:', this.buttons);
-    }
-  }
-
-  // ===========================================================================
   // MÉTODOS PÚBLICOS
   // ===========================================================================
-
-  /**
-   * Debug click on footer-actions container
-   */
-  debugClick(event: Event): void {
-    console.log('🟡 [MODAL-FOOTER] debugClick on container:', event.target);
-  }
 
   /**
    * Retorna a classe CSS apropriada para o botão baseado no tipo.

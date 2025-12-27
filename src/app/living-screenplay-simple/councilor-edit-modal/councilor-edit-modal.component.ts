@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { BaseModalComponent } from '../../shared/modals/base/base-modal.component';
 import { AgentWithCouncilor, CouncilorInstance } from '../../models/councilor.types';
 import { ModalHeaderComponent } from '../../shared/modals/base/modal-header.component';
-import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/modal-footer.component';
 
 /**
  * Modal para editar configuração de um conselheiro
@@ -26,7 +25,7 @@ import { ModalFooterComponent, ModalButton } from '../../shared/modals/base/moda
 @Component({
   selector: 'app-councilor-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
+  imports: [CommonModule, FormsModule, ModalHeaderComponent],
   templateUrl: './councilor-edit-modal.component.html',
   styleUrls: ['./councilor-edit-modal.component.scss']
 })
@@ -38,6 +37,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
   @Output() save = new EventEmitter<any>();
 
   // Form data
+  displayName: string = '';  // Nome do conselheiro
   title: string = '';
   taskName: string = '';
   taskPrompt: string = '';
@@ -77,6 +77,11 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
     // Check if we're editing an instance or legacy councilor
     const config = this.instance?.councilor_config || this.councilor?.councilor_config;
     this.isEditingInstance = !!this.instance;
+
+    // Display name (from customization or instance)
+    this.displayName = this.instance?.customization?.display_name
+      || this.councilor?.customization?.display_name
+      || '';
 
     if (config) {
       // Populate form with current values
@@ -145,6 +150,11 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
   validateForm(): boolean {
     this.errorMessage = '';
 
+    if (!this.displayName.trim()) {
+      this.errorMessage = 'O nome do conselheiro é obrigatório';
+      return false;
+    }
+
     if (!this.title.trim()) {
       this.errorMessage = 'O título é obrigatório';
       return false;
@@ -195,6 +205,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
         // Include instance_id if editing an instance
         instance_id: this.instance?.instance_id,
         is_instance: this.isEditingInstance,
+        display_name: this.displayName.trim(),  // Nome do conselheiro
         title: this.title.trim(),
         cwd: this.cwd.trim(),  // Working directory
         task: {
@@ -255,42 +266,5 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
    */
   setScheduleValue(value: string): void {
     this.scheduleValue = value;
-  }
-
-  /**
-   * Retorna os botões do footer
-   */
-  get footerButtons(): ModalButton[] {
-    return [
-      {
-        label: 'Cancelar',
-        type: 'secondary',
-        action: 'cancel',
-        disabled: this.isSaving
-      },
-      {
-        label: this.isSaving ? 'Salvando...' : '💾 Salvar Alterações',
-        type: 'primary',
-        action: 'save',
-        disabled: this.isSaving,
-        loading: this.isSaving
-      }
-    ];
-  }
-
-  /**
-   * Manipula ações dos botões do footer.
-   * @param action - Ação disparada pelo botão
-   */
-  handleFooterAction(action: string): void {
-    console.log('🔘 [EDIT MODAL] handleFooterAction:', action);
-    switch (action) {
-      case 'cancel':
-        this.onClose();
-        break;
-      case 'save':
-        this.onSave();
-        break;
-    }
   }
 }

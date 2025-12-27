@@ -156,3 +156,46 @@ textarea.form-control {
     font-size: $modal-font-size-md;
   }
 }
+
+/* Footer inline */
+.modal-footer-inline {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #444;
+  background: #2a2a2a;
+
+  button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .btn-cancel {
+    background: #444;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: #555;
+    }
+  }
+
+  .btn-save {
+    background: #007bff;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: #0056b3;
+    }
+  }
+}

@@ -25,6 +25,22 @@
     <!-- Body -->
     <div class="modal-body">
       <form class="edit-form">
+        <!-- Nome do Conselheiro -->
+        <div class="form-group">
+          <label for="displayName">Nome do Conselheiro *</label>
+          <input
+            id="displayName"
+            type="text"
+            class="form-control"
+            [(ngModel)]="displayName"
+            name="displayName"
+            placeholder="Ex: Silva, Maria, João"
+            [disabled]="isSaving"
+            required
+          />
+          <small class="form-hint">Nome usado nas notificações e relatórios</small>
+        </div>
+
         <!-- Título/Cargo -->
         <div class="form-group">
           <label for="title">Título/Cargo</label>
@@ -160,10 +176,22 @@
       </form>
     </div>
 
-    <!-- Footer reutilizável -->
-    <app-modal-footer
-      [buttons]="footerButtons"
-      (buttonClick)="handleFooterAction($event)">
-    </app-modal-footer>
+    <!-- Footer inline (debug) -->
+    <div class="modal-footer-inline">
+      <button
+        type="button"
+        class="btn-cancel"
+        [disabled]="isSaving"
+        (click)="onClose()">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-save"
+        [disabled]="isSaving"
+        (click)="onSave()">
+        {{ isSaving ? 'Salvando...' : '💾 Salvar' }}
+      </button>
+    </div>
   </div>
 </div>
