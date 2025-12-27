@@ -42,6 +42,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
   taskName: string = '';
   taskPrompt: string = '';
   scheduleValue: string = '';
+  cwd: string = '';  // Working directory
 
   // Notification preferences
   notifyOnSuccess: boolean = false;
@@ -89,6 +90,9 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
       this.notifyOnWarning = config.notifications?.on_warning ?? true;
       this.notifyOnError = config.notifications?.on_error ?? true;
     }
+
+    // Working directory (from instance or councilor)
+    this.cwd = this.instance?.cwd || (this.councilor as any)?.cwd || '';
   }
 
   // ===========================================================================
@@ -168,8 +172,18 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
    * Salva as alterações
    */
   async onSave(): Promise<void> {
-    if (!this.validateForm()) return;
-    if (!this.councilor && !this.instance) return;
+    console.log('🔄 [EDIT MODAL] onSave called');
+    console.log('🔄 [EDIT MODAL] councilor:', this.councilor);
+    console.log('🔄 [EDIT MODAL] instance:', this.instance);
+
+    if (!this.validateForm()) {
+      console.log('❌ [EDIT MODAL] Form validation failed');
+      return;
+    }
+    if (!this.councilor && !this.instance) {
+      console.log('❌ [EDIT MODAL] No councilor or instance selected');
+      return;
+    }
 
     this.isSaving = true;
     this.errorMessage = '';
@@ -182,6 +196,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
         instance_id: this.instance?.instance_id,
         is_instance: this.isEditingInstance,
         title: this.title.trim(),
+        cwd: this.cwd.trim(),  // Working directory
         task: {
           name: this.taskName.trim(),
           prompt: this.taskPrompt.trim(),
@@ -254,8 +269,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
         disabled: this.isSaving
       },
       {
-        label: this.isSaving ? 'Salvando...' : 'Salvar Alterações',
-        icon: this.isSaving ? undefined : 'fas fa-save',
+        label: this.isSaving ? 'Salvando...' : '💾 Salvar Alterações',
         type: 'primary',
         action: 'save',
         disabled: this.isSaving,
@@ -269,6 +283,7 @@ export class CouncilorEditModalComponent extends BaseModalComponent implements O
    * @param action - Ação disparada pelo botão
    */
   handleFooterAction(action: string): void {
+    console.log('🔘 [EDIT MODAL] handleFooterAction:', action);
     switch (action) {
       case 'cancel':
         this.onClose();

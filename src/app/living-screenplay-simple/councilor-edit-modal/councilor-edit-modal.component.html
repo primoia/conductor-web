@@ -40,6 +40,21 @@
           <small class="form-hint">O cargo ou função deste conselheiro</small>
         </div>
 
+        <!-- Diretório de Trabalho -->
+        <div class="form-group">
+          <label for="cwd">📁 Diretório de Trabalho</label>
+          <input
+            id="cwd"
+            type="text"
+            class="form-control"
+            [(ngModel)]="cwd"
+            name="cwd"
+            placeholder="Ex: /mnt/ramdisk/primoia-main/primoia/billing"
+            [disabled]="isSaving"
+          />
+          <small class="form-hint">Caminho absoluto do diretório onde o conselheiro irá executar</small>
+        </div>
+
         <!-- Nome da Tarefa -->
         <div class="form-group">
           <label for="taskName">Nome da Tarefa</label>

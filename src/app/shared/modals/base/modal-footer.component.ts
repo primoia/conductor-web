@@ -6,7 +6,7 @@
 // Descrição: Componente reutilizável para footer de modais
 // =============================================================================
 
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 /**
@@ -104,14 +104,16 @@ export interface ModalButton {
       </div>
 
       <!-- Botões de ação -->
-      <div class="footer-actions">
+      <div class="footer-actions" (click)="debugClick($event)">
         <button
-          *ngFor="let button of buttons"
+          *ngFor="let button of buttons; let i = index"
           type="button"
           [class]="getButtonClass(button)"
           [disabled]="button.disabled || button.loading"
           [attr.aria-label]="button.ariaLabel || button.label"
-          (click)="onButtonClick(button)">
+          [attr.data-action]="button.action"
+          [attr.data-index]="i"
+          (click)="onButtonClick(button); $event.stopPropagation()">
 
           <!-- Spinner de loading -->
           <span *ngIf="button.loading" class="spinner"></span>
@@ -132,7 +134,7 @@ export interface ModalButton {
   `,
   styleUrls: ['./modal-footer.component.scss']
 })
-export class ModalFooterComponent {
+export class ModalFooterComponent implements OnInit, OnChanges {
   // ===========================================================================
   // INPUTS
   // ===========================================================================
@@ -209,8 +211,29 @@ export class ModalFooterComponent {
   @Output() buttonClick = new EventEmitter<string>();
 
   // ===========================================================================
+  // LIFECYCLE HOOKS (DEBUG)
+  // ===========================================================================
+
+  ngOnInit(): void {
+    console.log('🟢 [MODAL-FOOTER] ngOnInit - buttons:', this.buttons);
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['buttons']) {
+      console.log('🟢 [MODAL-FOOTER] ngOnChanges - buttons changed:', this.buttons);
+    }
+  }
+
+  // ===========================================================================
   // MÉTODOS PÚBLICOS
   // ===========================================================================
+
+  /**
+   * Debug click on footer-actions container
+   */
+  debugClick(event: Event): void {
+    console.log('🟡 [MODAL-FOOTER] debugClick on container:', event.target);
+  }
 
   /**
    * Retorna a classe CSS apropriada para o botão baseado no tipo.
@@ -241,8 +264,13 @@ export class ModalFooterComponent {
    * @public
    */
   onButtonClick(button: ModalButton): void {
+    console.log('🔵 [MODAL-FOOTER] onButtonClick called:', button);
+    console.log('🔵 [MODAL-FOOTER] button.disabled:', button.disabled, 'button.loading:', button.loading);
     if (!button.disabled && !button.loading) {
+      console.log('🔵 [MODAL-FOOTER] Emitting buttonClick:', button.action);
       this.buttonClick.emit(button.action);
+    } else {
+      console.log('🔵 [MODAL-FOOTER] Click blocked - disabled or loading');
     }
   }
 }

@@ -479,8 +479,8 @@ export class CouncilorsDashboardComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
 
     try {
-      // Use the agent_id for execution (same endpoint)
-      const response = await fetch(`/api/councilors/${instance.agent_id}/execute-now`, {
+      // Use instance-specific endpoint
+      const response = await fetch(`/api/councilors/instances/${instance.instance_id}/execute-now`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
