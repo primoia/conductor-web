@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     endpoint: '/execute',
     streamEndpoint: '/api/v1/stream-execute',
     apiKey: 'test-api-key-123',
-    timeout: 600000, // 10 minutes timeout for long-running AI operations
+    timeout: 1800000, // 30 minutes timeout for long-running AI operations
     retryAttempts: 3
   },
   mode: 'ask',
