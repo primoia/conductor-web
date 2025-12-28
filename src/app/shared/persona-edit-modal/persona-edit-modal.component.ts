@@ -29,6 +29,7 @@ import { ModalFooterComponent, ModalButton } from '../modals/base/modal-footer.c
 export class PersonaEditModalComponent extends BaseModalComponent implements OnInit, OnChanges, OnDestroy {
   @Input() override isVisible = false;
   @Input() instanceId: string | null = null;
+  @Input() agentId: string | null = null;  // ID do agente base (para salvar no banco)
   @Input() currentPersona: string = '';
   @Output() override closeModal = new EventEmitter<void>();
   @Output() personaSaved = new EventEmitter<string>();
@@ -38,6 +39,7 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   maxLength = 10000; // 10KB aproximadamente
   validationState: ValidationState = { isValid: false, errors: [], warnings: [] };
   saveState: SaveState = { status: 'idle', message: '' };
+  saveToDatabase = false;  // Checkbox: salvar permanentemente no banco de dados
   
   private textChangeSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
@@ -198,56 +200,58 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
     this.cdr.markForCheck();
 
     try {
-      // 1. Salva no localStorage como backup (mantém compatibilidade)
-      this.personaEditService.savePersonaWithHistory(this.instanceId, this.personaText);
-
-      // 2. Salva no backend (MongoDB)
-      this.personaEditService.savePersonaToBackend(this.instanceId, this.personaText).subscribe({
-        next: (response) => {
-          if (response.success === false) {
-            // Falha na API, mas localStorage ainda funciona
-            console.warn('⚠️ [PersonaEditModal] Falha ao salvar no backend, mas salvo no localStorage');
+      if (this.saveToDatabase && this.agentId) {
+        // Salvar permanentemente no banco de dados (collection agents)
+        console.log('💾 [PersonaEditModal] Salvando permanentemente no banco de dados...');
+        this.personaEditService.savePersonaToAgentsCollection(this.agentId, this.personaText).subscribe({
+          next: (response) => {
+            if (response.success === false) {
+              console.error('❌ [PersonaEditModal] Falha ao salvar no banco:', response.error);
+              this.saveState = {
+                status: 'error',
+                message: 'Erro ao salvar no banco de dados',
+                timestamp: new Date()
+              };
+            } else {
+              console.log('✅ [PersonaEditModal] Persona salva permanentemente no banco de dados');
+              this.saveState = {
+                status: 'saved',
+                message: 'Salvo no banco de dados',
+                timestamp: new Date()
+              };
+              // Limpa o localStorage para usar a versão do banco
+              if (this.instanceId) {
+                this.personaEditService.clearPersona(this.instanceId);
+              }
+              this.personaSaved.emit(this.personaText);
+            }
+            this.cdr.markForCheck();
+            setTimeout(() => this.close(), 1000);
+          },
+          error: (error) => {
+            console.error('❌ [PersonaEditModal] Erro ao salvar no banco:', error);
             this.saveState = {
-              status: 'saved',
-              message: 'Salvo localmente (backend offline)',
+              status: 'error',
+              message: 'Erro ao salvar no banco de dados',
               timestamp: new Date()
             };
-          } else {
-            // Sucesso total!
-            console.log('✅ [PersonaEditModal] Persona salva no backend e localStorage');
-            this.saveState = {
-              status: 'saved',
-              message: 'Salvo com sucesso',
-              timestamp: new Date()
-            };
+            this.cdr.markForCheck();
           }
+        });
+      } else {
+        // Salvar apenas localmente (localStorage) - comportamento original
+        console.log('💾 [PersonaEditModal] Salvando localmente no navegador...');
+        this.personaEditService.savePersonaWithHistory(this.instanceId, this.personaText);
 
-          // Emite evento de salvamento
-          this.personaSaved.emit(this.personaText);
-          this.cdr.markForCheck();
-
-          // Fecha o modal após um pequeno delay
-          setTimeout(() => {
-            this.close();
-          }, 1000);
-        },
-        error: (error) => {
-          // Erro na API, mas localStorage ainda funciona
-          console.error('❌ [PersonaEditModal] Erro ao salvar no backend:', error);
-          this.saveState = {
-            status: 'saved',
-            message: 'Salvo localmente (backend offline)',
-            timestamp: new Date()
-          };
-          this.personaSaved.emit(this.personaText);
-          this.cdr.markForCheck();
-
-          setTimeout(() => {
-            this.close();
-          }, 1000);
-        }
-      });
-
+        this.saveState = {
+          status: 'saved',
+          message: 'Salvo localmente',
+          timestamp: new Date()
+        };
+        this.personaSaved.emit(this.personaText);
+        this.cdr.markForCheck();
+        setTimeout(() => this.close(), 1000);
+      }
     } catch (error) {
       this.saveState = {
         status: 'error',

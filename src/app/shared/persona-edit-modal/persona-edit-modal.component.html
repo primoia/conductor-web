@@ -68,6 +68,21 @@
             </div>
           </div>
 
+          <!-- Opção de persistência -->
+          <div class="persistence-option">
+            <label class="checkbox-container">
+              <input
+                type="checkbox"
+                [(ngModel)]="saveToDatabase"
+                aria-describedby="persistence-hint">
+              <span class="checkmark"></span>
+              <span class="checkbox-label">Salvar permanentemente no banco de dados</span>
+            </label>
+            <small id="persistence-hint" class="persistence-hint">
+              {{ saveToDatabase ? 'A persona será atualizada no template base (collection agents)' : 'A edição será salva apenas localmente neste navegador' }}
+            </small>
+          </div>
+
           <!-- Editor Footer com informações de validação -->
           <div class="editor-footer">
             <div class="validation-info">

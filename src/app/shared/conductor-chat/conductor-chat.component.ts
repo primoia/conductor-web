@@ -216,6 +216,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       <app-persona-edit-modal
         [isVisible]="modalStateService.isOpen('personaEditModal')"
         [instanceId]="activeAgentId"
+        [agentId]="selectedAgentDbId"
         [currentPersona]="activeAgentContext?.persona || ''"
         (closeModal)="closePersonaEditModal()"
         (personaSaved)="onPersonaSaved($event)">

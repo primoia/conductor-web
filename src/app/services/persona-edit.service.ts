@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, from, catchError, of } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 /**
  * Interfaces para validação e estado de salvamento
@@ -24,7 +25,7 @@ export interface SaveState {
   providedIn: 'root'
 })
 export class PersonaEditService {
-  private readonly baseUrl = 'http://localhost:3000';
+  private readonly baseUrl = environment.apiUrl;
   private readonly STORAGE_PREFIX = 'persona-edit-';
   private readonly ORIGINAL_PREFIX = 'persona-original-';
   private readonly HISTORY_PREFIX = 'persona-history-';
@@ -321,7 +322,7 @@ export class PersonaEditService {
     console.log('🌐 [PersonaEditService] Salvando persona no backend:', { agentId, personaLength: persona.length });
 
     return from(
-      fetch(`${this.baseUrl}/api/agents/${agentId}/persona`, {
+      fetch(`${this.baseUrl}/agents/${agentId}/persona`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -343,6 +344,48 @@ export class PersonaEditService {
     ).pipe(
       catchError(error => {
         console.error('❌ [PersonaEditService] Erro ao salvar persona no backend:', error);
+        return of({ success: false, error: error.message });
+      })
+    );
+  }
+
+  /**
+   * Salva a persona permanentemente na collection agents do MongoDB
+   * @param agentId - ID do agente base (não instanceId)
+   * @param persona - Texto da persona editada
+   * @returns Observable com a resposta da API
+   */
+  savePersonaToAgentsCollection(agentId: string, persona: string): Observable<any> {
+    if (!agentId || !persona) {
+      console.warn('⚠️ [PersonaEditService] Tentativa de salvar persona na collection agents com dados inválidos');
+      return of({ success: false, error: 'Dados inválidos' });
+    }
+
+    console.log('💾 [PersonaEditService] Salvando persona na collection agents:', { agentId, personaLength: persona.length });
+
+    return from(
+      fetch(`${this.baseUrl}/agents/${agentId}/persona/permanent`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: persona,
+          reason: 'Edição permanente via interface'
+        })
+      }).then(async response => {
+        console.log('📥 [PersonaEditService] Resposta do backend (permanent):', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to save persona permanently: ${response.status} ${errorText}`);
+        }
+
+        return response.json();
+      })
+    ).pipe(
+      catchError(error => {
+        console.error('❌ [PersonaEditService] Erro ao salvar persona na collection agents:', error);
         return of({ success: false, error: error.message });
       })
     );
