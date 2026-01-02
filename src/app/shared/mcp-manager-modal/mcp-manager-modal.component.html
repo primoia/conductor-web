@@ -1,0 +1,117 @@
+<div class="modal-overlay" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-content mcp-manager" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <h2>Gerenciar MCPs</h2>
+      <span class="instance-name">{{ instanceName }}</span>
+      <button class="close-btn" (click)="cancel()">&#x2715;</button>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading" class="modal-body loading">
+      <span>Carregando...</span>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="error" class="error-banner">{{ error }}</div>
+
+    <!-- Content -->
+    <div *ngIf="!isLoading" class="modal-body">
+
+      <!-- Template MCPs -->
+      <section class="mcp-section">
+        <h3>
+          MCPs do Template
+          <span class="badge readonly">herdado</span>
+        </h3>
+        <p class="hint">Vem do template do agente. Nao podem ser removidos aqui.</p>
+
+        <div class="mcp-tags">
+          <span *ngFor="let mcp of templateMcps" class="tag template">
+            <span class="status" [ngClass]="getMcpStatus(mcp)">
+              {{ getStatusIcon(getMcpStatus(mcp)) }}
+            </span>
+            {{ mcp }}
+          </span>
+          <span *ngIf="templateMcps.length === 0" class="empty">
+            Nenhum MCP no template
+          </span>
+        </div>
+      </section>
+
+      <!-- Instance MCPs -->
+      <section class="mcp-section">
+        <h3>
+          MCPs Extras
+          <span class="badge editable">desta instancia</span>
+        </h3>
+        <p class="hint">MCPs adicionais apenas para esta instancia.</p>
+
+        <div class="mcp-tags">
+          <span
+            *ngFor="let mcp of instanceMcps"
+            class="tag instance removable"
+            (click)="removeMcp(mcp)"
+          >
+            <span class="status" [ngClass]="getMcpStatus(mcp)">
+              {{ getStatusIcon(getMcpStatus(mcp)) }}
+            </span>
+            {{ mcp }}
+            <span class="remove">&#x2715;</span>
+          </span>
+          <span *ngIf="instanceMcps.length === 0" class="empty">
+            Nenhum MCP extra
+          </span>
+        </div>
+
+        <!-- Add MCP -->
+        <div class="add-row">
+          <select [(ngModel)]="selectedMcpToAdd">
+            <option value="">Selecionar MCP...</option>
+            <option *ngFor="let mcp of availableToAdd" [value]="mcp.name">
+              {{ getStatusIcon(mcp.status) }} {{ mcp.name }}
+            </option>
+          </select>
+          <button
+            class="btn-add"
+            (click)="addMcp()"
+            [disabled]="!selectedMcpToAdd"
+          >
+            + Adicionar
+          </button>
+        </div>
+      </section>
+
+      <!-- Combined View -->
+      <section class="mcp-section combined">
+        <h3>MCPs Ativos</h3>
+        <p class="hint">Serao usados na proxima execucao.</p>
+        <div class="combined-list">
+          <span *ngFor="let mcp of combinedMcps" class="combined-tag">
+            {{ getStatusIcon(getMcpStatus(mcp)) }} {{ mcp }}
+          </span>
+        </div>
+      </section>
+
+      <!-- Info -->
+      <div *ngIf="hasStoppedMcps()" class="info-banner">
+        MCPs parados serao iniciados automaticamente.
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-secondary" (click)="cancel()" [disabled]="isSaving">
+        Cancelar
+      </button>
+      <button
+        class="btn-primary"
+        (click)="save()"
+        [disabled]="!hasChanges || isSaving"
+      >
+        {{ isSaving ? 'Salvando...' : 'Salvar' }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,7 +1,14 @@
 import { Component, Output, EventEmitter, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AgentService } from '../../services/agent.service';
+import { AgentService, MCPRegistryEntry } from '../../services/agent.service';
+
+// Interface para filtros de MCP
+interface McpFilter {
+  search: string;
+  category: string;
+  status: string;
+}
 
 export interface AgentCreationData {
   emoji: string;
@@ -114,33 +121,64 @@ export interface AgentCreationData {
           </div>
 
           <!-- Row 3: MCP Sidecars -->
-          <div class="form-section">
+          <div class="form-section mcp-section">
             <label class="form-label">
               Ferramentas MCP
-              <span class="mcp-count">({{ selectedSidecars.length }} de {{ filteredSidecars.length }} selecionadas)</span>
+              <span class="mcp-count">({{ selectedMcps.length }} de {{ filteredMcps.length }} selecionadas)</span>
             </label>
-            <div class="mcp-filter">
+            <p class="mcp-hint">
+              Selecione os MCPs que este agente poderá usar.
+              <span class="stopped-hint">MCPs parados (○) serão iniciados automaticamente.</span>
+            </p>
+
+            <!-- Filtros -->
+            <div class="mcp-filters">
               <input
                 type="text"
-                [(ngModel)]="sidecarFilter"
-                (input)="filterSidecars()"
-                placeholder="🔍 Filtrar sidecars..."
-                class="filter-input">
+                [(ngModel)]="mcpFilter.search"
+                (ngModelChange)="filterMcps()"
+                placeholder="🔍 Buscar MCP..."
+                class="mcp-search">
+              <select
+                [(ngModel)]="mcpFilter.category"
+                (ngModelChange)="filterMcps()"
+                class="mcp-category-filter">
+                <option value="">Todas categorias</option>
+                <option *ngFor="let cat of mcpCategories" [value]="cat">
+                  {{ cat }}
+                </option>
+              </select>
+              <select
+                [(ngModel)]="mcpFilter.status"
+                (ngModelChange)="filterMcps()"
+                class="mcp-status-filter">
+                <option value="">Todos status</option>
+                <option value="healthy">● Ativos</option>
+                <option value="stopped">○ Parados</option>
+              </select>
             </div>
-            <div class="mcp-grid" *ngIf="filteredSidecars.length > 0; else noSidecars">
+
+            <!-- Grid -->
+            <div class="mcp-grid" *ngIf="filteredMcps.length > 0; else noMcps">
               <div
-                *ngFor="let sidecar of filteredSidecars"
+                *ngFor="let mcp of filteredMcps"
                 class="mcp-option"
-                [class.selected]="isSidecarSelected(sidecar)"
-                (click)="toggleSidecar(sidecar)">
-                <span class="mcp-check">{{ isSidecarSelected(sidecar) ? '✅' : '⬜' }}</span>
-                <span class="mcp-name">{{ formatSidecarName(sidecar) }}</span>
+                [class.selected]="isMcpSelected(mcp.name)"
+                [class.stopped]="mcp.status === 'stopped'"
+                [class.starting]="mcp.status === 'starting'"
+                (click)="toggleMcp(mcp)">
+                <span class="mcp-status-dot" [class]="mcp.status">{{ getStatusIcon(mcp.status) }}</span>
+                <span class="mcp-check">{{ isMcpSelected(mcp.name) ? '✓' : '' }}</span>
+                <div class="mcp-info">
+                  <span class="mcp-name">{{ formatMcpName(mcp.name) }}</span>
+                  <span class="mcp-category" *ngIf="mcp.metadata?.category">{{ mcp.metadata?.category }}</span>
+                </div>
               </div>
             </div>
-            <ng-template #noSidecars>
-              <div class="no-sidecars">
-                <p *ngIf="availableSidecars.length === 0">Nenhuma ferramenta MCP descoberta.</p>
-                <p *ngIf="availableSidecars.length > 0 && filteredSidecars.length === 0">Nenhum resultado para "{{ sidecarFilter }}"</p>
+            <ng-template #noMcps>
+              <div class="no-mcps">
+                <p *ngIf="availableMcps.length === 0">Nenhuma ferramenta MCP descoberta.</p>
+                <p *ngIf="availableMcps.length > 0 && filteredMcps.length === 0">Nenhum resultado para os filtros aplicados.</p>
               </div>
             </ng-template>
           </div>
@@ -178,8 +216,8 @@ Você é um agente especializado em...
                 <div class="preview-tags" *ngIf="tags.length > 0">
                   <span *ngFor="let tag of tags" class="preview-tag">{{ tag }}</span>
                 </div>
-                <div class="preview-mcp" *ngIf="selectedSidecars.length > 0">
-                  🔧 {{ selectedSidecars.length }} MCP{{ selectedSidecars.length > 1 ? 's' : '' }}
+                <div class="preview-mcp" *ngIf="selectedMcps.length > 0">
+                  🔧 {{ selectedMcps.length }} MCP{{ selectedMcps.length > 1 ? 's' : '' }}
                 </div>
               </div>
             </div>
@@ -503,24 +541,51 @@ Você é um agente especializado em...
       min-height: 120px;
     }
 
-    /* MCP Grid */
-    .mcp-filter {
-      margin-bottom: 8px;
+    /* MCP Section */
+    .mcp-section .mcp-hint {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 10px;
+      margin-top: -4px;
     }
 
-    .filter-input {
-      width: 100%;
-      padding: 8px 12px;
+    .mcp-section .stopped-hint {
+      display: block;
+      font-style: italic;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .mcp-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mcp-filters input,
+    .mcp-filters select {
+      padding: 6px 10px;
       border: 1px solid #dee2e6;
-      border-radius: 6px;
-      font-size: 13px;
+      border-radius: 4px;
+      font-size: 12px;
+      background: white;
+    }
+
+    .mcp-filters .mcp-search {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .mcp-filters select {
+      min-width: 120px;
     }
 
     .mcp-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
       gap: 8px;
-      max-height: 150px;
+      max-height: 180px;
       overflow-y: auto;
       padding: 8px;
       background: #f8f9fa;
@@ -532,7 +597,7 @@ Você é um agente especializado em...
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 8px;
+      padding: 8px 10px;
       background: white;
       border: 1px solid #dee2e6;
       border-radius: 4px;
@@ -549,20 +614,72 @@ Você é um agente especializado em...
     .mcp-option.selected {
       border-color: #007bff;
       background: #e3f2fd;
-      font-weight: 500;
+    }
+
+    .mcp-option.selected .mcp-check {
+      background: #007bff;
+      color: white;
+    }
+
+    .mcp-option.stopped {
+      opacity: 0.75;
+    }
+
+    .mcp-option.starting {
+      opacity: 0.85;
+    }
+
+    .mcp-status-dot {
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .mcp-status-dot.healthy {
+      color: #10b981;
+    }
+
+    .mcp-status-dot.stopped {
+      color: #6b7280;
+    }
+
+    .mcp-status-dot.starting {
+      color: #f59e0b;
     }
 
     .mcp-check {
-      font-size: 14px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid #dee2e6;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+      background: white;
     }
 
-    .mcp-name {
+    .mcp-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mcp-info .mcp-name {
+      font-weight: 500;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .no-sidecars {
+    .mcp-info .mcp-category {
+      font-size: 10px;
+      color: #888;
+      text-transform: uppercase;
+    }
+
+    .no-mcps {
       padding: 20px;
       text-align: center;
       background: #f8f9fa;
@@ -708,7 +825,7 @@ export class AgentCreatorComponent implements OnInit {
   constructor(private agentService: AgentService) { }
 
   ngOnInit(): void {
-    this.loadSidecars();
+    this.loadMcps();
   }
 
   // Available emojis - compact list
@@ -724,20 +841,32 @@ export class AgentCreatorComponent implements OnInit {
   personaContent: string = '';
 
   // MCP Data
-  availableSidecars: string[] = [];
-  filteredSidecars: string[] = [];
-  selectedSidecars: string[] = [];
-  sidecarFilter: string = '';
+  availableMcps: MCPRegistryEntry[] = [];
+  filteredMcps: MCPRegistryEntry[] = [];
+  selectedMcps: string[] = [];
+  mcpFilter: McpFilter = { search: '', category: '', status: '' };
+  mcpCategories: string[] = [];
 
-  loadSidecars(): void {
-    this.agentService.getAvailableSidecars().subscribe({
-      next: (sidecars) => {
-        this.availableSidecars = sidecars.sort();
-        this.filteredSidecars = [...this.availableSidecars];
-        console.log('✅ [CREATOR] Loaded sidecars:', sidecars.length);
+  loadMcps(): void {
+    this.agentService.getAvailableMcps().subscribe({
+      next: (mcps) => {
+        this.availableMcps = mcps;
+        this.extractCategories();
+        this.filterMcps();
+        console.log('✅ [CREATOR] Loaded MCPs:', mcps.length);
       },
-      error: (err) => console.error('❌ [CREATOR] Error loading sidecars:', err)
+      error: (err) => console.error('❌ [CREATOR] Error loading MCPs:', err)
     });
+  }
+
+  extractCategories(): void {
+    const categories = new Set<string>();
+    this.availableMcps.forEach(mcp => {
+      if (mcp.metadata?.category) {
+        categories.add(mcp.metadata.category);
+      }
+    });
+    this.mcpCategories = Array.from(categories).sort();
   }
 
   // Emoji methods
@@ -819,27 +948,66 @@ export class AgentCreatorComponent implements OnInit {
   }
 
   // MCP methods
-  filterSidecars(): void {
-    const filter = this.sidecarFilter.toLowerCase();
-    this.filteredSidecars = this.availableSidecars.filter(s =>
-      s.toLowerCase().includes(filter)
-    );
+  filterMcps(): void {
+    let result = [...this.availableMcps];
+
+    // Filtro por busca
+    if (this.mcpFilter.search) {
+      const search = this.mcpFilter.search.toLowerCase();
+      result = result.filter(mcp =>
+        mcp.name.toLowerCase().includes(search)
+      );
+    }
+
+    // Filtro por categoria
+    if (this.mcpFilter.category) {
+      result = result.filter(mcp =>
+        mcp.metadata?.category === this.mcpFilter.category
+      );
+    }
+
+    // Filtro por status
+    if (this.mcpFilter.status) {
+      result = result.filter(mcp => mcp.status === this.mcpFilter.status);
+    }
+
+    // Ordenar: selecionados primeiro, depois alfabético
+    result.sort((a, b) => {
+      const aSelected = this.selectedMcps.includes(a.name);
+      const bSelected = this.selectedMcps.includes(b.name);
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    this.filteredMcps = result;
   }
 
-  toggleSidecar(sidecar: string): void {
-    const index = this.selectedSidecars.indexOf(sidecar);
-    if (index > -1) {
-      this.selectedSidecars.splice(index, 1);
+  toggleMcp(mcp: MCPRegistryEntry): void {
+    const index = this.selectedMcps.indexOf(mcp.name);
+    if (index === -1) {
+      this.selectedMcps.push(mcp.name);
     } else {
-      this.selectedSidecars.push(sidecar);
+      this.selectedMcps.splice(index, 1);
+    }
+    // Reordenar para manter selecionados no topo
+    this.filterMcps();
+  }
+
+  isMcpSelected(name: string): boolean {
+    return this.selectedMcps.includes(name);
+  }
+
+  getStatusIcon(status: string): string {
+    switch (status) {
+      case 'healthy': return '●';
+      case 'stopped': return '○';
+      case 'starting': return '◐';
+      default: return '?';
     }
   }
 
-  isSidecarSelected(sidecar: string): boolean {
-    return this.selectedSidecars.includes(sidecar);
-  }
-
-  formatSidecarName(name: string): string {
+  formatMcpName(name: string): string {
     // Truncate long names for display
     return name.length > 25 ? name.substring(0, 22) + '...' : name;
   }
@@ -865,7 +1033,7 @@ export class AgentCreatorComponent implements OnInit {
         description: this.agentDescription.trim(),
         tags: [...this.tags],
         persona_content: this.personaContent.trim(),
-        mcp_configs: [...this.selectedSidecars]
+        mcp_configs: [...this.selectedMcps]
       };
 
       console.log('🛠️ [CREATOR] Creating agent:', agentData);
@@ -895,8 +1063,8 @@ export class AgentCreatorComponent implements OnInit {
     this.tags = [];
     this.newTag = '';
     this.personaContent = '';
-    this.selectedSidecars = [];
-    this.sidecarFilter = '';
-    this.filteredSidecars = [...this.availableSidecars];
+    this.selectedMcps = [];
+    this.mcpFilter = { search: '', category: '', status: '' };
+    this.filterMcps();
   }
 }

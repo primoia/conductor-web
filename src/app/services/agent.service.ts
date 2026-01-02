@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, from, throwError } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { map, catchError, switchMap } from 'rxjs/operators';
 
 /**
  * Agent model based on conductor agent definitions
@@ -16,6 +16,27 @@ export interface Agent {
   isSystemDefault?: boolean; // Flag for system/custom agents
   is_councilor?: boolean; // Flag indicating agent is promoted to councilor
   mcp_configs?: string[]; // List of MCP sidecars assigned to this agent
+}
+
+/**
+ * MCP Registry Entry from Gateway /mcp/list
+ * Includes on-demand status information
+ */
+export interface MCPRegistryEntry {
+  name: string;
+  type: 'internal' | 'external';
+  url: string;
+  host_url?: string;
+  status: 'healthy' | 'unhealthy' | 'unknown' | 'stopped' | 'starting';
+  tools_count: number;
+  docker_compose_path?: string;
+  auto_shutdown_minutes?: number;
+  last_used?: string;
+  metadata?: {
+    category?: string;
+    description?: string;
+    [key: string]: any;
+  };
 }
 
 /**
@@ -121,32 +142,44 @@ export class AgentService {
 
   /**
    * Get available MCP sidecars from the discovery service
+   * @deprecated Use getAvailableMcps() instead - this endpoint only shows running containers
    */
   getAvailableSidecars(): Observable<string[]> {
+    console.warn('[AgentService] getAvailableSidecars() is deprecated. Use getAvailableMcps() instead.');
+    // Redirect to new method and extract just names
+    return this.getAvailableMcps().pipe(
+      map(mcps => mcps.map(m => m.name))
+    );
+  }
+
+  /**
+   * Get all available MCPs from the Gateway registry (includes stopped MCPs)
+   * This is the preferred method for MCP discovery in on-demand mode
+   */
+  getAvailableMcps(): Observable<MCPRegistryEntry[]> {
     return from(
-      fetch(`${this.baseUrl}/api/system/mcp/sidecars`, {
+      fetch(`${this.baseUrl}/mcp/list`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       }).then(response => {
         if (!response.ok) {
-          throw new Error(`Failed to fetch sidecars: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch MCPs: ${response.status} ${response.statusText}`);
         }
         return response.json();
       })
     ).pipe(
       map((response: any) => {
-        // Extract sidecar names from response
-        // Response format: { count: number, sidecars: [{ name, url, port, container_id }] }
-        if (response && response.sidecars && Array.isArray(response.sidecars)) {
-          return response.sidecars.map((s: any) => s.name);
+        // Response format: { items: MCPRegistryEntry[], total, healthy_count, ... }
+        if (response && response.items && Array.isArray(response.items)) {
+          return response.items as MCPRegistryEntry[];
         }
         return [];
       }),
       catchError(error => {
-        console.error('[AgentService] Error fetching sidecars:', error);
-        return throwError(() => new Error('Failed to fetch sidecars'));
+        console.error('[AgentService] Error fetching MCPs from registry:', error);
+        return throwError(() => new Error('Failed to fetch MCPs'));
       })
     );
   }
@@ -490,6 +523,77 @@ export class AgentService {
   }
 
   /**
+   * Update the MCP configurations for an agent instance
+   * These are EXTRA MCPs that this instance uses on top of the agent template MCPs
+   * @param instanceId - The instance ID to update
+   * @param mcpConfigs - Array of MCP names to add to this instance
+   */
+  updateInstanceMcpConfigs(instanceId: string, mcpConfigs: string[]): Observable<any> {
+    console.log('🔌 [AGENT SERVICE] updateInstanceMcpConfigs chamado:');
+    console.log('   - instanceId:', instanceId);
+    console.log('   - mcp_configs:', mcpConfigs);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/instances/${instanceId}/mcp-configs`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mcp_configs: mcpConfigs })
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de updateInstanceMcpConfigs:');
+        console.log('   - Status:', response.status, response.statusText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update instance mcp_configs: ${response.status} ${errorText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] mcp_configs da instância atualizado:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error updating instance mcp_configs:', error);
+        return throwError(() => new Error('Failed to update instance mcp_configs'));
+      })
+    );
+  }
+
+  /**
+   * Get the MCP configurations for an agent instance
+   * Returns both template MCPs (inherited) and instance MCPs (extra)
+   * @param instanceId - The instance ID to fetch MCPs for
+   */
+  getInstanceMcpConfigs(instanceId: string): Observable<{ template_mcps: string[]; instance_mcps: string[]; combined: string[] }> {
+    console.log('🔌 [AGENT SERVICE] getInstanceMcpConfigs chamado:', instanceId);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/instances/${instanceId}/mcp-configs`)
+        .then(async response => {
+          if (!response.ok) {
+            throw new Error(`Failed to get instance mcp_configs: ${response.status}`);
+          }
+          return response.json();
+        })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] mcp_configs da instância:', response);
+        return {
+          template_mcps: response.template_mcps || [],
+          instance_mcps: response.instance_mcps || [],
+          combined: response.combined || []
+        };
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error getting instance mcp_configs:', error);
+        return throwError(() => new Error('Failed to get instance mcp_configs'));
+      })
+    );
+  }
+
+  /**
    * Delete an agent instance from MongoDB
    * @param instanceId - The instance ID to delete
    * @param cascade - If true, also delete related data (history, logs)
@@ -594,6 +698,52 @@ export class AgentService {
       catchError(error => {
         console.error('[AgentService] Error creating agent:', error);
         return throwError(() => new Error(error.message || 'Failed to create agent'));
+      })
+    );
+  }
+
+  /**
+   * Update MCP configurations for an agent (template level, affects all instances)
+   * @param agentId - The agent ID (e.g., "MyAgent_Agent")
+   * @param mcpConfigs - Array of MCP names to bind to this agent
+   */
+  updateAgentMcpConfigs(agentId: string, mcpConfigs: string[]): Observable<Agent> {
+    console.log('🔌 [AGENT SERVICE] updateAgentMcpConfigs chamado:');
+    console.log('   - agentId:', agentId);
+    console.log('   - mcp_configs:', mcpConfigs);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/${agentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mcp_configs: mcpConfigs })
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de updateAgentMcpConfigs:');
+        console.log('   - Status:', response.status, response.statusText);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to update agent: ${response.status} ${errorText}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      switchMap((response: any) => {
+        console.log('✅ [AGENT SERVICE] Agente atualizado:', response);
+        // Extract agent from response
+        const agent = response.agent || response;
+        return from([{
+          id: agent.id || agent.agent_id,
+          name: agent.name,
+          emoji: agent.emoji || '🤖',
+          description: agent.description || '',
+          mcp_configs: agent.mcp_configs || []
+        } as Agent]);
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error updating agent mcp_configs:', error);
+        return throwError(() => new Error(error.message || 'Failed to update agent'));
       })
     );
   }

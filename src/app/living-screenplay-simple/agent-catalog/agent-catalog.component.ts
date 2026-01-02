@@ -2,11 +2,12 @@ import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Agent, AgentService } from '../../services/agent.service';
+import { AgentMcpEditModalComponent } from '../../shared/agent-mcp-edit-modal/agent-mcp-edit-modal.component';
 
 @Component({
   selector: 'app-agent-catalog',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AgentMcpEditModalComponent],
   templateUrl: './agent-catalog.component.html',
   styleUrls: ['./agent-catalog.component.css']
 })
@@ -22,6 +23,10 @@ export class AgentCatalogComponent implements OnInit {
 
   // Filter state
   selectedFilter: 'all' | 'system' | 'custom' = 'all';
+
+  // MCP Edit Modal
+  selectedAgentForEdit: Agent | null = null;
+  isEditModalOpen = false;
 
   constructor(private agentService: AgentService) {}
 
@@ -94,5 +99,36 @@ export class AgentCatalogComponent implements OnInit {
 
   getAgentTypeClass(agent: Agent): string {
     return agent.isSystemDefault ? 'system-agent' : 'custom-agent';
+  }
+
+  // ==================== MCP Edit Modal ====================
+
+  /**
+   * Open MCP edit modal for an agent
+   */
+  editAgentMcps(agent: Agent): void {
+    this.selectedAgentForEdit = agent;
+    this.isEditModalOpen = true;
+  }
+
+  /**
+   * Handle agent updated from modal
+   */
+  onAgentUpdated(updatedAgent: Agent): void {
+    // Find and update the agent in the list
+    const index = this.agents.findIndex(a => a.id === updatedAgent.id);
+    if (index !== -1) {
+      this.agents[index] = { ...this.agents[index], ...updatedAgent };
+      this.applyFilters();
+    }
+    this.closeEditModal();
+  }
+
+  /**
+   * Close the edit modal
+   */
+  closeEditModal(): void {
+    this.isEditModalOpen = false;
+    this.selectedAgentForEdit = null;
   }
 }

@@ -13,6 +13,7 @@ import { AgentService, AgentContext, ChatMessage } from '../../services/agent.se
 import { AgentExecutionService, AgentExecutionState } from '../../services/agent-execution';
 import { PersonaEditService } from '../../services/persona-edit.service';
 import { PersonaEditModalComponent } from '../persona-edit-modal/persona-edit-modal.component';
+import { McpManagerModalComponent } from '../mcp-manager-modal/mcp-manager-modal.component';
 import { SpeechRecognitionService } from './services/speech-recognition.service';
 import { MessageHandlingService, MessageParams, MessageHandlingCallbacks } from './services/message-handling.service';
 import { ModalStateService, ModalType } from './services/modal-state.service';
@@ -47,7 +48,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
     ChatInputComponent,
     StatusIndicatorComponent,
     PersonaEditModalComponent,
-    ConversationListComponent
+    ConversationListComponent,
+    McpManagerModalComponent
   ],
   template: `
     <div class="conductor-chat-container">
@@ -221,6 +223,15 @@ const DEFAULT_CONFIG: ConductorConfig = {
         (closeModal)="closePersonaEditModal()"
         (personaSaved)="onPersonaSaved($event)">
       </app-persona-edit-modal>
+
+      <!-- MCP Manager Modal -->
+      <app-mcp-manager-modal
+        [isVisible]="modalStateService.isOpen('mcpManagerModal')"
+        [instanceId]="activeAgentId"
+        [instanceName]="selectedAgentName || ''"
+        (closeModal)="modalStateService.close('mcpManagerModal')"
+        (mcpsSaved)="onMcpsSaved($event)">
+      </app-mcp-manager-modal>
 
       <!-- CWD Definition Modal -->
       <div class="modal-backdrop" *ngIf="modalStateService.isOpen('cwdModal')" (click)="closeCwdModal()">
@@ -420,6 +431,9 @@ Erro: 'invalid_token' na response..."
               </button>
               <button class="menu-item" (click)="editAgentCwd()">
                 📁 Editar diretório
+              </button>
+              <button class="menu-item" (click)="manageMcps()">
+                🔌 Gerenciar MCPs
               </button>
               <button
                 class="menu-item"
@@ -4057,6 +4071,31 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
     this.modalStateService.open('personaEditModal');
     console.log('✏️ [CHAT] Abrindo modal de edição de persona para agente:', this.activeAgentId);
+  }
+
+  /**
+   * Manage MCPs from menu
+   */
+  manageMcps(): void {
+    this.modalStateService.close('agentOptionsMenu');
+
+    if (!this.activeAgentId) {
+      console.warn('⚠️ [CHAT] Não é possível gerenciar MCPs: nenhum agente ativo');
+      return;
+    }
+
+    this.modalStateService.open('mcpManagerModal');
+    console.log('🔌 [CHAT] Abrindo modal de gerenciamento de MCPs para agente:', this.activeAgentId);
+  }
+
+  /**
+   * Handle MCPs saved event from modal
+   */
+  onMcpsSaved(mcps: string[]): void {
+    console.log('✅ [CHAT] MCPs da instância atualizados:', {
+      instanceId: this.activeAgentId,
+      mcps: mcps
+    });
   }
 
   /**

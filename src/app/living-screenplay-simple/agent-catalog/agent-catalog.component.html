@@ -78,6 +78,13 @@
           <p class="agent-description">{{ agent.description || 'Sem descrição' }}</p>
         </div>
         <div class="agent-actions">
+          <button
+            *ngIf="!agent.isSystemDefault"
+            class="action-icon edit-mcp-btn"
+            (click)="editAgentMcps(agent); $event.stopPropagation()"
+            title="Editar MCPs">
+            ⚙️
+          </button>
           <button class="action-icon" title="Adicionar ao roteiro">📋</button>
         </div>
       </div>
@@ -89,3 +96,11 @@
     </div>
   </div>
 </div>
+
+<!-- MCP Edit Modal -->
+<app-agent-mcp-edit-modal
+  [isVisible]="isEditModalOpen"
+  [agent]="selectedAgentForEdit"
+  (closeModal)="closeEditModal()"
+  (agentUpdated)="onAgentUpdated($event)"
+></app-agent-mcp-edit-modal>

@@ -13,6 +13,7 @@ export interface ModalState {
   contextEditorModal: boolean;
   agentOptionsMenu: boolean;
   dockInfoModal: boolean;
+  mcpManagerModal: boolean;
 }
 
 /**
@@ -49,7 +50,8 @@ export class ModalStateService {
     contextEditor: false,
     contextEditorModal: false,
     agentOptionsMenu: false,
-    dockInfoModal: false
+    dockInfoModal: false,
+    mcpManagerModal: false
   };
 
   /**
