@@ -3768,7 +3768,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     }
 
     try {
-      const gatewayUrl = this.config.api.baseUrl || 'http://localhost:8080';
+      const gatewayUrl = this.config.api.baseUrl || '/api';
 
       // Delete bot message
       const botResponse = await fetch(`${gatewayUrl}/api/conversations/${this.activeConversationId}/messages/${message.id}/delete`, {

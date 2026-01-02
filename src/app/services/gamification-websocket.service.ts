@@ -28,11 +28,9 @@ export class GamificationWebSocketService {
       return;
     }
 
-    // Determine WebSocket URL based on current location
+    // Determine WebSocket URL based on current location (uses nginx proxy)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = '5006'; // conductor-gateway port
-    const wsUrl = `${protocol}//${host}:${port}/ws/gamification`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/gamification`;
 
     console.log('🔌 Connecting to gamification WebSocket:', wsUrl);
 
