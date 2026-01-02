@@ -4,5 +4,11 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
+  },
+  "/mcp/*": {
+    "target": "http://localhost:5006",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
   }
 }

@@ -167,10 +167,12 @@ export class McpManagerModalComponent implements OnInit, OnChanges {
    */
   getStatusIcon(status: string): string {
     switch (status) {
-      case 'healthy': return '●';
-      case 'stopped': return '○';
-      case 'starting': return '◐';
-      default: return '?';
+      case 'healthy': return '●';   // Verde - funcionando
+      case 'stopped': return '○';   // Cinza - parado (on-demand)
+      case 'starting': return '◐';  // Amarelo - iniciando
+      case 'unhealthy': return '✕'; // Vermelho - com problema
+      case 'unknown': return '◌';   // Cinza claro - não registrado
+      default: return '◌';
     }
   }
 
