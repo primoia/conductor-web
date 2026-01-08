@@ -13,7 +13,8 @@ export interface Message {
   type: 'user' | 'bot' | 'system';
   timestamp: Date;
   isStreaming?: boolean;
-  isDeleted?: boolean;  // Soft delete flag
+  isDeleted?: boolean;  // Soft delete flag (shows disabled in chat, excluded from prompt)
+  isHidden?: boolean;   // Permanent hide flag (not shown in chat, excluded from prompt, only reversible via MongoDB)
   _historyId?: string;  // MongoDB _id for deletion API
   agent?: {  // 🔥 NOVO: Informações do agente (para modelo de conversas globais)
     agent_id: string;

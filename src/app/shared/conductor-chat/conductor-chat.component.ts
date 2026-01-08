@@ -163,6 +163,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
             (conversationSelected)="onSelectConversation($event)"
             (conversationCreated)="onCreateNewConversation()"
             (conversationDeleted)="onDeleteConversation($event)"
+            (conversationCloned)="onConversationCloned($event)"
             (contextEditRequested)="onContextEditRequested($event)">
           </app-conversation-list>
         </div>
@@ -457,12 +458,13 @@ Erro: 'invalid_token' na response..."
 
           <!-- Chat Messages (após o dock) -->
           <app-chat-messages
-            [messages]="chatState.messages"
+            [messages]="visibleMessages"
             [isLoading]="chatState.isLoading"
             [progressMessage]="progressMessage"
             [streamingMessage]="streamingMessage"
             [autoScroll]="config.autoScroll"
-            (messageDeleted)="onMessageDeleted($event)"
+            (messageToggled)="onMessageToggled($event)"
+            (messageHidden)="onMessageHidden($event)"
           />
         </div>
       </div>
@@ -3159,7 +3161,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           type: msg.type as 'user' | 'bot' | 'system',
           timestamp: new Date(msg.timestamp),
           agent: msg.agent,  // Informações do agente (para mensagens de bot)
-          isDeleted: (msg as any).isDeleted || false  // 🔥 Adicionar isDeleted
+          isDeleted: (msg as any).isDeleted || false,
+          isHidden: (msg as any).isHidden || false
         }));
 
         // Exibir mensagens
@@ -3178,28 +3181,25 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
 
         // 🔒 FIX: Atualizar estado do agente ativo baseado no active_agent da conversa
         if (conversation.active_agent) {
-          // Verificar se o agente ativo ainda existe e não foi deletado
-          const agentStillExists = this.contextualAgents.some((agent: any) =>
-            agent.id === conversation.active_agent!.instance_id &&
-            !agent.isDeleted &&
-            !agent.is_deleted
+          // Verificar se o agente ativo está marcado como deletado localmente
+          const agentInLocalList = this.contextualAgents.find((agent: any) =>
+            agent.id === conversation.active_agent!.instance_id
           );
 
-          if (agentStillExists) {
-            // Conversa tem um agente ativo e ele ainda existe
+          const agentIsDeleted = agentInLocalList && (agentInLocalList.isDeleted || agentInLocalList.is_deleted);
+
+          if (!agentIsDeleted) {
+            // Conversa tem um agente ativo - usar dados da conversa
+            // (o agente pode não estar em contextualAgents ainda, ex: após clone)
             this.activeAgentId = conversation.active_agent.instance_id;
             this.selectedAgentDbId = conversation.active_agent.agent_id;
             this.selectedAgentName = conversation.active_agent.name;
             this.selectedAgentEmoji = conversation.active_agent.emoji || null;
             console.log('✅ [CHAT] Agente ativo carregado:', conversation.active_agent.name);
 
-            // Carregar CWD do agente dos contextualAgents
-            const agentInstance = this.contextualAgents.find((agent: any) =>
-              agent.id === conversation.active_agent!.instance_id
-            );
-
-            if (agentInstance?.config?.cwd) {
-              this.activeAgentCwd = agentInstance.config.cwd;
+            // Carregar CWD do agente dos contextualAgents (se disponível)
+            if (agentInLocalList?.config?.cwd) {
+              this.activeAgentCwd = agentInLocalList.config.cwd;
               console.log('✅ [CHAT] CWD carregado do agente:', this.activeAgentCwd);
             } else {
               // Fallback para localStorage
@@ -3750,12 +3750,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle message deletion with optimistic update + rollback
-   * Deletes the entire iteration (user question + bot response)
+   * Handle message toggle (enable/disable) with optimistic update + rollback.
+   * Toggles the entire iteration (user question + bot response).
+   * When disabled (isDeleted=true), messages won't be included in PromptEngine.
    */
-  async onMessageDeleted(message: Message): Promise<void> {
+  async onMessageToggled(message: Message): Promise<void> {
     if (!message.id || !this.activeConversationId) {
-      console.warn('Cannot delete message without id or conversation_id');
+      console.warn('Cannot toggle message without id or conversation_id');
       return;
     }
 
@@ -3771,21 +3772,22 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Calculate new state (toggle)
+    const newState = !message.isDeleted;
+
     // Prepare for rollback
     const originalBotDeletedState = message.isDeleted;
     const originalUserDeletedState = userMessage?.isDeleted;
 
-    // Optimistic update: mark both messages as deleted in UI immediately
-    message.isDeleted = true;
+    // Optimistic update: toggle both messages in UI immediately
+    message.isDeleted = newState;
     if (userMessage) {
-      userMessage.isDeleted = true;
+      userMessage.isDeleted = newState;
     }
 
     try {
-      const gatewayUrl = this.config.api.baseUrl || '/api';
-
-      // Delete bot message
-      const botResponse = await fetch(`${gatewayUrl}/api/conversations/${this.activeConversationId}/messages/${message.id}/delete`, {
+      // Toggle bot message
+      const botResponse = await fetch(`/api/conversations/${this.activeConversationId}/messages/${message.id}/toggle`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -3793,14 +3795,14 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       });
 
       if (!botResponse.ok) {
-        throw new Error(`Failed to delete bot message: ${botResponse.statusText}`);
+        throw new Error(`Failed to toggle bot message: ${botResponse.statusText}`);
       }
 
-      console.log('✅ Bot message marked as deleted');
+      console.log(`✅ Bot message toggled to ${newState ? 'disabled' : 'enabled'}`);
 
-      // Delete user message if found
+      // Toggle user message if found
       if (userMessage && userMessage.id) {
-        const userResponse = await fetch(`${gatewayUrl}/api/conversations/${this.activeConversationId}/messages/${userMessage.id}/delete`, {
+        const userResponse = await fetch(`/api/conversations/${this.activeConversationId}/messages/${userMessage.id}/toggle`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -3808,23 +3810,96 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         });
 
         if (!userResponse.ok) {
-          console.warn('⚠️ Failed to delete user message:', userResponse.statusText);
-          // Don't throw - bot message is already deleted
+          console.warn('⚠️ Failed to toggle user message:', userResponse.statusText);
+          // Don't throw - bot message is already toggled
         } else {
-          console.log('✅ User message marked as deleted');
+          console.log(`✅ User message toggled to ${newState ? 'disabled' : 'enabled'}`);
         }
       }
 
     } catch (error) {
       // Rollback on error
-      console.error('❌ Error deleting iteration, rolling back:', error);
+      console.error('❌ Error toggling iteration, rolling back:', error);
       message.isDeleted = originalBotDeletedState;
       if (userMessage) {
         userMessage.isDeleted = originalUserDeletedState || false;
       }
 
       // Show error notification to user
-      alert('Erro ao inativar iteração. Por favor, tente novamente.');
+      alert('Erro ao alternar iteração. Por favor, tente novamente.');
+    }
+  }
+
+  /**
+   * Get visible messages (filter out hidden ones).
+   * Messages with isHidden=true are permanently hidden from chat.
+   */
+  get visibleMessages(): Message[] {
+    return this.chatState.messages.filter(msg => !msg.isHidden);
+  }
+
+  /**
+   * Handle message hide (permanent, only reversible via MongoDB).
+   * Hides the entire iteration (user question + bot response).
+   */
+  async onMessageHidden(message: Message): Promise<void> {
+    if (!message.id || !this.activeConversationId) {
+      console.warn('Cannot hide message without id or conversation_id');
+      return;
+    }
+
+    // Find the user message that precedes this bot message
+    const messageIndex = this.chatState.messages.findIndex(m => m.id === message.id);
+    let userMessage: Message | null = null;
+
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (this.chatState.messages[i].type === 'user') {
+        userMessage = this.chatState.messages[i];
+        break;
+      }
+    }
+
+    // Optimistic update: hide both messages in UI immediately
+    message.isHidden = true;
+    if (userMessage) {
+      userMessage.isHidden = true;
+    }
+
+    try {
+      // Hide bot message
+      const botResponse = await fetch(`/api/conversations/${this.activeConversationId}/messages/${message.id}/hide`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!botResponse.ok) {
+        throw new Error(`Failed to hide bot message: ${botResponse.statusText}`);
+      }
+
+      console.log('✅ Bot message hidden permanently');
+
+      // Hide user message if found
+      if (userMessage && userMessage.id) {
+        const userResponse = await fetch(`/api/conversations/${this.activeConversationId}/messages/${userMessage.id}/hide`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!userResponse.ok) {
+          console.warn('⚠️ Failed to hide user message:', userResponse.statusText);
+        } else {
+          console.log('✅ User message hidden permanently');
+        }
+      }
+
+    } catch (error) {
+      // Rollback on error
+      console.error('❌ Error hiding iteration, rolling back:', error);
+      message.isHidden = false;
+      if (userMessage) {
+        userMessage.isHidden = false;
+      }
+      alert('Erro ao ocultar iteração. Por favor, tente novamente.');
     }
   }
 
@@ -3991,6 +4066,22 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         console.error('❌ [CHAT] Erro ao deletar conversa:', error);
       }
     });
+  }
+
+  /**
+   * 🔥 NOVO: Handler para quando uma conversa é clonada
+   * Seleciona automaticamente a nova conversa clonada
+   */
+  onConversationCloned(newConversationId: string): void {
+    console.log('📋 [CHAT] Conversa clonada, selecionando:', newConversationId);
+
+    // Refresh para atualizar a lista
+    this.refreshConversationList();
+
+    // Aguardar refresh e selecionar a nova conversa
+    setTimeout(() => {
+      this.setActiveConversation(newConversationId);
+    }, 200);
   }
 
   /**

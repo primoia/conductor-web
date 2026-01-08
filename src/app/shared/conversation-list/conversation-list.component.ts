@@ -82,6 +82,12 @@ import { ConversationService, ConversationSummary } from '../../services/convers
                 📝
               </button>
               <button
+                class="clone-btn"
+                (click)="onCloneConversation($event, conv.conversation_id)"
+                title="Clonar conversa (fork)">
+                🔀
+              </button>
+              <button
                 class="delete-btn"
                 (click)="onDeleteConversation($event, conv.conversation_id)"
                 title="Deletar conversa">
@@ -293,6 +299,7 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     }
 
     .edit-context-btn,
+    .clone-btn,
     .delete-btn {
       background: #f8f9fa;
       border: 1px solid #dee2e6;
@@ -307,6 +314,11 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     .edit-context-btn:hover {
       background: #e7f1ff;
       border-color: #007bff;
+    }
+
+    .clone-btn:hover {
+      background: #e8f5e9;
+      border-color: #4caf50;
     }
 
     .delete-btn:hover {
@@ -624,6 +636,7 @@ export class ConversationListComponent implements OnInit {
   @Output() conversationSelected = new EventEmitter<string>();
   @Output() conversationCreated = new EventEmitter<void>();
   @Output() conversationDeleted = new EventEmitter<string>();
+  @Output() conversationCloned = new EventEmitter<string>(); // Emite conversation_id da nova conversa clonada
   @Output() contextEditRequested = new EventEmitter<string>(); // Emite conversation_id para editar contexto
 
   conversations: ConversationSummary[] = [];
@@ -816,6 +829,42 @@ export class ConversationListComponent implements OnInit {
       this.conversationToDelete = conversation;
       this.showDeleteModal = true;
     }
+  }
+
+  /**
+   * 🔥 NOVO: Clona uma conversa com todas as mensagens e agentes instanciados
+   */
+  onCloneConversation(event: Event, conversationId: string): void {
+    console.log('📋 [CONV-LIST] onCloneConversation called:', conversationId);
+    event.stopPropagation();
+    event.preventDefault();
+
+    // Chamar API de clone
+    fetch(`/api/conversations/${conversationId}/clone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to clone: ${response.statusText}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('✅ [CONV-LIST] Conversa clonada:', data);
+
+        // Recarregar lista de conversas
+        this.loadConversations();
+
+        // Emitir evento com o novo conversation_id para selecionar
+        if (data.cloned_conversation?.conversation_id) {
+          this.conversationCloned.emit(data.cloned_conversation.conversation_id);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [CONV-LIST] Erro ao clonar conversa:', error);
+        alert('Erro ao clonar conversa. Por favor, tente novamente.');
+      });
   }
 
   /**

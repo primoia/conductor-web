@@ -1,5 +1,6 @@
-import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ElementRef, ViewChild, AfterViewChecked, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Message } from '../../models/chat.models';
 import { marked } from 'marked';
@@ -7,7 +8,7 @@ import { marked } from 'marked';
 @Component({
   selector: 'app-chat-messages',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="chat-messages" #messagesContainer>
       <div
@@ -16,7 +17,7 @@ import { marked } from 'marked';
         [class.user-message]="message.type === 'user'"
         [class.bot-message]="message.type === 'bot'"
         [class.system-message]="message.type === 'system'"
-        [class.deleted]="message.isDeleted"
+        [class.disabled]="message.isDeleted"
       >
         <!-- User and System Messages -->
         <div *ngIf="message.type !== 'bot'" class="message-content">
@@ -27,15 +28,26 @@ import { marked } from 'marked';
         <!-- Bot Messages with Markdown and Copy Button -->
         <div *ngIf="message.type === 'bot'" class="message-content bot-content-wrapper">
           <div class="message-actions">
+            <label
+              class="toggle-btn"
+              *ngIf="message.id"
+              [title]="message.isDeleted ? 'Habilitar iteração no prompt' : 'Desabilitar iteração no prompt'">
+              <input
+                type="checkbox"
+                [checked]="!message.isDeleted"
+                (change)="toggleMessage(message)"
+              />
+              <span class="toggle-slider"></span>
+            </label>
             <button class="copy-btn" (click)="copyToClipboard(message)" title="Copiar mensagem">
               <span *ngIf="copiedMessageId !== message.id">📋</span>
               <span *ngIf="copiedMessageId === message.id">✅</span>
             </button>
             <button
-              class="delete-btn"
-              (click)="deleteMessage(message)"
-              title="Inativar iteração completa (pergunta + resposta)"
-              *ngIf="message.id && !message.isDeleted">
+              class="hide-btn"
+              *ngIf="message.id"
+              (click)="hideMessage(message)"
+              title="Ocultar permanentemente (não aparece mais no chat)">
               🗑️
             </button>
           </div>
@@ -129,32 +141,18 @@ import { marked } from 'marked';
       opacity: 1;
     }
 
-    .bot-message.deleted {
-      opacity: 0.5;
-      background: #f8f9fa;
-      border: 1px dashed #cbd5e0;
+    /* Disabled state (isDeleted = true) - subtle styling */
+    .bot-message.disabled {
+      opacity: 0.65;
+      border-left: 3px solid #e5e7eb;
     }
 
-    .bot-message.deleted::after {
-      content: ' [Mensagem Inativada]';
+    .user-message.disabled {
+      opacity: 0.65;
+    }
+
+    .message.disabled .markdown-content {
       color: #6b7280;
-      font-size: 11px;
-      font-style: italic;
-      margin-left: 8px;
-    }
-
-    .user-message.deleted {
-      opacity: 0.5;
-      background: linear-gradient(135deg, #adb5bd 0%, #6c757d 100%);
-      border: 1px dashed #cbd5e0;
-    }
-
-    .user-message.deleted::after {
-      content: ' [Inativada]';
-      color: #f8f9fa;
-      font-size: 11px;
-      font-style: italic;
-      margin-left: 8px;
     }
 
     .system-message {
@@ -198,8 +196,7 @@ import { marked } from 'marked';
       z-index: 10;
     }
 
-    .copy-btn,
-    .delete-btn {
+    .copy-btn {
       background: #f0f3f7;
       border: 1px solid #e1e4e8;
       color: #6b7280;
@@ -214,20 +211,81 @@ import { marked } from 'marked';
       transition: all 0.2s ease;
     }
 
-    .copy-btn:hover,
-    .delete-btn:hover {
+    .copy-btn:hover {
       background: #e1e4e8;
       transform: scale(1.1);
     }
 
-    .delete-btn {
-      background: #fee;
-      border-color: #fcc;
+    .hide-btn {
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      font-size: 14px;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      opacity: 0.5;
     }
 
-    .delete-btn:hover {
-      background: #fdd;
-      border-color: #faa;
+    .hide-btn:hover {
+      color: #ef4444;
+      opacity: 1;
+      transform: scale(1.1);
+    }
+
+    /* Toggle switch styles */
+    .toggle-btn {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .toggle-btn input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e0;
+      transition: 0.3s;
+      border-radius: 18px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    .toggle-btn input:checked + .toggle-slider {
+      background-color: #10b981;
+    }
+
+    .toggle-btn input:checked + .toggle-slider:before {
+      transform: translateX(14px);
+    }
+
+    .toggle-btn:hover .toggle-slider {
+      box-shadow: 0 0 4px rgba(0,0,0,0.2);
     }
 
     .markdown-content ::ng-deep pre {
@@ -318,18 +376,21 @@ import { marked } from 'marked';
     }
   `]
 })
-export class ChatMessagesComponent implements AfterViewChecked {
+export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
   @Input() messages: Message[] = [];
   @Input() isLoading: boolean = false;
   @Input() progressMessage: Message | null = null;
   @Input() streamingMessage: Message | null = null;
   @Input() autoScroll: boolean = true;
 
-  @Output() messageDeleted = new EventEmitter<Message>();
+  @Output() messageToggled = new EventEmitter<Message>();
+  @Output() messageHidden = new EventEmitter<Message>();
 
   @ViewChild('messagesContainer') messagesContainer?: ElementRef;
 
   private shouldScrollToBottom = false;
+  private previousMessageCount = 0;
+  private previousStreamingContent = '';
   copiedMessageId: string | null = null;
 
   constructor(private sanitizer: DomSanitizer) {}
@@ -341,8 +402,40 @@ export class ChatMessagesComponent implements AfterViewChecked {
     }
   }
 
-  ngOnChanges(): void {
-    this.shouldScrollToBottom = true;
+  ngOnChanges(changes: SimpleChanges): void {
+    // Only scroll to bottom when:
+    // 1. New messages are added (count increased)
+    // 2. Streaming message content changed
+    // 3. Loading started (typing indicator)
+    // Do NOT scroll when user toggles/hides messages
+
+    if (changes['messages']) {
+      const newCount = this.messages?.length || 0;
+      if (newCount > this.previousMessageCount) {
+        // New message added - scroll to bottom
+        this.shouldScrollToBottom = true;
+      }
+      this.previousMessageCount = newCount;
+    }
+
+    if (changes['streamingMessage']) {
+      const newContent = this.streamingMessage?.content || '';
+      if (newContent !== this.previousStreamingContent) {
+        // Streaming content changed - scroll to bottom
+        this.shouldScrollToBottom = true;
+      }
+      this.previousStreamingContent = newContent;
+    }
+
+    if (changes['isLoading'] && this.isLoading) {
+      // Loading started - scroll to show typing indicator
+      this.shouldScrollToBottom = true;
+    }
+
+    if (changes['progressMessage'] && this.progressMessage) {
+      // Progress message appeared - scroll to show it
+      this.shouldScrollToBottom = true;
+    }
   }
 
   private scrollToBottom(): void {
@@ -374,11 +467,31 @@ export class ChatMessagesComponent implements AfterViewChecked {
     });
   }
 
-  deleteMessage(message: Message): void {
+  /**
+   * Toggle message enabled/disabled state.
+   * When disabled (isDeleted=true), message won't be included in prompt.
+   */
+  toggleMessage(message: Message): void {
     if (!message || !message.id) {
-      console.warn('Cannot delete message without id');
+      console.warn('Cannot toggle message without id');
       return;
     }
-    this.messageDeleted.emit(message);
+    this.messageToggled.emit(message);
+  }
+
+  /**
+   * Hide message permanently.
+   * When hidden (isHidden=true), message won't appear in chat or prompt.
+   * Only reversible via MongoDB directly.
+   */
+  hideMessage(message: Message): void {
+    if (!message || !message.id) {
+      console.warn('Cannot hide message without id');
+      return;
+    }
+    // Confirmation before hiding
+    if (confirm('Ocultar esta iteração permanentemente?\n\nEsta ação só pode ser desfeita via banco de dados.')) {
+      this.messageHidden.emit(message);
+    }
   }
 }

@@ -3789,19 +3789,76 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
    * 🔥 NOVO: Handler async para troca de conversa
    * Busca primeiro do MongoDB, depois fallback para último agente
    */
-  private async handleConversationChange(conversationId: string): Promise<void> {
+  private async handleConversationChange(conversationId: string, retryAfterReload: boolean = false): Promise<void> {
     // 1. Buscar instance_id salvo do MongoDB (setConversation é async e busca do banco)
     const savedInstanceId = await this.navigationState.setConversation(conversationId);
 
     this.logging.info(`🔍 [NAV-STATE] MongoDB retornou instance_id: ${savedInstanceId || 'null'}`, 'ScreenplayInteractive');
 
     // 2. Buscar agentes disponíveis nesta conversa
-    const agentsInConversation = Array.from(this.agentInstances.values())
+    let agentsInConversation = Array.from(this.agentInstances.values())
       .filter(agent => agent.conversation_id === conversationId);
 
     this.logging.info(`🔍 [NAV-STATE] Encontrados ${agentsInConversation.length} agentes na conversa`, 'ScreenplayInteractive');
 
-    // 3. Se não há agentes, limpar seleção
+    // 3. Se não há agentes localmente, recarregar do MongoDB e tentar novamente
+    if (agentsInConversation.length === 0 && !retryAfterReload) {
+      this.logging.info(`🔄 [NAV-STATE] Nenhum agente local para conversa ${conversationId}, recarregando do MongoDB...`, 'ScreenplayInteractive');
+
+      // Recarregar instâncias do MongoDB
+      this.agentService.loadAllInstances().subscribe({
+        next: (instances: any[]) => {
+          this.logging.info(`✅ [NAV-STATE] ${instances.length} instâncias recarregadas do MongoDB`, 'ScreenplayInteractive');
+
+          // Adicionar as novas instâncias ao Map local
+          instances.forEach((doc: any) => {
+            if (doc.screenplay_id === this.currentScreenplay?.id && !this.agentInstances.has(doc.instance_id)) {
+              const instance: AgentInstance = {
+                id: doc.instance_id,
+                agent_id: doc.agent_id,
+                conversation_id: doc.conversation_id || undefined,
+                emoji: doc.emoji,
+                definition: doc.definition || {
+                  title: doc.agent_id,
+                  description: '',
+                  unicode: ''
+                },
+                status: doc.status || 'pending',
+                position: doc.position,
+                config: {
+                  cwd: doc.cwd || doc.config?.cwd,
+                  createdAt: doc.created_at ? new Date(doc.created_at) : new Date(),
+                  updatedAt: doc.updated_at ? new Date(doc.updated_at) : new Date()
+                },
+                executionState: doc.execution_state,
+                is_system_default: doc.is_system_default || false,
+                is_hidden: doc.is_hidden || false
+              };
+
+              if (doc.display_order !== undefined) {
+                (instance as any).display_order = doc.display_order;
+              }
+
+              this.agentInstances.set(instance.id, instance);
+              this.logging.info(`✅ [NAV-STATE] Agente adicionado: ${instance.emoji} (${instance.id})`, 'ScreenplayInteractive');
+            }
+          });
+
+          // Atualizar o dock
+          this.updateAgentDockLists();
+
+          // Tentar novamente com a flag para evitar loop infinito
+          this.handleConversationChange(conversationId, true);
+        },
+        error: (error) => {
+          this.logging.error(`❌ [NAV-STATE] Erro ao recarregar instâncias: ${error}`, error, 'ScreenplayInteractive');
+          this.activeAgentId = null;
+        }
+      });
+      return;
+    }
+
+    // Se ainda não há agentes após reload, limpar seleção
     if (agentsInConversation.length === 0) {
       this.activeAgentId = null;
       return;
