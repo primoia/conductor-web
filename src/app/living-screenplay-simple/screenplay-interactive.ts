@@ -2449,8 +2449,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     const originalAutoSave = this.autoSaveTimeout;
     this.autoSaveTimeout = null;
 
-    // Then update TipTap editor
-    this.interactiveEditor.setContent(screenplay.content, true);
+    // Then update TipTap editor (false = don't emit contentChange to avoid false dirty state)
+    this.interactiveEditor.setContent(screenplay.content, false);
 
     // Restore auto-save after a short delay
     setTimeout(() => {
