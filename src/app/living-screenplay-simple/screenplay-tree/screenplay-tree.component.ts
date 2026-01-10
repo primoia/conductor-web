@@ -25,16 +25,21 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
   @Output() openScreenplay = new EventEmitter<ScreenplayListItem>();
   @Output() updateScreenplay = new EventEmitter<{screenplay: ScreenplayListItem, updates: Partial<ScreenplayListItem>}>();
   @Output() reloadFromDisk = new EventEmitter<ScreenplayListItem>();
+  @Output() deleteScreenplay = new EventEmitter<ScreenplayListItem>();
 
   treeNodes: ScreenplayTreeNode[] = [];
   // Estado de expansão dos projetos (persiste entre reconstruções)
   private expansionState = new Map<string, boolean>();
 
-  // Modal state
+  // Edit Modal state
   showEditDialog = false;
   editingScreenplay: ScreenplayListItem | null = null;
   editingName = '';
   editingPath = '';
+
+  // Delete Modal state
+  showDeleteDialog = false;
+  deletingScreenplay: ScreenplayListItem | null = null;
 
   ngOnInit(): void {
     this.buildTree();
@@ -172,6 +177,24 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
     this.reloadFromDisk.emit(screenplay);
   }
 
+  onDeleteClick(screenplay: ScreenplayListItem, event: Event): void {
+    event.stopPropagation();
+    this.deletingScreenplay = screenplay;
+    this.showDeleteDialog = true;
+  }
+
+  confirmDelete(): void {
+    if (this.deletingScreenplay) {
+      this.deleteScreenplay.emit(this.deletingScreenplay);
+      this.cancelDelete();
+    }
+  }
+
+  cancelDelete(): void {
+    this.showDeleteDialog = false;
+    this.deletingScreenplay = null;
+  }
+
   saveEdits(): void {
     console.log('💾 [TREE] saveEdits called');
 
@@ -227,11 +250,16 @@ export class ScreenplayTreeComponent implements OnInit, OnChanges {
     this.editingPath = '';
   }
 
-  // Close edit dialog with ESC key
+  // Close dialogs with ESC key
   @HostListener('document:keydown.escape', ['$event'])
   onEscapeKey(event: Event): void {
     if (this.showEditDialog) {
       this.cancelDialog();
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (this.showDeleteDialog) {
+      this.cancelDelete();
       event.preventDefault();
       event.stopPropagation();
     }

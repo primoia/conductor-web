@@ -81,6 +81,7 @@ interface AgentFilter {
   minExecutions: number;
   agentTypes: string[];
   searchTerm: string;
+  councilorFilter: 'all' | 'councilors' | 'regular';  // Filter by councilor status
 }
 
 interface HeartParticle {
@@ -175,7 +176,8 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     showGrouped: false,
     minExecutions: 0,
     agentTypes: [],
-    searchTerm: ''
+    searchTerm: '',
+    councilorFilter: 'all'
   };
 
   showFilters = false;
@@ -740,7 +742,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
         totalExecutionTime: 0,
         averageExecutionTime: 0,
         isCurrentlyExecuting: false
-      }
+      },
+      // Councilor status from backend
+      isCouncilor: agentData.is_councilor || false
     };
 
     this.agents.push(agent);
@@ -847,40 +851,54 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
    */
   private applyFilters(agents: (AgentCharacter | AgentGroup)[]): (AgentCharacter | AgentGroup)[] {
     return agents.filter(agent => {
+      // Filtro por status de conselheiro
+      if (this.filters.councilorFilter !== 'all') {
+        const isCouncilor = this.viewMode === 'agents'
+          ? (agent as AgentGroup).instances.some(i => i.isCouncilor)
+          : (agent as AgentCharacter).isCouncilor;
+
+        if (this.filters.councilorFilter === 'councilors' && !isCouncilor) {
+          return false;
+        }
+        if (this.filters.councilorFilter === 'regular' && isCouncilor) {
+          return false;
+        }
+      }
+
       // Filtro por execuções mínimas
       if (this.filters.minExecutions > 0) {
-        const executions = this.viewMode === 'agents' 
+        const executions = this.viewMode === 'agents'
           ? (agent as AgentGroup).aggregatedMetrics.totalExecutions
           : (agent as AgentCharacter).executionMetrics.totalExecutions;
-        
+
         if (executions < this.filters.minExecutions) {
           return false;
         }
       }
-      
+
       // Filtro por tipos de agente
       if (this.filters.agentTypes.length > 0) {
-        const agentType = this.viewMode === 'agents' 
+        const agentType = this.viewMode === 'agents'
           ? (agent as AgentGroup).agentType
           : this.determineAgentType({ name: (agent as AgentCharacter).name, agent_id: (agent as AgentCharacter).agentId });
-        
+
         if (!this.filters.agentTypes.includes(agentType)) {
           return false;
         }
       }
-      
+
       // Filtro por termo de busca
       if (this.filters.searchTerm) {
         const searchLower = this.filters.searchTerm.toLowerCase();
-        const name = this.viewMode === 'agents' 
+        const name = this.viewMode === 'agents'
           ? (agent as AgentGroup).name
           : (agent as AgentCharacter).name;
-        
+
         if (!name.toLowerCase().includes(searchLower)) {
           return false;
         }
       }
-      
+
       return true;
     });
   }
@@ -1887,6 +1905,15 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Manipula mudanças no filtro de conselheiros
+   */
+  public onCouncilorFilterChange(value: 'all' | 'councilors' | 'regular'): void {
+    this.filters.councilorFilter = value;
+    console.log(`🏛️ [FILTER] Councilor filter changed to: ${value}`);
+    this.onFilterChange();
+  }
+
+  /**
    * Limpa todos os filtros
    */
   public clearFilters(): void {
@@ -1895,7 +1922,8 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       showGrouped: false,
       minExecutions: 0,
       agentTypes: [],
-      searchTerm: ''
+      searchTerm: '',
+      councilorFilter: 'all'
     };
     console.log('🗑️ [FILTER] Filtros limpos');
   }

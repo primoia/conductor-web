@@ -73,6 +73,39 @@
       </div>
     </div>
 
+    <div class="filter-section">
+      <label class="filter-label">🏛️ Conselheiros:</label>
+      <div class="filter-radios">
+        <label class="filter-radio">
+          <input
+            type="radio"
+            name="councilorFilter"
+            value="all"
+            [checked]="filters.councilorFilter === 'all'"
+            (change)="onCouncilorFilterChange('all')">
+          <span class="filter-radio-label">Todos</span>
+        </label>
+        <label class="filter-radio">
+          <input
+            type="radio"
+            name="councilorFilter"
+            value="councilors"
+            [checked]="filters.councilorFilter === 'councilors'"
+            (change)="onCouncilorFilterChange('councilors')">
+          <span class="filter-radio-label">🏛️ Conselheiros</span>
+        </label>
+        <label class="filter-radio">
+          <input
+            type="radio"
+            name="councilorFilter"
+            value="regular"
+            [checked]="filters.councilorFilter === 'regular'"
+            (change)="onCouncilorFilterChange('regular')">
+          <span class="filter-radio-label">🤖 Regulares</span>
+        </label>
+      </div>
+    </div>
+
     <div class="filter-actions">
       <button class="filter-button" (click)="clearFilters()">
         🗑️ Limpar Filtros

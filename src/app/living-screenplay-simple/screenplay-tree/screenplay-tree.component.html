@@ -49,6 +49,12 @@
                 [disabled]="!file.screenplay!.importPath">
                 🔄
               </button>
+              <button
+                class="action-btn delete-btn"
+                (click)="onDeleteClick(file.screenplay!, $event)"
+                title="Deletar roteiro">
+                🗑️
+              </button>
             </div>
           </div>
 
@@ -64,6 +70,28 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Dialog -->
+<div class="dialog-backdrop" *ngIf="showDeleteDialog" (click)="cancelDelete()">
+  <div class="dialog-container delete-dialog" (click)="$event.stopPropagation()">
+    <div class="dialog-header delete-header">
+      <h3>🗑️ Deletar Roteiro</h3>
+      <button class="dialog-close" (click)="cancelDelete()">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="delete-warning">
+        Tem certeza que deseja deletar o roteiro <strong>{{ deletingScreenplay?.name }}</strong>?
+      </p>
+      <p class="delete-info">
+        Esta ação irá também deletar todas as conversas e agentes instanciados relacionados.
+      </p>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancelDelete()">Cancelar</button>
+      <button class="btn btn-danger" (click)="confirmDelete()">Deletar</button>
     </div>
   </div>
 </div>

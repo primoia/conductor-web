@@ -208,8 +208,8 @@
 /* Events Column: Agent News - à direita do chat */
 .events-column {
   display: none; /* Hidden by default */
-  flex: 0 0 30%; /* 30% fixo para notícias */
-  width: 30%;
+  flex: 0 0 15%; /* 15% fixo para notícias */
+  width: 15%;
   height: 100vh;
   background: #ffffff;
   border-left: 1px solid #e5e7eb;
@@ -253,8 +253,8 @@
 
 /* Third Column: Container que divide verticalmente chat + footer */
 .third-column {
-  flex: 0 0 30%; /* 30% fixo para chat - igual às notícias */
-  width: 30%;
+  flex: 0 0 45%; /* 45% fixo para chat */
+  width: 45%;
   height: 100vh;
   overflow: hidden;
   transition: width 0.1s ease-out;

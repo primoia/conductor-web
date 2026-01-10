@@ -36,7 +36,8 @@
               [activeScreenplayId]="currentScreenplay?.id || null"
               (openScreenplay)="onTreeScreenplayOpen($event)"
               (updateScreenplay)="onTreeUpdateScreenplay($event)"
-              (reloadFromDisk)="onTreeReload($event)">
+              (reloadFromDisk)="onTreeReload($event)"
+              (deleteScreenplay)="onTreeDeleteScreenplay($event)">
             </app-screenplay-tree>
 
             <!-- Aba 2: Agentes Instanciados (já existe) -->

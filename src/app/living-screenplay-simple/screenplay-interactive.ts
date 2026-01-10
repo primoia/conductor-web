@@ -3131,6 +3131,31 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  onTreeDeleteScreenplay(screenplay: ScreenplayListItem): void {
+    console.log('🗑️ [INTERACTIVE] Deleting screenplay:', screenplay.id, screenplay.name);
+
+    this.screenplayStorage.deleteScreenplay(screenplay.id).subscribe({
+      next: () => {
+        console.log('✅ [INTERACTIVE] Screenplay deleted successfully');
+        this.notificationService.showSuccess(`Roteiro "${screenplay.name}" deletado com sucesso`);
+
+        // If deleting the currently open screenplay, clear the editor
+        if (this.currentScreenplay?.id === screenplay.id) {
+          this.currentScreenplay = null;
+          this.editorContent = '';
+          this.isDirty = false;
+        }
+
+        // Reload the screenplays list
+        this.loadScreenplaysList();
+      },
+      error: (error: any) => {
+        console.error('❌ [INTERACTIVE] Error deleting screenplay:', error);
+        this.notificationService.showError('Erro ao deletar roteiro');
+      }
+    });
+  }
+
   async onTreeReload(screenplay: ScreenplayListItem): Promise<void> {
     if (!screenplay.importPath) {
       this.notificationService.showWarning('Caminho de importação não definido');
