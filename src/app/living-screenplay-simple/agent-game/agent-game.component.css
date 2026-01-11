@@ -285,7 +285,6 @@
   display: block;
   flex: 1;
   min-height: 0;
-  object-fit: contain;
 }
 
 /* Agent Info Modal */

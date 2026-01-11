@@ -14,6 +14,7 @@ import { WeeklyCouncil } from './app/city-sim/weekly-council';
 import { NeighborhoodView } from './app/city-sim/neighborhood-view';
 import { DraggableCircles } from './app/examples/draggable-circles/draggable-circles';
 import { QuestAdventureComponent } from './app/quest-adventure/quest-adventure.component';
+import { AgentGameFullscreenComponent } from './app/living-screenplay-simple/agent-game-fullscreen/agent-game-fullscreen.component';
 import { SCREENPLAY_BACKEND } from './app/services/screenplay/screenplay-backend.interface';
 import { DocumentCentricBackend } from './app/services/screenplay/document-centric.backend';
 import { EventSourcedBackend } from './app/services/screenplay/lsa/event-sourced.backend';
@@ -28,6 +29,7 @@ bootstrapApplication(App, {
       { path: 'examples', component: EditorExamples },
       { path: 'layers', component: LayeredEditor },
       { path: 'screenplay', component: ScreenplayInteractive },
+      { path: 'agents', component: AgentGameFullscreenComponent },
       { path: 'quest', component: QuestAdventureComponent },
       { path: 'circles', component: DraggableCircles },
       // City-Sim mockups

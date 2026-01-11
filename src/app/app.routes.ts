@@ -4,8 +4,13 @@ import { MinistersPanel } from './city-sim/ministers-panel';
 import { WeeklyCouncil } from './city-sim/weekly-council';
 import { NeighborhoodView } from './city-sim/neighborhood-view';
 import { QuestAdventureComponent } from './quest-adventure/quest-adventure.component';
+import { AgentGameFullscreenComponent } from './living-screenplay-simple/agent-game-fullscreen/agent-game-fullscreen.component';
 
 export const routes: Routes = [
+  {
+    path: 'agents',
+    component: AgentGameFullscreenComponent
+  },
   {
     path: 'quest',
     component: QuestAdventureComponent

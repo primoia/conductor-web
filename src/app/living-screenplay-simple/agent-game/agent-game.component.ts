@@ -158,6 +158,10 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
   private syncInterval: any = null;
   private readonly SYNC_INTERVAL_MS = 30000; // 30 segundos
 
+  // Task polling state (for active agent detection)
+  private taskPollingInterval: any = null;
+  private readonly TASK_POLLING_INTERVAL_MS = 2000; // 2 segundos
+
   // Agent radius (smaller)
   private readonly AGENT_RADIUS = 18; // 48px / 2 = 24, ajustado para 18 (75% do anterior)
 
@@ -252,6 +256,9 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     }
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
+    }
+    if (this.taskPollingInterval) {
+      clearInterval(this.taskPollingInterval);
     }
     if (this.popupTimeout) {
       clearTimeout(this.popupTimeout);
@@ -1026,6 +1033,60 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
     this.syncInterval = setInterval(() => {
       this.syncAllAgentsFromBackend();
     }, this.SYNC_INTERVAL_MS);
+
+    // Start task polling for active agent detection
+    this.startTaskPolling();
+  }
+
+  /**
+   * Inicia polling de tasks ativas para detectar quais agentes estão executando
+   */
+  private startTaskPolling(): void {
+    // Poll imediatamente
+    this.pollActiveTasks();
+
+    // Configurar intervalo para polling
+    this.taskPollingInterval = setInterval(() => {
+      this.pollActiveTasks();
+    }, this.TASK_POLLING_INTERVAL_MS);
+  }
+
+  /**
+   * Faz polling das tasks ativas e atualiza o status isActive dos agentes
+   */
+  private async pollActiveTasks(): Promise<void> {
+    try {
+      const baseUrl = this.getBaseUrl();
+      const url = `${baseUrl}/tasks/processing`;
+
+      const response = await this.http.get<{
+        success: boolean;
+        tasks: Array<{
+          instance_id: string;
+          agent_id: string;
+          status: string;
+        }>;
+      }>(url).toPromise();
+
+      if (response && response.success && response.tasks) {
+        // Get all instance_ids that are currently processing
+        const processingInstanceIds = new Set(
+          response.tasks.map(task => task.instance_id)
+        );
+
+        // Update isActive for all agents
+        this.agents.forEach(agent => {
+          const isProcessing = processingInstanceIds.has(agent.id);
+          if (agent.isActive !== isProcessing) {
+            agent.isActive = isProcessing;
+            // console.log(`🎮 [TASK-POLL] Agent ${agent.name} is now ${isProcessing ? 'ACTIVE' : 'INACTIVE'}`);
+          }
+        });
+      }
+    } catch (error) {
+      // Silently ignore errors - polling will retry
+      // console.warn('⚠️ [TASK-POLL] Error polling tasks:', error);
+    }
   }
 
   /**
@@ -1320,20 +1381,29 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
           }
         });
 
-        // Add some randomness to movement
+        // Scale factor for large screens (base: 1920px width)
+        const screenScale = Math.max(1, this.canvasWidth / 1920);
+
+        // Add some randomness to movement - scale with screen size
         if (Math.random() < 0.02) {
-          agent.velocity.x += (Math.random() - 0.5) * 0.45;
-          agent.velocity.y += (Math.random() - 0.5) * 0.45;
+          agent.velocity.x += (Math.random() - 0.5) * 0.45 * screenScale;
+          agent.velocity.y += (Math.random() - 0.5) * 0.45 * screenScale;
         }
 
-        // Limit speed
+        // Limit speed - scale with screen size for better movement on large screens
         const speed = Math.sqrt(agent.velocity.x ** 2 + agent.velocity.y ** 2);
-        const maxSpeed = 3.75;
+        const maxSpeed = 3.75 * screenScale;
         if (speed > maxSpeed) {
           agent.velocity.x = (agent.velocity.x / speed) * maxSpeed;
           agent.velocity.y = (agent.velocity.y / speed) * maxSpeed;
         }
       } else {
+        // Agent just became inactive - zero out velocity to stop animation
+        if (agent.velocity.x !== 0 || agent.velocity.y !== 0) {
+          agent.velocity.x = 0;
+          agent.velocity.y = 0;
+        }
+
         // Clear trail when inactive (unless being pushed)
         const now = Date.now();
         const isBeingPushed = agent.pushedUntil && agent.pushedUntil > now;
@@ -2189,8 +2259,10 @@ export class AgentGameComponent implements AfterViewInit, OnDestroy {
       
       if (isActive) {
         // Se ficou ativo, dar velocidade aleatória para começar a se mover
-        agent.velocity.x = (Math.random() - 0.5) * 2.25;
-        agent.velocity.y = (Math.random() - 0.5) * 2.25;
+        // Scale with screen size for better movement on large screens
+        const screenScale = Math.max(1, this.canvasWidth / 1920);
+        agent.velocity.x = (Math.random() - 0.5) * 2.25 * screenScale;
+        agent.velocity.y = (Math.random() - 0.5) * 2.25 * screenScale;
       } else {
         // Se ficou inativo, parar a velocidade e limpar trail
         agent.velocity.x = 0;
