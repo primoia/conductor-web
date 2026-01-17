@@ -48,53 +48,43 @@ import { ConversationService, ConversationSummary } from '../../services/convers
           (click)="onSelectConversation(conv.conversation_id)"
           cdkDrag>
 
-          <!-- Drag handle -->
-          <div class="drag-handle" cdkDragHandle title="Arrastar para reordenar">
-            ⋮⋮
-          </div>
-
           <!-- Placeholder durante drag -->
           <div class="conversation-placeholder" *cdkDragPlaceholder></div>
 
           <!-- Content wrapper -->
           <div class="conversation-content">
-            <!-- Título no topo (sem edição inline) -->
-            <div class="conversation-header">
-              <span class="conversation-title" [title]="conv.title">
-                {{ conv.title }}
-              </span>
-            </div>
+            <!-- Título -->
+            <span class="conversation-title" [title]="conv.title">
+              {{ conv.title }}
+            </span>
 
-            <!-- Meta informações -->
-            <div class="conversation-meta">
-              <span class="participants" *ngIf="getActiveAgentCount(conv.conversation_id) > 0">
-                {{ getActiveAgentCount(conv.conversation_id) }} agente(s)
-              </span>
-              <span class="count">{{ conv.message_count }} msgs</span>
-            </div>
-
-            <!-- Botões de ação no footer -->
-            <div class="conversation-footer">
+            <!-- Botões de ação compactos -->
+            <div class="conversation-actions">
               <button
-                class="edit-context-btn"
+                class="action-btn edit-btn"
                 (click)="onEditContext($event, conv)"
                 title="Editar conversa">
                 📝
               </button>
               <button
-                class="clone-btn"
+                class="action-btn clone-btn"
                 (click)="onCloneConversation($event, conv.conversation_id)"
-                title="Clonar conversa (fork)">
+                title="Clonar conversa">
                 🔀
               </button>
               <button
-                class="delete-btn"
+                class="action-btn delete-btn"
                 (click)="onDeleteConversation($event, conv.conversation_id)"
                 title="Deletar conversa">
                 🗑️
               </button>
             </div>
           </div> <!-- /conversation-content -->
+
+          <!-- Drag handle (direita) -->
+          <div class="drag-handle" cdkDragHandle title="Arrastar para reordenar">
+            ⋮⋮
+          </div>
         </div>
       </div>
 
@@ -246,20 +236,22 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     .conversation-item {
       background: white;
       border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 8px;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
       cursor: pointer;
       transition: all 0.2s;
       position: relative;
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 6px;
     }
 
     .conversation-content {
       flex: 1;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
       gap: 8px;
       min-width: 0; /* Permite text overflow */
     }
@@ -275,63 +267,53 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
     }
 
-    .conversation-header {
-      margin-bottom: 4px;
-    }
-
     .conversation-title {
-      font-size: 15px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 500;
       color: #212529;
-      word-break: break-word;
-      line-height: 1.4;
-      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
     }
 
-    /* Footer com botões de ação */
-    .conversation-footer {
+    /* Botões de ação compactos */
+    .conversation-actions {
       display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      padding-top: 8px;
-      border-top: 1px solid #e9ecef;
-      margin-top: 8px;
-    }
-
-    .edit-context-btn,
-    .clone-btn,
-    .delete-btn {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
-      padding: 4px 12px;
-      transition: all 0.2s;
+      gap: 0;
       flex-shrink: 0;
     }
 
-    .edit-context-btn:hover {
+    .action-btn {
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 4px;
+      transition: all 0.15s;
+      opacity: 0.6;
+    }
+
+    .conversation-item:hover .action-btn {
+      opacity: 1;
+    }
+
+    .action-btn:hover {
+      background: #e9ecef;
+    }
+
+    .edit-btn:hover {
       background: #e7f1ff;
-      border-color: #007bff;
     }
 
     .clone-btn:hover {
       background: #e8f5e9;
-      border-color: #4caf50;
     }
 
     .delete-btn:hover {
       background: #ffe5e5;
-      border-color: #dc3545;
-    }
-
-    .conversation-meta {
-      display: flex;
-      gap: 12px;
-      font-size: 12px;
-      color: #6c757d;
-      margin-bottom: 8px;
     }
 
     .empty-state {
@@ -359,13 +341,19 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      color: #adb5bd;
+      width: 14px;
+      color: #ced4da;
       cursor: grab;
-      font-size: 16px;
+      font-size: 12px;
       line-height: 1;
       user-select: none;
       flex-shrink: 0;
+      opacity: 0.5;
+    }
+
+    .conversation-item:hover .drag-handle {
+      opacity: 1;
+      color: #adb5bd;
     }
 
     .drag-handle:active {
@@ -392,8 +380,8 @@ import { ConversationService, ConversationSummary } from '../../services/convers
     .conversation-placeholder {
       background: #e9ecef;
       border: 2px dashed #adb5bd;
-      border-radius: 8px;
-      min-height: 80px;
+      border-radius: 6px;
+      min-height: 36px;
     }
 
     /* Modal Styles */
