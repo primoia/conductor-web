@@ -149,6 +149,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('agentGame') agentGame!: AgentGameComponent;
   @ViewChild(ScreenplayTreeComponent) screenplayTree?: ScreenplayTreeComponent;
+  @ViewChild(AgentCatalogComponent) agentCatalog?: AgentCatalogComponent;
 
   // Splitter state
   screenplayWidth = 60;  // 🔥 25% (first-column) + 35% (screenplay-canvas)
@@ -191,6 +192,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   // Estado do modal
   showAgentCreator = false;
+  agentToEdit: Agent | null = null;
   showAgentSelector = false;
   showAgentPreview = false;
   previewData: PreviewData | null = null;
@@ -3031,6 +3033,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   closeAgentCreator(): void {
     this.showAgentCreator = false;
+    this.agentToEdit = null;
   }
 
   // First Column Tabs Control
@@ -3233,6 +3236,13 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
   openAgentCreatorFromCatalog(): void {
     console.log('➕ [CATALOG] Opening agent creator');
+    this.agentToEdit = null;
+    this.openAgentCreator();
+  }
+
+  onEditAgentFromCatalog(agent: Agent): void {
+    console.log('✏️ [CATALOG] Edit agent requested:', agent.id);
+    this.agentToEdit = agent;
     this.openAgentCreator();
   }
 
@@ -3254,6 +3264,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       description: agentData.description,      // 10-200 chars
       persona_content: agentData.persona_content, // Min 50 chars, starts with #
       emoji: agentData.emoji,
+      group: agentData.group,                  // Agent group/category
       tags: agentData.tags,
       mcp_configs: agentData.mcp_configs
     }).subscribe({
@@ -3323,6 +3334,12 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
               tags: agentData.tags,
               mcp_configs: agentData.mcp_configs
             });
+
+            // Refresh the agent catalog to show the new agent
+            if (this.agentCatalog) {
+              this.logging.info('🔄 [AGENT-CREATOR] Refreshing agent catalog...', 'ScreenplayInteractive');
+              this.agentCatalog.loadAgents();
+            }
           })
           .catch((err) => {
             this.logging.error('❌ [AGENT-CREATOR] Failed to persist instance:', 'ScreenplayInteractive', err);
@@ -3332,6 +3349,36 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
       error: (err) => {
         this.logging.error('❌ [AGENT-CREATOR] Failed to create agent:', 'ScreenplayInteractive', err);
         alert(`Erro ao criar agente: ${err.message}`);
+      }
+    });
+  }
+
+  onAgentUpdated(updateData: { agentId: string; updates: AgentCreationData }): void {
+    this.logging.info('📝 [AGENT-CREATOR] Updating agent via API...', 'ScreenplayInteractive', updateData);
+
+    this.agentService.updateAgent(updateData.agentId, {
+      name: updateData.updates.name,
+      description: updateData.updates.description,
+      persona_content: updateData.updates.persona_content,
+      emoji: updateData.updates.emoji,
+      group: updateData.updates.group,
+      tags: updateData.updates.tags,
+      mcp_configs: updateData.updates.mcp_configs
+    }).subscribe({
+      next: (result) => {
+        this.logging.info('✅ [AGENT-CREATOR] Agent updated:', 'ScreenplayInteractive', result);
+        this.closeAgentCreator();
+        this.notificationService.showSuccess('Agente atualizado com sucesso!');
+
+        // Refresh the agent catalog to show updated data
+        if (this.agentCatalog) {
+          this.logging.info('🔄 [AGENT-CREATOR] Refreshing agent catalog...', 'ScreenplayInteractive');
+          this.agentCatalog.loadAgents();
+        }
+      },
+      error: (err) => {
+        this.logging.error('❌ [AGENT-CREATOR] Failed to update agent:', 'ScreenplayInteractive', err);
+        alert(`Erro ao atualizar agente: ${err.message}`);
       }
     });
   }

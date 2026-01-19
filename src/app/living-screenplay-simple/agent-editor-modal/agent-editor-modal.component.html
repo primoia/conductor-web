@@ -1,0 +1,260 @@
+<div class="modal-backdrop" *ngIf="isVisible" (click)="onBackdropClick($event)">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <app-modal-header
+      [title]="agent ? getSelectedEmoji() + ' Editar: ' + agent.name : 'Editar Agente'"
+      (close)="onClose()">
+    </app-modal-header>
+
+    <!-- Loading State -->
+    <div class="loading-overlay" *ngIf="isLoading">
+      <div class="spinner"></div>
+      <p>Carregando dados do agente...</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div class="error-banner" *ngIf="error">
+      <span class="error-icon">⚠️</span>
+      <span>{{ error }}</span>
+      <button class="dismiss-btn" (click)="error = null">×</button>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation" *ngIf="!isLoading">
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'basic'"
+        (click)="setActiveTab('basic')">
+        📋 Informações Básicas
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'persona'"
+        (click)="setActiveTab('persona')">
+        🎭 Persona
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'mcps'"
+        (click)="setActiveTab('mcps')">
+        🔌 MCPs ({{ selectedMcps.length }})
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body" *ngIf="!isLoading">
+      <!-- Basic Info Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'basic'">
+        <!-- Agent ID (readonly) -->
+        <div class="form-section">
+          <label class="form-label">ID do Agente</label>
+          <input
+            type="text"
+            class="text-input readonly"
+            [value]="agent?.id"
+            readonly
+            disabled>
+          <small class="field-hint">O ID não pode ser alterado</small>
+        </div>
+
+        <!-- Emoji Selection -->
+        <div class="form-section">
+          <label class="form-label">Emoji</label>
+          <div class="emoji-row">
+            <button
+              *ngFor="let emoji of availableEmojis"
+              class="emoji-option"
+              [class.selected]="agentEmoji === emoji && !customEmoji"
+              (click)="selectEmoji(emoji)">
+              {{ emoji }}
+            </button>
+            <input
+              type="text"
+              [(ngModel)]="customEmoji"
+              (input)="onCustomEmojiInput()"
+              placeholder="🎭"
+              maxlength="2"
+              class="emoji-input"
+              title="Ou digite um emoji personalizado">
+          </div>
+        </div>
+
+        <!-- Display Name -->
+        <div class="form-section">
+          <label class="form-label">Nome de Exibição</label>
+          <input
+            type="text"
+            [(ngModel)]="agentName"
+            (ngModelChange)="onFieldChange()"
+            class="text-input"
+            [class.invalid]="agentName && !isNameValid()"
+            maxlength="100"
+            placeholder="Nome do agente para exibição">
+          <small class="field-hint" [class.error]="agentName && !isNameValid()">
+            Mínimo 2 caracteres
+          </small>
+        </div>
+
+        <!-- Description -->
+        <div class="form-section">
+          <label class="form-label">
+            Descrição
+            <span class="char-count">({{ agentDescription.length }}/200)</span>
+          </label>
+          <textarea
+            [(ngModel)]="agentDescription"
+            (ngModelChange)="onFieldChange()"
+            placeholder="Descreva o que este agente faz em 10-200 caracteres..."
+            class="text-area"
+            [class.invalid]="agentDescription && !isDescriptionValid()"
+            maxlength="200"
+            rows="3"></textarea>
+          <small class="field-hint" [class.error]="agentDescription && !isDescriptionValid()">
+            {{ getDescriptionValidationMessage() }}
+          </small>
+        </div>
+
+        <!-- Group Selection -->
+        <div class="form-section">
+          <label class="form-label">Grupo/Categoria</label>
+          <select
+            [(ngModel)]="agentGroup"
+            (ngModelChange)="onFieldChange()"
+            class="select-input">
+            <option *ngFor="let group of groupOptions" [value]="group.value">
+              {{ group.icon }} {{ group.label }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Tags -->
+        <div class="form-section">
+          <label class="form-label">Tags</label>
+          <div class="tags-container">
+            <div class="tags-list">
+              <span *ngFor="let tag of agentTags; let i = index" class="tag-chip">
+                {{ tag }}
+                <button class="tag-remove" (click)="removeTag(i)">×</button>
+              </span>
+            </div>
+            <div class="tag-input-wrapper">
+              <input
+                type="text"
+                [(ngModel)]="newTag"
+                (keydown.enter)="addTag()"
+                placeholder="Digite e pressione Enter..."
+                class="tag-input"
+                maxlength="30">
+              <button class="tag-add-btn" (click)="addTag()" [disabled]="!newTag.trim()">+</button>
+            </div>
+          </div>
+          <small class="field-hint">Ajudam na busca e organização (máx 10)</small>
+        </div>
+      </div>
+
+      <!-- Persona Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'persona'">
+        <div class="form-section full-height">
+          <label class="form-label">
+            Persona (Markdown)
+            <span class="char-count">({{ personaContent.length }} chars)</span>
+          </label>
+          <textarea
+            [(ngModel)]="personaContent"
+            (ngModelChange)="onFieldChange()"
+            placeholder="# Nome do Agente
+
+Você é um agente especializado em...
+
+## Responsabilidades
+- ...
+- ...
+
+## Regras
+- ..."
+            class="persona-area"
+            [class.invalid]="personaContent && !isPersonaValid()"></textarea>
+          <small class="field-hint" [class.error]="personaContent && !isPersonaValid()">
+            {{ getPersonaValidationMessage() }}
+          </small>
+        </div>
+      </div>
+
+      <!-- MCPs Tab -->
+      <div class="tab-content" *ngIf="activeTab === 'mcps'">
+        <p class="mcp-hint">
+          Selecione os MCPs que este agente poderá usar.
+          <span class="stopped-hint">MCPs parados (○) serão iniciados automaticamente quando necessário.</span>
+        </p>
+
+        <!-- MCP Filters -->
+        <div class="mcp-filters">
+          <input
+            type="text"
+            [(ngModel)]="mcpSearchQuery"
+            (ngModelChange)="filterMcps()"
+            placeholder="🔍 Buscar MCP..."
+            class="mcp-search">
+          <select
+            [(ngModel)]="mcpFilter.category"
+            (ngModelChange)="filterMcps()"
+            class="mcp-category-filter">
+            <option value="">Todas categorias</option>
+            <option *ngFor="let cat of mcpCategories" [value]="cat">{{ cat }}</option>
+          </select>
+          <select
+            [(ngModel)]="mcpFilter.status"
+            (ngModelChange)="filterMcps()"
+            class="mcp-status-filter">
+            <option value="">Todos status</option>
+            <option value="healthy">● Ativos</option>
+            <option value="stopped">○ Parados</option>
+          </select>
+        </div>
+
+        <!-- MCP Grid -->
+        <div class="mcp-grid" *ngIf="filteredMcps.length > 0">
+          <div
+            *ngFor="let mcp of filteredMcps"
+            class="mcp-option"
+            [class.selected]="isMcpSelected(mcp.name)"
+            [class.stopped]="mcp.status === 'stopped'"
+            [class.starting]="mcp.status === 'starting'"
+            (click)="toggleMcp(mcp)">
+            <span class="mcp-status-dot" [class]="mcp.status">{{ getStatusIcon(mcp.status) }}</span>
+            <span class="mcp-check">{{ isMcpSelected(mcp.name) ? '✓' : '' }}</span>
+            <div class="mcp-info">
+              <span class="mcp-name">{{ formatMcpName(mcp.name) }}</span>
+              <span class="mcp-category" *ngIf="mcp.metadata?.category">{{ mcp.metadata?.category }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="no-mcps" *ngIf="filteredMcps.length === 0">
+          <p *ngIf="availableMcps.length === 0">Nenhuma ferramenta MCP descoberta.</p>
+          <p *ngIf="availableMcps.length > 0">Nenhum resultado para os filtros aplicados.</p>
+        </div>
+
+        <!-- Selected MCPs Summary -->
+        <div class="selected-mcps-summary" *ngIf="selectedMcps.length > 0">
+          <label class="form-label">MCPs Selecionados ({{ selectedMcps.length }})</label>
+          <div class="selected-mcps-list">
+            <span *ngFor="let mcpName of selectedMcps" class="selected-mcp-chip">
+              {{ mcpName }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <app-modal-footer
+      *ngIf="!isLoading"
+      [buttons]="footerButtons"
+      [hasLeftContent]="hasChanges"
+      (buttonClick)="handleFooterAction($event)">
+      <div left class="footer-info" *ngIf="hasChanges">
+        <span class="changes-indicator">● Alterações não salvas</span>
+      </div>
+    </app-modal-footer>
+  </div>
+</div>

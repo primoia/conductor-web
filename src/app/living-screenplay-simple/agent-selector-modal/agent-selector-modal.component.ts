@@ -12,6 +12,32 @@ export interface AgentSelectionData {
   cwd?: string; // Working directory for agent execution
 }
 
+export type SortOption = 'name_asc' | 'name_desc' | 'created_at_asc' | 'created_at_desc';
+
+export interface SortOptionConfig {
+  value: SortOption;
+  label: string;
+}
+
+export interface GroupOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
+// Grupos disponíveis para filtro (devem corresponder às tags group:* no backend)
+export const AGENT_GROUPS: GroupOption[] = [
+  { value: 'all', label: '🌐 Todos' },
+  { value: 'development', label: '🔧 Desenvolvimento' },
+  { value: 'crm', label: '📊 CRM & Vendas' },
+  { value: 'documentation', label: '📝 Documentação' },
+  { value: 'devops', label: '🛡️ DevOps' },
+  { value: 'orchestration', label: '🎼 Orquestração' },
+  { value: 'testing', label: '🧪 Testes' },
+  { value: 'career', label: '💼 Carreira' },
+  { value: 'other', label: '📦 Outros' },
+];
+
 /**
  * Modal para seleção de agentes do Conductor.
  * Permite buscar, filtrar e selecionar agentes disponíveis, com opção de configurar diretório de trabalho.
@@ -63,6 +89,19 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   showAdvancedSettings: boolean = false;
   workingDirectory: string = '';
   recentDirectories: string[] = [];
+
+  // Sorting options
+  currentSort: SortOption = 'name_asc';
+  sortOptions: SortOptionConfig[] = [
+    { value: 'name_asc', label: 'Nome (A-Z)' },
+    { value: 'name_desc', label: 'Nome (Z-A)' },
+    { value: 'created_at_desc', label: 'Mais recente' },
+    { value: 'created_at_asc', label: 'Mais antigo' }
+  ];
+
+  // Group filter options
+  currentGroup: string = 'all';
+  groupOptions: GroupOption[] = [...AGENT_GROUPS];
 
   constructor(
     private agentService: AgentService,
@@ -158,7 +197,8 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
           this.agents = agents;
           console.log('[AgentSelectorModal] Loaded agents:', this.agents.length);
         }
-        this.filteredAgents = this.agents;
+        this.updateGroupCounts(); // Atualiza contagem por grupo
+        this.applyFilterAndSort(); // Aplica filtro e ordenação
         this.isLoading = false;
         this.cdr.markForCheck(); // OnPush: notificar mudança
       },
@@ -175,16 +215,7 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
    * Filtra a lista de agentes com base no texto de busca.
    */
   onSearchChange(): void {
-    if (!this.searchQuery || this.searchQuery.trim() === '') {
-      this.filteredAgents = this.agents;
-    } else {
-      const query = this.searchQuery.toLowerCase().trim();
-      this.filteredAgents = this.agents.filter(agent =>
-        agent.name.toLowerCase().includes(query) ||
-        agent.description?.toLowerCase().includes(query) ||
-        agent.emoji.includes(query)
-      );
-    }
+    this.applyFilterAndSort();
     this.cdr.markForCheck(); // OnPush: notificar mudança
   }
 
@@ -194,6 +225,106 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   clearSearch(): void {
     this.searchQuery = '';
     this.onSearchChange();
+  }
+
+  /**
+   * Altera a ordenação da lista de agentes.
+   * @param sortOption - Opção de ordenação selecionada
+   */
+  onSortChange(sortOption: SortOption): void {
+    this.currentSort = sortOption;
+    this.applyFilterAndSort();
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Altera o filtro de grupo.
+   * @param group - Grupo selecionado
+   */
+  onGroupChange(group: string): void {
+    this.currentGroup = group;
+    this.applyFilterAndSort();
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Atualiza a contagem de agentes por grupo.
+   * @private
+   */
+  private updateGroupCounts(): void {
+    // Reset counts
+    this.groupOptions = AGENT_GROUPS.map(group => ({
+      ...group,
+      count: group.value === 'all'
+        ? this.agents.length
+        : this.agents.filter(a => this.getAgentGroup(a) === group.value).length
+    }));
+  }
+
+  /**
+   * Retorna o grupo de um agente.
+   * @param agent - Agente
+   * @returns O grupo do agente (ex: 'development', 'crm', etc.)
+   * @private
+   */
+  private getAgentGroup(agent: Agent): string {
+    return agent.group || 'other';
+  }
+
+  /**
+   * Aplica filtro de busca, grupo e ordenação na lista de agentes.
+   * @private
+   */
+  private applyFilterAndSort(): void {
+    let result = this.agents;
+
+    // Primeiro aplica o filtro de grupo
+    if (this.currentGroup && this.currentGroup !== 'all') {
+      result = result.filter(agent => this.getAgentGroup(agent) === this.currentGroup);
+    }
+
+    // Depois aplica o filtro de busca
+    if (this.searchQuery && this.searchQuery.trim() !== '') {
+      const query = this.searchQuery.toLowerCase().trim();
+      result = result.filter(agent =>
+        agent.name.toLowerCase().includes(query) ||
+        agent.description?.toLowerCase().includes(query) ||
+        agent.emoji.includes(query)
+      );
+    }
+
+    // Por último aplica a ordenação
+    result = this.sortAgents(result);
+    this.filteredAgents = result;
+  }
+
+  /**
+   * Ordena a lista de agentes conforme a opção selecionada.
+   * @param agents - Lista de agentes a ser ordenada
+   * @returns Lista ordenada
+   * @private
+   */
+  private sortAgents(agents: Agent[]): Agent[] {
+    return [...agents].sort((a, b) => {
+      switch (this.currentSort) {
+        case 'name_asc':
+          return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+        case 'name_desc':
+          return b.name.localeCompare(a.name, 'pt-BR', { sensitivity: 'base' });
+        case 'created_at_asc': {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateA - dateB;
+        }
+        case 'created_at_desc': {
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateB - dateA;
+        }
+        default:
+          return 0;
+      }
+    });
   }
 
   /**
@@ -288,6 +419,7 @@ export class AgentSelectorModalComponent extends BaseModalComponent implements O
   override onClose(): void {
     console.log('[AgentSelectorModal] onClose() chamado');
     this.searchQuery = '';
+    this.currentGroup = 'all'; // Reset filtro de grupo
     this.filteredAgents = this.agents;
     this.close.emit();      // Compatibilidade com (close)
     this.closeModal.emit(); // Padrão BaseModalComponent

@@ -1,106 +1,145 @@
 <div class="agent-catalog">
-  <!-- Header -->
+  <!-- Header com título e botão criar -->
   <div class="catalog-header">
-    <h3 class="catalog-title">🤖 Catálogo de Agentes</h3>
-    <button class="create-agent-btn" (click)="onCreateAgent()" title="Criar Novo Agente">
-      ➕ Novo
+    <div class="header-title">
+      <h2>Catálogo de Agentes</h2>
+      <span class="agent-count" *ngIf="!isLoading">{{ filteredAgents.length }} de {{ agents.length }} agentes</span>
+    </div>
+    <button class="btn-create" (click)="onCreateAgent()">
+      <span class="btn-icon">+</span>
+      Novo Agente
     </button>
   </div>
 
-  <!-- Search and Filters -->
-  <div class="catalog-controls">
-    <div class="search-box">
-      <span class="search-icon">🔍</span>
+  <!-- Barra de filtros -->
+  <div class="filters-bar">
+    <!-- Busca -->
+    <div class="search-container">
       <input
         type="text"
         class="search-input"
-        [(ngModel)]="searchTerm"
-        (input)="onSearchChange()"
-        placeholder="Buscar agentes..."
-      />
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Buscar..."
+        aria-label="Buscar agentes">
+      <button
+        *ngIf="searchQuery"
+        class="clear-search"
+        (click)="clearSearch()"
+        aria-label="Limpar busca">
+        ×
+      </button>
     </div>
 
-    <div class="filter-buttons">
+    <!-- Ordenação -->
+    <div class="sort-container">
+      <label class="sort-label">Ordenar:</label>
+      <select
+        class="sort-select"
+        [(ngModel)]="currentSort"
+        (ngModelChange)="onSortChange($event)"
+        aria-label="Ordenar agentes">
+        <option *ngFor="let option of sortOptions" [value]="option.value">
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Filtro por grupos -->
+  <div class="group-filter-container">
+    <div class="group-chips" role="radiogroup" aria-label="Filtrar por grupo">
       <button
-        class="filter-btn"
-        [class.active]="selectedFilter === 'all'"
-        (click)="onFilterChange('all')">
-        Todos
-      </button>
-      <button
-        class="filter-btn"
-        [class.active]="selectedFilter === 'system'"
-        (click)="onFilterChange('system')">
-        Sistema
-      </button>
-      <button
-        class="filter-btn"
-        [class.active]="selectedFilter === 'custom'"
-        (click)="onFilterChange('custom')">
-        Personalizados
+        *ngFor="let group of groupOptions"
+        class="group-chip"
+        [class.active]="currentGroup === group.value"
+        (click)="onGroupChange(group.value)"
+        [attr.aria-pressed]="currentGroup === group.value"
+        role="radio">
+        <span class="group-icon" *ngIf="group.value !== 'all'">{{ getGroupIcon(group.value) }}</span>
+        {{ group.label }}
+        <span class="group-count" *ngIf="group.count !== undefined">({{ group.count }})</span>
       </button>
     </div>
   </div>
 
-  <!-- Loading State -->
-  <div *ngIf="isLoading" class="loading-state">
-    <div class="spinner">🔄</div>
-    <p>Carregando agentes...</p>
-  </div>
-
-  <!-- Error State -->
-  <div *ngIf="error && !isLoading" class="error-state">
-    <p>❌ {{ error }}</p>
-    <button class="retry-btn" (click)="loadAgents()">Tentar Novamente</button>
-  </div>
-
-  <!-- Agent List -->
-  <div *ngIf="!isLoading && !error" class="catalog-content">
-    <div *ngIf="filteredAgents.length === 0" class="empty-state">
-      <p>📭 Nenhum agente encontrado</p>
-      <small *ngIf="searchTerm">Tente ajustar sua busca</small>
-      <small *ngIf="!searchTerm">Crie seu primeiro agente personalizado</small>
+  <!-- Conteúdo principal -->
+  <div class="catalog-content">
+    <!-- Loading state -->
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="spinner"></div>
+      <p>Carregando agentes...</p>
     </div>
 
-    <!-- Agent Cards -->
-    <div class="agent-list">
+    <!-- Error state -->
+    <div class="error-state" *ngIf="error && !isLoading">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error }}</p>
+      <button class="retry-btn" (click)="loadAgents()">Tentar novamente</button>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!isLoading && !error && filteredAgents.length === 0">
+      <span class="empty-icon">🔍</span>
+      <p>Nenhum agente encontrado</p>
+      <small *ngIf="searchQuery || currentGroup !== 'all'">
+        Tente ajustar os filtros de busca
+      </small>
+    </div>
+
+    <!-- Grid de cards -->
+    <div class="agents-grid" *ngIf="!isLoading && !error && filteredAgents.length > 0">
       <div
-        *ngFor="let agent of filteredAgents"
-        class="agent-card"
-        [class]="getAgentTypeClass(agent)"
-        (click)="onSelectAgent(agent)">
-        <div class="agent-emoji">{{ agent.emoji }}</div>
-        <div class="agent-info">
-          <div class="agent-header">
-            <h4 class="agent-title">{{ agent.title || agent.name }}</h4>
-            <span class="agent-type-badge">{{ getAgentType(agent) }}</span>
+        *ngFor="let agent of filteredAgents; trackBy: trackByAgentId"
+        class="agent-card custom-agent"
+        [class.system-agent]="agent.isSystemDefault"
+        (click)="onSelectAgent(agent)"
+        tabindex="0"
+        role="button"
+        [attr.aria-label]="'Selecionar agente ' + agent.name">
+
+        <!-- Header do card -->
+        <div class="card-header">
+          <div class="agent-emoji">{{ agent.emoji || '🤖' }}</div>
+          <div class="agent-meta">
+            <span class="agent-group-badge" [attr.data-group]="agent.group || 'other'">
+              {{ getGroupIcon(agent.group || 'other') }} {{ agent.group || 'other' }}
+            </span>
           </div>
-          <p class="agent-description">{{ agent.description || 'Sem descrição' }}</p>
         </div>
-        <div class="agent-actions">
+
+        <!-- Body do card -->
+        <div class="card-body">
+          <h3 class="agent-name">{{ agent.name }}</h3>
+          <p class="agent-id">{{ agent.id }}</p>
+          <p class="agent-description">{{ agent.description || 'Sem descrição' }}</p>
+          
+          <!-- Tags -->
+          <div class="agent-tags" *ngIf="agent.tags && agent.tags.length > 0">
+            <span class="tag" *ngFor="let tag of agent.tags.slice(0, 3)">{{ tag }}</span>
+            <span class="tag tag-more" *ngIf="agent.tags.length > 3">+{{ agent.tags.length - 3 }}</span>
+          </div>
+
+          <!-- MCPs -->
+          <div class="agent-mcps" *ngIf="agent.mcp_configs && agent.mcp_configs.length > 0">
+            <span class="mcp-icon">🔌</span>
+            <span class="mcp-count">{{ agent.mcp_configs.length }} MCP{{ agent.mcp_configs.length > 1 ? 's' : '' }}</span>
+          </div>
+        </div>
+
+        <!-- Footer do card -->
+        <div class="card-footer">
+          <span class="created-date" *ngIf="agent.created_at">
+            📅 {{ formatDate(agent.created_at) }}
+          </span>
           <button
-            *ngIf="!agent.isSystemDefault"
-            class="action-icon edit-mcp-btn"
-            (click)="editAgentMcps(agent); $event.stopPropagation()"
-            title="Editar MCPs">
-            ⚙️
+            class="btn-edit"
+            (click)="onEditAgent(agent, $event)"
+            aria-label="Editar agente {{ agent.name }}">
+            ✏️ Editar
           </button>
-          <button class="action-icon" title="Adicionar ao roteiro">📋</button>
         </div>
       </div>
     </div>
-
-    <!-- Stats -->
-    <div class="catalog-stats">
-      <span>{{ filteredAgents.length }} de {{ agents.length }} agentes</span>
-    </div>
   </div>
 </div>
-
-<!-- MCP Edit Modal -->
-<app-agent-mcp-edit-modal
-  [isVisible]="isEditModalOpen"
-  [agent]="selectedAgentForEdit"
-  (closeModal)="closeEditModal()"
-  (agentUpdated)="onAgentUpdated($event)"
-></app-agent-mcp-edit-modal>

@@ -16,6 +16,9 @@ export interface Agent {
   isSystemDefault?: boolean; // Flag for system/custom agents
   is_councilor?: boolean; // Flag indicating agent is promoted to councilor
   mcp_configs?: string[]; // List of MCP sidecars assigned to this agent
+  created_at?: string; // ISO date string when agent was created
+  group?: string; // Agent group/category (development, crm, documentation, devops, orchestration, testing, career, other)
+  tags?: string[]; // Tags for search and filtering
 }
 
 /**
@@ -130,7 +133,10 @@ export class AgentService {
           prompt: agent.prompt,
           model: agent.model,
           is_councilor: agent.is_councilor || false,  // Flag for councilor status
-          mcp_configs: agent.mcp_configs || [] // List of MCP sidecars
+          mcp_configs: agent.mcp_configs || [], // List of MCP sidecars
+          created_at: agent.created_at || null, // ISO date string when agent was created
+          group: agent.group || 'other', // Agent group/category
+          tags: agent.tags || [] // Tags for search
         }));
       }),
       catchError(error => {
@@ -646,6 +652,7 @@ export class AgentService {
     description: string;    // 10-200 chars
     persona_content: string; // Min 50 chars, must start with #
     emoji?: string;
+    group?: string;         // Agent group/category
     tags?: string[];
     mcp_configs?: string[];
   }): Observable<{ status: string; agent_id: string; message: string }> {
@@ -653,6 +660,7 @@ export class AgentService {
     console.log('   - name:', agentData.name);
     console.log('   - description:', agentData.description);
     console.log('   - emoji:', agentData.emoji);
+    console.log('   - group:', agentData.group);
     console.log('   - tags:', agentData.tags);
     console.log('   - mcp_configs:', agentData.mcp_configs);
     console.log('   - persona_content:', agentData.persona_content?.substring(0, 50) + '...');
@@ -662,6 +670,7 @@ export class AgentService {
       description: agentData.description,
       persona_content: agentData.persona_content,
       emoji: agentData.emoji || '🤖',
+      group: agentData.group || 'other',
       tags: agentData.tags || [],
       mcp_configs: agentData.mcp_configs || []
     };
@@ -698,6 +707,88 @@ export class AgentService {
       catchError(error => {
         console.error('[AgentService] Error creating agent:', error);
         return throwError(() => new Error(error.message || 'Failed to create agent'));
+      })
+    );
+  }
+
+  /**
+   * Update an agent's definition (full update)
+   * @param agentId - The agent ID (e.g., "MyAgent_Agent")
+   * @param updates - Fields to update
+   */
+  updateAgent(agentId: string, updates: {
+    name?: string;
+    description?: string;
+    group?: string;
+    emoji?: string;
+    tags?: string[];
+    persona_content?: string;
+    mcp_configs?: string[];
+  }): Observable<{ status: string; agent_id: string; updated_fields: string[] }> {
+    console.log('📝 [AGENT SERVICE] updateAgent chamado:');
+    console.log('   - agentId:', agentId);
+    console.log('   - updates:', updates);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/${agentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates)
+      }).then(async response => {
+        console.log('📥 [AGENT SERVICE] Resposta de updateAgent:');
+        console.log('   - Status:', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+          throw new Error(errorData.detail || `Failed to update agent: ${response.status}`);
+        }
+        return response.json();
+      })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Agente atualizado:', response);
+        return {
+          status: response.status || 'success',
+          agent_id: response.agent_id,
+          updated_fields: response.updated_fields || []
+        };
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error updating agent:', error);
+        return throwError(() => new Error(error.message || 'Failed to update agent'));
+      })
+    );
+  }
+
+  /**
+   * Get an agent's persona content
+   * @param agentId - The agent ID
+   */
+  getAgentPersona(agentId: string): Observable<{ agent_id: string; persona_content: string; has_persona: boolean }> {
+    console.log('📄 [AGENT SERVICE] getAgentPersona chamado:', agentId);
+
+    return from(
+      fetch(`${this.baseUrl}/api/agents/${agentId}/persona`)
+        .then(async response => {
+          if (!response.ok) {
+            throw new Error(`Failed to get agent persona: ${response.status}`);
+          }
+          return response.json();
+        })
+    ).pipe(
+      map((response: any) => {
+        console.log('✅ [AGENT SERVICE] Persona obtida:', response);
+        return {
+          agent_id: response.agent_id,
+          persona_content: response.persona_content || '',
+          has_persona: response.has_persona || false
+        };
+      }),
+      catchError(error => {
+        console.error('[AgentService] Error getting agent persona:', error);
+        return throwError(() => new Error('Failed to get agent persona'));
       })
     );
   }

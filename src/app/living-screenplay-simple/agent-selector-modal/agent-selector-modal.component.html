@@ -20,22 +20,55 @@
       aria-label="Cabeçalho do modal de seleção de agente">
     </app-modal-header>
 
-    <!-- Search bar -->
-    <div class="search-container" *ngIf="!isLoading && !error">
-      <input
-        #searchInput
-        type="text"
-        class="search-input"
-        [(ngModel)]="searchQuery"
-        (ngModelChange)="onSearchChange()"
-        placeholder="🔍 Buscar agente por nome..."
-        aria-label="Buscar agente por nome"
-        autofocus>
-      <button
-        *ngIf="searchQuery"
-        class="clear-search"
-        (click)="clearSearch()"
-        aria-label="Limpar busca">×</button>
+    <!-- Search bar and sort controls -->
+    <div class="search-sort-container" *ngIf="!isLoading && !error">
+      <div class="search-container">
+        <input
+          #searchInput
+          type="text"
+          class="search-input"
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="🔍 Buscar agente por nome..."
+          aria-label="Buscar agente por nome"
+          autofocus>
+        <button
+          *ngIf="searchQuery"
+          class="clear-search"
+          (click)="clearSearch()"
+          aria-label="Limpar busca">×</button>
+      </div>
+      <div class="sort-container">
+        <label for="sortSelect" class="sort-label">Ordenar:</label>
+        <select
+          id="sortSelect"
+          class="sort-select"
+          [ngModel]="currentSort"
+          (ngModelChange)="onSortChange($event)"
+          aria-label="Ordenar lista de agentes">
+          <option *ngFor="let option of sortOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Group filter chips -->
+    <div class="group-filter-container" *ngIf="!isLoading && !error">
+      <div class="group-chips" role="radiogroup" aria-label="Filtrar por grupo">
+        <button
+          *ngFor="let group of groupOptions"
+          class="group-chip"
+          [class.active]="currentGroup === group.value"
+          (click)="onGroupChange(group.value)"
+          type="button"
+          role="radio"
+          [attr.aria-checked]="currentGroup === group.value"
+          [attr.aria-label]="group.label + (group.count !== undefined ? ' (' + group.count + ' agentes)' : '')">
+          {{ group.label }}
+          <span class="group-count" *ngIf="group.count !== undefined">({{ group.count }})</span>
+        </button>
+      </div>
     </div>
 
     <div class="modal-body">

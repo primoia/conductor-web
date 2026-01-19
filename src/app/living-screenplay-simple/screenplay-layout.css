@@ -159,6 +159,22 @@
   min-height: 0; /* Important for flex children to scroll */
 }
 
+/* Ensure agent-catalog takes full height and can scroll */
+.first-column-content app-agent-catalog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; /* Important for flex children to scroll */
+}
+
+/* Ensure agent-game takes full height */
+.first-column-content app-agent-game {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .tab-pane {
   flex: 1;
   overflow: auto;

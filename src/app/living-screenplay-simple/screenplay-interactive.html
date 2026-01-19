@@ -50,7 +50,8 @@
             <app-agent-catalog
               *ngIf="activeTab === 'catalog'"
               (selectAgent)="onCatalogAgentSelect($event)"
-              (createAgent)="openAgentCreatorFromCatalog()">
+              (createAgent)="openAgentCreatorFromCatalog()"
+              (editAgent)="onEditAgentFromCatalog($event)">
             </app-agent-catalog>
           </div>
         </div>
@@ -188,7 +189,9 @@
       <!-- Agent Creator Modal -->
       <app-agent-creator
         [isVisible]="showAgentCreator"
+        [agentToEdit]="agentToEdit"
         (agentCreated)="onAgentCreated($event)"
+        (agentUpdated)="onAgentUpdated($event)"
         (close)="closeAgentCreator()">
       </app-agent-creator>
 
