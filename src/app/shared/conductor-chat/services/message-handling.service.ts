@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import { map, catchError, tap, switchMap } from 'rxjs/operators';
 import { ConversationService, AgentInfo as ConvAgentInfo } from '../../../services/conversation.service';
 import { AgentService } from '../../../services/agent.service';
 import { AgentExecutionService, AgentExecutionState } from '../../../services/agent-execution';
+import { NotificationService } from '../../../services/notification.service';
+import { AgentSuggestionService, AgentSuggestResponse } from './agent-suggestion.service';
 import { Message } from '../models/chat.models';
 
 /**
@@ -60,7 +62,9 @@ export class MessageHandlingService {
   constructor(
     private conversationService: ConversationService,
     private agentService: AgentService,
-    private agentExecutionService: AgentExecutionService
+    private agentExecutionService: AgentExecutionService,
+    private notificationService: NotificationService,
+    private agentSuggestionService: AgentSuggestionService
   ) {}
 
   /**
@@ -71,6 +75,11 @@ export class MessageHandlingService {
    * 2. Chama rota original /api/agents/{agent_id}/execute
    * 3. Gateway/Watcher emitem eventos via WebSocket
    * 4. Resposta volta pelo fluxo original
+   *
+   * 🧠 AGENT SUGGESTION (POC):
+   * - Before sending, checks if another agent would be better suited
+   * - Shows notification if a better agent is suggested
+   * - Continues with current agent (user can switch manually)
    */
   sendMessageWithConversationModel(
     params: MessageParams,
@@ -98,10 +107,24 @@ export class MessageHandlingService {
     // Notificar loading
     callbacks.onLoadingChange(true);
 
-    // Adicionar mensagem ao backend
-    return this.conversationService.addMessage(params.conversationId!, {
-      user_input: params.message.trim()
-    }).pipe(
+    // 🧠 POC: Check for agent suggestion before sending
+    return this.agentSuggestionService.suggestAgent(params.message, params.agentDbId).pipe(
+      tap((suggestion: AgentSuggestResponse) => {
+        // Show notification if a better agent is suggested
+        if (!suggestion.current_is_best && suggestion.suggested) {
+          const msg = `💡 Sugestão: ${suggestion.suggested.emoji} ${suggestion.suggested.name} pode ser mais adequado para esta tarefa (${Math.round(suggestion.suggested.score * 100)}% match)`;
+          this.notificationService.showInfo(msg, 6000);
+          console.log('🧠 [SUGGEST] Better agent suggested:', suggestion.suggested.name);
+        } else {
+          console.log('🧠 [SUGGEST] Current agent is best or no strong match');
+        }
+      }),
+      switchMap(() => {
+        // Continue with original flow - add message to backend
+        return this.conversationService.addMessage(params.conversationId!, {
+          user_input: params.message.trim()
+        });
+      }),
       tap(() => console.log('✅ [MESSAGE-SERVICE] Mensagem do usuário salva no backend')),
       map(() => {
         // Executar agente pela rota original
