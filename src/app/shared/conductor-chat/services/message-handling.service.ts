@@ -123,26 +123,23 @@ export class MessageHandlingService {
         const qlScore = ql?.suggested?.score ? Math.round(ql.suggested.score * 100) : 0;
         const qlEmoji = ql?.suggested?.emoji || '❓';
 
-        // Determine if either source suggests a different agent
-        const khSuggestsDifferent = kh && !kh.current_is_best && kh.suggested;
-        const qlSuggestsDifferent = ql && !ql.current_is_best && ql.suggested;
-
-        if (khSuggestsDifferent || qlSuggestsDifferent) {
+        // Always show A/B comparison if we have results from either source
+        if (khAgent !== 'none' || qlAgent !== 'none') {
           // Build comparison message
-          let msg = '💡 Sugestão:\n';
+          let msg = '🔬 A/B:\n';
           msg += `🌐 KH: ${khEmoji} ${khAgent.replace('_Agent', '')} (${khScore}%)\n`;
           msg += `📦 Local: ${qlEmoji} ${qlAgent.replace('_Agent', '')} (${qlScore}%)`;
 
           if (khAgent === qlAgent && khAgent !== 'none') {
             msg += '\n✅ Concordam!';
           } else if (khAgent !== 'none' && qlAgent !== 'none') {
-            msg += `\n⚠️ Divergem (${compare.winner})`;
+            msg += `\n⚠️ Divergem`;
           }
 
           this.notificationService.showInfo(msg, 8000);
-          console.log('🧠 [SUGGEST-COMPARE] Results:', { kh: khAgent, ql: qlAgent, winner: compare.winner });
+          console.log('🧠 [SUGGEST-COMPARE] A/B Results:', { kh: khAgent, ql: qlAgent, winner: compare.winner });
         } else {
-          console.log('🧠 [SUGGEST-COMPARE] Current agent is best for both sources');
+          console.log('🧠 [SUGGEST-COMPARE] No results from either source');
         }
       }),
       switchMap(() => {
