@@ -5,7 +5,7 @@ import { ConversationService, AgentInfo as ConvAgentInfo } from '../../../servic
 import { AgentService } from '../../../services/agent.service';
 import { AgentExecutionService, AgentExecutionState } from '../../../services/agent-execution';
 import { NotificationService } from '../../../services/notification.service';
-import { AgentSuggestionService, AgentSuggestResponse } from './agent-suggestion.service';
+import { AgentSuggestionService, AgentSuggestResponse, AgentSuggestCompareResponse } from './agent-suggestion.service';
 import { Message } from '../models/chat.models';
 
 /**
@@ -107,16 +107,42 @@ export class MessageHandlingService {
     // Notificar loading
     callbacks.onLoadingChange(true);
 
-    // 🧠 POC: Check for agent suggestion before sending
-    return this.agentSuggestionService.suggestAgent(params.message, params.agentDbId).pipe(
-      tap((suggestion: AgentSuggestResponse) => {
-        // Show notification if a better agent is suggested
-        if (!suggestion.current_is_best && suggestion.suggested) {
-          const msg = `💡 Sugestão: ${suggestion.suggested.emoji} ${suggestion.suggested.name} pode ser mais adequado para esta tarefa (${Math.round(suggestion.suggested.score * 100)}% match)`;
-          this.notificationService.showInfo(msg, 6000);
-          console.log('🧠 [SUGGEST] Better agent suggested:', suggestion.suggested.name);
+    // 🧠 POC: Check for agent suggestion before sending (COMPARE MODE)
+    return this.agentSuggestionService.suggestAgentCompare(params.message, params.agentDbId).pipe(
+      tap((compare: AgentSuggestCompareResponse) => {
+        // Build comparison notification showing both sources
+        const kh = compare.knowledge_hub;
+        const ql = compare.qdrant_local;
+
+        // Extract scores and names
+        const khAgent = kh?.suggested?.agent_id || 'none';
+        const khScore = kh?.suggested?.score ? Math.round(kh.suggested.score * 100) : 0;
+        const khEmoji = kh?.suggested?.emoji || '❓';
+
+        const qlAgent = ql?.suggested?.agent_id || 'none';
+        const qlScore = ql?.suggested?.score ? Math.round(ql.suggested.score * 100) : 0;
+        const qlEmoji = ql?.suggested?.emoji || '❓';
+
+        // Determine if either source suggests a different agent
+        const khSuggestsDifferent = kh && !kh.current_is_best && kh.suggested;
+        const qlSuggestsDifferent = ql && !ql.current_is_best && ql.suggested;
+
+        if (khSuggestsDifferent || qlSuggestsDifferent) {
+          // Build comparison message
+          let msg = '💡 Sugestão:\n';
+          msg += `🌐 KH: ${khEmoji} ${khAgent.replace('_Agent', '')} (${khScore}%)\n`;
+          msg += `📦 Local: ${qlEmoji} ${qlAgent.replace('_Agent', '')} (${qlScore}%)`;
+
+          if (khAgent === qlAgent && khAgent !== 'none') {
+            msg += '\n✅ Concordam!';
+          } else if (khAgent !== 'none' && qlAgent !== 'none') {
+            msg += `\n⚠️ Divergem (${compare.winner})`;
+          }
+
+          this.notificationService.showInfo(msg, 8000);
+          console.log('🧠 [SUGGEST-COMPARE] Results:', { kh: khAgent, ql: qlAgent, winner: compare.winner });
         } else {
-          console.log('🧠 [SUGGEST] Current agent is best or no strong match');
+          console.log('🧠 [SUGGEST-COMPARE] Current agent is best for both sources');
         }
       }),
       switchMap(() => {

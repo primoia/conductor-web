@@ -22,6 +22,17 @@ export interface AgentSuggestResponse {
   alternatives: AgentSuggestion[];
   current_is_best: boolean;
   message: string;
+  source?: 'knowledge-hub' | 'qdrant-local';
+}
+
+/**
+ * Response from compare endpoint (both sources)
+ */
+export interface AgentSuggestCompareResponse {
+  knowledge_hub: AgentSuggestResponse | null;
+  qdrant_local: AgentSuggestResponse | null;
+  winner: string;
+  comparison: string;
 }
 
 /**
@@ -74,6 +85,38 @@ export class AgentSuggestionService {
           alternatives: [],
           current_is_best: true,
           message: 'Erro ao sugerir agente'
+        });
+      })
+    );
+  }
+
+  /**
+   * Compare agent suggestions from both sources (Knowledge Hub and local Qdrant)
+   *
+   * Returns results from both sources for comparison/debugging
+   */
+  suggestAgentCompare(message: string, currentAgentId?: string): Observable<AgentSuggestCompareResponse> {
+    const request: AgentSuggestRequest = {
+      message,
+      current_agent_id: currentAgentId
+    };
+
+    console.log('🧠 [SUGGEST-COMPARE] Requesting comparison for:', message.substring(0, 50));
+
+    return this.http.post<AgentSuggestCompareResponse>(
+      '/api/agents/suggest?compare=true',
+      request
+    ).pipe(
+      tap(response => {
+        console.log('🧠 [SUGGEST-COMPARE] Response:', response);
+      }),
+      catchError(error => {
+        console.warn('🧠 [SUGGEST-COMPARE] Error:', error);
+        return of({
+          knowledge_hub: null,
+          qdrant_local: null,
+          winner: 'error',
+          comparison: 'Erro ao comparar sugestões'
         });
       })
     );
