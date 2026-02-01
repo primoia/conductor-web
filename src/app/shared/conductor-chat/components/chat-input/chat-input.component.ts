@@ -1,13 +1,12 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
+import Document from '@tiptap/extension-document';
+import Paragraph from '@tiptap/extension-paragraph';
+import Text from '@tiptap/extension-text';
+import HardBreak from '@tiptap/extension-hard-break';
+import History from '@tiptap/extension-history';
 import Placeholder from '@tiptap/extension-placeholder';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import { lowlight } from 'lowlight/lib/common';
-import TurndownService from 'turndown';
 
 @Component({
   selector: 'app-chat-input',
@@ -202,6 +201,16 @@ import TurndownService from 'turndown';
       color: #1a202c;
     }
 
+    /* Disable link styling - keep all text as plain text */
+    .tiptap-editor-container :deep(.ProseMirror a),
+    .tiptap-editor-container :deep(.ProseMirror a:visited),
+    .tiptap-editor-container :deep(.ProseMirror a:hover),
+    .tiptap-editor-container :deep(.ProseMirror a:active) {
+      color: inherit !important;
+      text-decoration: none !important;
+      cursor: text !important;
+    }
+
   `]
 })
 export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
@@ -213,16 +222,6 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
   @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
 
   editor!: Editor;
-  private turndownService: TurndownService;
-
-  constructor() {
-    // Initialize Turndown for HTML to Markdown conversion
-    this.turndownService = new TurndownService({
-      headingStyle: 'atx',
-      codeBlockStyle: 'fenced',
-      bulletListMarker: '-'
-    });
-  }
 
   ngOnInit(): void {
     // Component simplified - only editor logic here
@@ -257,49 +256,37 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
     this.editor = new Editor({
       element: this.editorContainer.nativeElement,
       extensions: [
-        StarterKit.configure({
-          codeBlock: false, // We'll use CodeBlockLowlight instead
-        }),
-        CodeBlockLowlight.configure({
-          lowlight,
-          defaultLanguage: 'plaintext',
-        }),
+        // Minimal extensions - plain text only, no formatting/links
+        Document,
+        Paragraph,
+        Text,
+        HardBreak,
+        History,
         Placeholder.configure({
           placeholder: 'Digite ou fale sua mensagem... (Shift+Enter para nova linha)',
-        }),
-        TaskList,
-        TaskItem.configure({
-          nested: true,
         }),
       ],
       editorProps: {
         attributes: {
           class: 'ProseMirror',
         },
-        // Handle paste - convert HTML to Markdown
+        // Handle paste - always use plain text to preserve exact formatting
         handlePaste: (view, event) => {
-          const html = event.clipboardData?.getData('text/html');
-          if (html) {
-            try {
-              const markdown = this.turndownService.turndown(html);
-              // Insert as plain text to preserve Markdown
-              const { state } = view;
-              const { selection } = state;
-              const transaction = state.tr.insertText(markdown, selection.from, selection.to);
-              view.dispatch(transaction);
-              return true; // Prevent default paste
-            } catch (e) {
-              console.warn('Failed to convert HTML to Markdown:', e);
-            }
+          const plainText = event.clipboardData?.getData('text/plain');
+          if (plainText) {
+            const { state } = view;
+            const { selection } = state;
+            const transaction = state.tr.insertText(plainText, selection.from, selection.to);
+            view.dispatch(transaction);
+            return true; // Prevent default paste
           }
           return false; // Use default paste
         },
       },
       onUpdate: ({ editor }) => {
-        // Emit content changes to parent (conductor-chat component)
-        const html = editor.getHTML();
-        const markdown = this.turndownService.turndown(html);
-        this.messageContentChanged.emit(markdown.trim());
+        // Emit content changes to parent - use getText to preserve line breaks exactly
+        const text = editor.getText({ blockSeparator: '\n' });
+        this.messageContentChanged.emit(text.trim());
 
         // 🔥 NOVO: Calcular altura do conteúdo e emitir
         this.updateContentHeight();

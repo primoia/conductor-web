@@ -128,6 +128,7 @@ import { marked } from 'marked';
       color: white;
       align-self: flex-end;
       margin-left: auto;
+      white-space: pre-wrap; /* Preserve line breaks */
     }
 
     .bot-message {
