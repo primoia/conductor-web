@@ -22,6 +22,8 @@ export interface Message {
     name: string;
     emoji?: string;
   };
+  status?: 'pending' | 'completed' | 'error';
+  task_id?: string;
 }
 
 export interface ChatState {

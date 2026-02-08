@@ -86,6 +86,7 @@ interface ExecutionRequest {
   ai_provider?: string; // Phase 2: Add ai_provider for provider selection
   conversation_id?: string; // Conversation ID for context
   screenplay_id?: string; // Screenplay ID for project context
+  save_to_conversation?: boolean; // BFF saves messages server-side
 }
 
 @Injectable({
@@ -230,6 +231,11 @@ export class AgentService {
     // Add screenplay_id to request body if provided
     if (screenplayId) {
       requestBody.screenplay_id = screenplayId;
+    }
+
+    // BFF saves user input + bot response server-side when conversation model is active
+    if (conversationId) {
+      requestBody.save_to_conversation = true;
     }
 
     console.log('🚀 [AGENT SERVICE] executeAgent chamado:');

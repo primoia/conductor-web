@@ -3162,7 +3162,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           timestamp: new Date(msg.timestamp),
           agent: msg.agent,  // Informações do agente (para mensagens de bot)
           isDeleted: (msg as any).isDeleted || false,
-          isHidden: (msg as any).isHidden || false
+          isHidden: (msg as any).isHidden || false,
+          status: (msg as any).status,   // pending | completed | error (BFF server-side save)
+          task_id: (msg as any).task_id
         }));
 
         // Exibir mensagens

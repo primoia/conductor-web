@@ -17,6 +17,7 @@ import { marked } from 'marked';
         [class.user-message]="message.type === 'user'"
         [class.bot-message]="message.type === 'bot'"
         [class.system-message]="message.type === 'system'"
+        [class.progress-message]="message.status === 'pending'"
         [class.disabled]="message.isDeleted"
       >
         <!-- User and System Messages -->
@@ -25,8 +26,13 @@ import { marked } from 'marked';
           <span>{{ message.content }}</span>
         </div>
 
-        <!-- Bot Messages with Markdown and Copy Button -->
-        <div *ngIf="message.type === 'bot'" class="message-content bot-content-wrapper">
+        <!-- Bot Messages: pending (yellow placeholder) -->
+        <div *ngIf="message.type === 'bot' && message.status === 'pending'" class="message-content">
+          <em>Aguardando processamento...</em>
+        </div>
+
+        <!-- Bot Messages: completed/normal (with Markdown and Copy Button) -->
+        <div *ngIf="message.type === 'bot' && message.status !== 'pending'" class="message-content bot-content-wrapper">
           <div class="message-actions">
             <label
               class="toggle-btn"
@@ -51,7 +57,7 @@ import { marked } from 'marked';
               🗑️
             </button>
           </div>
-          <strong>Conductor:</strong>
+          <strong>{{ message.agent ? (message.agent.emoji || '🤖') + ' ' + message.agent.name : 'Conductor' }}:</strong>
           <div class="markdown-content" [innerHTML]="formatMessage(message.content)"></div>
         </div>
       </div>

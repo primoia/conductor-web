@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { map, catchError, tap, switchMap } from 'rxjs/operators';
+import { catchError, tap, switchMap } from 'rxjs/operators';
 import { ConversationService, AgentInfo as ConvAgentInfo } from '../../../services/conversation.service';
 import { AgentService } from '../../../services/agent.service';
 import { AgentExecutionService, AgentExecutionState } from '../../../services/agent-execution';
@@ -143,20 +143,14 @@ export class MessageHandlingService {
         }
       }),
       switchMap(() => {
-        // Continue with original flow - add message to backend
-        return this.conversationService.addMessage(params.conversationId!, {
-          user_input: params.message.trim()
-        });
-      }),
-      tap(() => console.log('✅ [MESSAGE-SERVICE] Mensagem do usuário salva no backend')),
-      map(() => {
-        // Executar agente pela rota original
+        // BFF now saves user input + bot placeholder server-side (save_to_conversation=true)
+        // Just execute the agent directly
         this.executeAgentWithConversationModel(params, agentInfo, callbacks);
 
-        return {
+        return of({
           success: true,
           userMessage
-        };
+        });
       }),
       catchError((error) => {
         console.error('❌ [MESSAGE-SERVICE] Erro ao salvar mensagem do usuário:', error);
@@ -236,7 +230,7 @@ export class MessageHandlingService {
     console.log('   - agent_id:', params.agentDbId);
     console.log('   - instance_id:', params.instanceId);
 
-    callbacks.onProgressUpdate('🚀 Executando agente...', params.instanceId);
+    callbacks.onProgressUpdate('Aguardando processamento...', params.instanceId);
 
     // Notificar AgentExecutionService
     const executionState: AgentExecutionState = {
@@ -269,52 +263,28 @@ export class MessageHandlingService {
           responseContent = JSON.stringify(responseContent, null, 2);
         }
 
-        // Salvar resposta no backend
-        this.conversationService.addMessage(params.conversationId!, {
-          agent_response: responseContent,
-          agent_info: agentInfo
-        }).subscribe({
-          next: () => {
-            console.log('✅ [MESSAGE-SERVICE] Resposta do agente salva no backend');
+        // BFF already saved the response server-side (save_to_conversation=true)
+        // Just reload conversation to pick up the updated messages
+        console.log('✅ [MESSAGE-SERVICE] BFF salvou resposta server-side, recarregando conversa');
 
-            // Recarregar conversa
-            if (callbacks.onConversationReload) {
-              callbacks.onConversationReload(params.conversationId!);
-            }
+        if (callbacks.onConversationReload) {
+          callbacks.onConversationReload(params.conversationId!);
+        }
 
-            callbacks.onLoadingChange(false);
-          },
-          error: (error) => {
-            console.error('❌ [MESSAGE-SERVICE] Erro ao salvar resposta:', error);
-
-            // Ainda assim mostrar resposta na UI
-            const responseMessage: Message = {
-              id: `response-${Date.now()}`,
-              content: responseContent,
-              type: 'bot',
-              timestamp: new Date(),
-              agent: agentInfo
-            };
-
-            // Notificar componente sobre nova mensagem
-            // O componente deve adicionar à lista
-            callbacks.onLoadingChange(false);
-          }
-        });
+        callbacks.onLoadingChange(false);
       },
       error: (error) => {
         console.error('❌ [MESSAGE-SERVICE] Agent execution error:', error);
         callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso
         this.agentExecutionService.cancelAgent(params.instanceId);
-        callbacks.onLoadingChange(false);
 
-        // Adicionar mensagem de erro
-        const errorMessage: Message = {
-          id: `error-${Date.now()}`,
-          content: `❌ Erro: ${error.error || error.message || 'Erro ao executar agente'}`,
-          type: 'bot',
-          timestamp: new Date()
-        };
+        // BFF already marked error on the bot placeholder server-side
+        // Reload conversation to show error message from MongoDB
+        if (callbacks.onConversationReload) {
+          callbacks.onConversationReload(params.conversationId!);
+        }
+
+        callbacks.onLoadingChange(false);
       }
     });
   }
@@ -331,7 +301,7 @@ export class MessageHandlingService {
     const cwdMatch = params.message.match(/\/[a-zA-Z0-9_.\-]+(?:\/[a-zA-Z0-9_.\-]+)+/);
     const cwd = cwdMatch ? cwdMatch[0] : params.cwd;
 
-    callbacks.onProgressUpdate('🚀 Executando agente...', params.instanceId);
+    callbacks.onProgressUpdate('Aguardando processamento...', params.instanceId);
 
     // Notificar AgentExecutionService
     const executionState: AgentExecutionState = {
