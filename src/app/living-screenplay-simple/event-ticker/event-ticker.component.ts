@@ -486,10 +486,7 @@ import { marked } from 'marked';
     .line-agent {
       font-weight: 600;
       font-size: 10px;
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
-      max-width: 120px;
     }
 
     .line-type {
@@ -814,9 +811,7 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges, After
   }
 
   getAgentShortName(agentId: string): string {
-    // "TestQuickValidation_Agent" -> "TestQuickV..."
-    const name = agentId.replace(/_Agent$/, '').replace(/_/g, ' ');
-    return name.length > 14 ? name.slice(0, 12) + '..' : name;
+    return agentId.replace(/_Agent$/, '').replace(/_/g, ' ');
   }
 
   formatRelative(ts: number): string {
