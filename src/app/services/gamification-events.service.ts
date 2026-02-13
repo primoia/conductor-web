@@ -161,7 +161,7 @@ export class GamificationEventsService {
           .map((s: any) => s.name);
         entries.push({
           timestamp: Date.now(), agentId, type: 'system',
-          text: `INIT session=${(event.session_id || '?').slice(0, 8)} tools=${tools} mcps=[${mcps.join(',')}]`
+          text: `session=${(event.session_id || '?').slice(0, 8)} tools=${tools} mcps=[${mcps.join(',')}]`
         });
       }
     } else if (cliType === 'assistant') {
@@ -169,39 +169,43 @@ export class GamificationEventsService {
       for (const block of content) {
         if (block.type === 'text' && block.text?.trim()) {
           const lines = block.text.split('\n').filter((l: string) => l.trim());
-          for (const line of lines.slice(0, 5)) {
+          for (const line of lines.slice(0, 8)) {
             entries.push({
               timestamp: Date.now(), agentId, type: 'text',
-              text: line.slice(0, 150)
+              text: line
             });
           }
-          if (lines.length > 5) {
+          if (lines.length > 8) {
             entries.push({
               timestamp: Date.now(), agentId, type: 'text',
               text: `... (${lines.length} linhas total)`
             });
           }
         } else if (block.type === 'tool_use') {
-          const inputPreview = JSON.stringify(block.input || {}).slice(0, 80);
+          const name = block.name || '?';
+          const input = block.input || {};
+          // Show tool name + key params, not raw JSON
+          const desc = input.description || input.command || input.pattern || input.query || input.file_path || '';
+          const preview = typeof desc === 'string' ? desc.slice(0, 200) : JSON.stringify(input).slice(0, 200);
           entries.push({
             timestamp: Date.now(), agentId, type: 'tool_use',
-            text: `TOOL ${block.name} ${inputPreview}`,
+            text: `${name}: ${preview}`,
             meta: { tool_id: block.id }
           });
         } else if (block.type === 'tool_result') {
           const resultText = (block.content || [])
             .filter((c: any) => c.type === 'text')
-            .map((c: any) => c.text?.slice(0, 80))
+            .map((c: any) => c.text?.slice(0, 120))
             .join(' ');
           entries.push({
             timestamp: Date.now(), agentId, type: 'tool_result',
-            text: `RESULT ${resultText || '(empty)'}`,
+            text: resultText || '(empty)',
             meta: { tool_use_id: block.tool_use_id }
           });
         } else if (block.type === 'thinking' && block.thinking?.trim()) {
           entries.push({
             timestamp: Date.now(), agentId, type: 'thinking',
-            text: `THINK ${block.thinking.replace(/\n/g, ' ').slice(0, 100)}`
+            text: block.thinking.replace(/\n/g, ' ').slice(0, 200)
           });
         }
       }
@@ -212,14 +216,14 @@ export class GamificationEventsService {
       const turns = event.num_turns || 0;
       entries.push({
         timestamp: Date.now(), agentId, type: 'result',
-        text: `DONE (${sub}) turns=${turns} duration=${dur}ms cost=$${cost.toFixed(4)}`
+        text: `(${sub}) turns=${turns} duration=${dur}ms cost=$${cost.toFixed(4)}`
       });
     }
 
     if (entries.length === 0) {
       entries.push({
         timestamp: Date.now(), agentId, type: 'other',
-        text: `[${cliType}] ${JSON.stringify(event).slice(0, 100)}`
+        text: `[${cliType}] ${JSON.stringify(event).slice(0, 150)}`
       });
     }
 
