@@ -184,9 +184,8 @@ export class GamificationEventsService {
         } else if (block.type === 'tool_use') {
           const name = block.name || '?';
           const input = block.input || {};
-          // Show tool name + key params, not raw JSON
           const desc = input.description || input.command || input.pattern || input.query || input.file_path || '';
-          const preview = typeof desc === 'string' ? desc.slice(0, 200) : JSON.stringify(input).slice(0, 200);
+          const preview = typeof desc === 'string' ? desc : JSON.stringify(input);
           entries.push({
             timestamp: Date.now(), agentId, type: 'tool_use',
             text: `${name}: ${preview}`,
@@ -195,7 +194,7 @@ export class GamificationEventsService {
         } else if (block.type === 'tool_result') {
           const resultText = (block.content || [])
             .filter((c: any) => c.type === 'text')
-            .map((c: any) => c.text?.slice(0, 120))
+            .map((c: any) => c.text)
             .join(' ');
           entries.push({
             timestamp: Date.now(), agentId, type: 'tool_result',
@@ -205,7 +204,7 @@ export class GamificationEventsService {
         } else if (block.type === 'thinking' && block.thinking?.trim()) {
           entries.push({
             timestamp: Date.now(), agentId, type: 'thinking',
-            text: block.thinking.replace(/\n/g, ' ').slice(0, 200)
+            text: block.thinking.replace(/\n/g, ' ')
           });
         }
       }
@@ -223,7 +222,7 @@ export class GamificationEventsService {
     if (entries.length === 0) {
       entries.push({
         timestamp: Date.now(), agentId, type: 'other',
-        text: `[${cliType}] ${JSON.stringify(event).slice(0, 150)}`
+        text: `[${cliType}] ${JSON.stringify(event).slice(0, 300)}`
       });
     }
 
