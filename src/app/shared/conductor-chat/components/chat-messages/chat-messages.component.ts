@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Message } from '../../models/chat.models';
 import { marked } from 'marked';
+import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timeline.component';
 
 @Component({
   selector: 'app-chat-messages',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ToolCallTimelineComponent],
   template: `
     <div class="chat-messages" #messagesContainer>
       <div
@@ -62,13 +63,18 @@ import { marked } from 'marked';
         </div>
       </div>
 
-      <!-- Progress message -->
+      <!-- Progress message with tool call timeline -->
       <div
         *ngIf="progressMessage"
         class="message bot-message progress-message"
       >
         <div class="message-content">
           <em>{{ progressMessage.content }}</em>
+          <app-tool-call-timeline
+            [instanceId]="activeInstanceId"
+            [conversationId]="activeConversationId"
+            [isActive]="true"
+          ></app-tool-call-timeline>
         </div>
       </div>
 
@@ -389,6 +395,8 @@ export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
   @Input() progressMessage: Message | null = null;
   @Input() streamingMessage: Message | null = null;
   @Input() autoScroll: boolean = true;
+  @Input() activeInstanceId: string = '';
+  @Input() activeConversationId: string = '';
 
   @Output() messageToggled = new EventEmitter<Message>();
   @Output() messageHidden = new EventEmitter<Message>();

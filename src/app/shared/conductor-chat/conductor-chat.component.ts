@@ -463,6 +463,8 @@ Erro: 'invalid_token' na response..."
             [progressMessage]="progressMessage"
             [streamingMessage]="streamingMessage"
             [autoScroll]="config.autoScroll"
+            [activeInstanceId]="activeAgentId || ''"
+            [activeConversationId]="activeConversationId || ''"
             (messageToggled)="onMessageToggled($event)"
             (messageHidden)="onMessageHidden($event)"
           />

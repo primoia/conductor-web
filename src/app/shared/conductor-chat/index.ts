@@ -5,6 +5,7 @@ export { ConductorChatComponent } from './conductor-chat.component';
 export { ChatMessagesComponent } from './components/chat-messages/chat-messages.component';
 export { ChatInputComponent } from './components/chat-input/chat-input.component';
 export { StatusIndicatorComponent } from './components/status-indicator/status-indicator.component';
+export { ToolCallTimelineComponent } from './components/tool-call-timeline/tool-call-timeline.component';
 
 // Services
 export { ConductorApiService } from './services/conductor-api.service';

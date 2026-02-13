@@ -23,10 +23,24 @@ export interface GamificationEvent {
   status?: TaskStatus; // Status da execução (para UI rica com cores e animações)
 }
 
+/** Entry for the real-time debug console (append-only log) */
+export interface StreamLogEntry {
+  timestamp: number;
+  agentId: string;
+  type: 'system' | 'text' | 'tool_use' | 'tool_result' | 'result' | 'thinking' | 'other';
+  text: string;
+  meta?: Record<string, unknown>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class GamificationEventsService {
   private readonly eventsSubject = new BehaviorSubject<GamificationEvent[]>([]);
   public readonly events$: Observable<GamificationEvent[]> = this.eventsSubject.asObservable();
+
+  /** Append-only debug console log (stream events) */
+  private readonly streamLogSubject = new BehaviorSubject<StreamLogEntry[]>([]);
+  public readonly streamLog$: Observable<StreamLogEntry[]> = this.streamLogSubject.asObservable();
+  private readonly maxStreamLogEntries = 200;
 
   private lastTotalsByAgentId = new Map<string, number>();
   private readonly maxEvents = 50;
@@ -122,6 +136,104 @@ export class GamificationEventsService {
     const list = [...this.eventsSubject.value, event];
     const bounded = list.length > this.maxEvents ? list.slice(list.length - this.maxEvents) : list;
     this.eventsSubject.next(bounded);
+  }
+
+  /**
+   * Push a raw agent_stream event into the append-only debug console log.
+   * Parses the CLI stream-json event and extracts a human-readable line.
+   */
+  pushStreamLogEntry(data: any): void {
+    const event = data.event || {};
+    const agentId = data.agent_id || 'agent';
+    const cliType = event.type || 'unknown';
+
+    // Skip 'user' events (tool results from CLI - raw JSON, not useful in console)
+    if (cliType === 'user') return;
+
+    const entries: StreamLogEntry[] = [];
+
+    if (cliType === 'system') {
+      const sub = event.subtype || '';
+      if (sub === 'init') {
+        const tools = event.tools?.length || 0;
+        const mcps = (event.mcp_servers || [])
+          .filter((s: any) => s.status === 'connected')
+          .map((s: any) => s.name);
+        entries.push({
+          timestamp: Date.now(), agentId, type: 'system',
+          text: `INIT session=${(event.session_id || '?').slice(0, 8)} tools=${tools} mcps=[${mcps.join(',')}]`
+        });
+      }
+    } else if (cliType === 'assistant') {
+      const content = event.message?.content || [];
+      for (const block of content) {
+        if (block.type === 'text' && block.text?.trim()) {
+          const lines = block.text.split('\n').filter((l: string) => l.trim());
+          for (const line of lines.slice(0, 5)) {
+            entries.push({
+              timestamp: Date.now(), agentId, type: 'text',
+              text: line.slice(0, 150)
+            });
+          }
+          if (lines.length > 5) {
+            entries.push({
+              timestamp: Date.now(), agentId, type: 'text',
+              text: `... (${lines.length} linhas total)`
+            });
+          }
+        } else if (block.type === 'tool_use') {
+          const inputPreview = JSON.stringify(block.input || {}).slice(0, 80);
+          entries.push({
+            timestamp: Date.now(), agentId, type: 'tool_use',
+            text: `TOOL ${block.name} ${inputPreview}`,
+            meta: { tool_id: block.id }
+          });
+        } else if (block.type === 'tool_result') {
+          const resultText = (block.content || [])
+            .filter((c: any) => c.type === 'text')
+            .map((c: any) => c.text?.slice(0, 80))
+            .join(' ');
+          entries.push({
+            timestamp: Date.now(), agentId, type: 'tool_result',
+            text: `RESULT ${resultText || '(empty)'}`,
+            meta: { tool_use_id: block.tool_use_id }
+          });
+        } else if (block.type === 'thinking' && block.thinking?.trim()) {
+          entries.push({
+            timestamp: Date.now(), agentId, type: 'thinking',
+            text: `THINK ${block.thinking.replace(/\n/g, ' ').slice(0, 100)}`
+          });
+        }
+      }
+    } else if (cliType === 'result') {
+      const sub = event.subtype || '?';
+      const dur = event.duration_ms || 0;
+      const cost = event.total_cost_usd || 0;
+      const turns = event.num_turns || 0;
+      entries.push({
+        timestamp: Date.now(), agentId, type: 'result',
+        text: `DONE (${sub}) turns=${turns} duration=${dur}ms cost=$${cost.toFixed(4)}`
+      });
+    }
+
+    if (entries.length === 0) {
+      entries.push({
+        timestamp: Date.now(), agentId, type: 'other',
+        text: `[${cliType}] ${JSON.stringify(event).slice(0, 100)}`
+      });
+    }
+
+    // Append to log
+    const log = [...this.streamLogSubject.value, ...entries];
+    const bounded = log.length > this.maxStreamLogEntries
+      ? log.slice(log.length - this.maxStreamLogEntries)
+      : log;
+    this.streamLogSubject.next(bounded);
+  }
+
+  /** Clear the stream debug log */
+  clearStreamLog(): void {
+    this.streamLogSubject.next([]);
   }
 
   /**
@@ -469,6 +581,80 @@ export class GamificationEventsService {
           timestamp: Date.now(),
           meta: event.data,
           category: 'alert'
+        });
+        break;
+
+      // ========================================================================
+      // 📡 Agent Stream Events - Real-time Claude CLI streaming
+      // ========================================================================
+
+      case 'stream_start':
+        // Agent started streaming (Watcher connected WS)
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `📡 ${event.data.agent_id || 'Agent'} - Streaming iniciado`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: event.data,
+          category: 'analysis',
+          level: 'debug',
+          agentName: event.data.agent_id,
+          status: 'processing'
+        });
+        break;
+
+      case 'agent_init':
+        // Claude CLI initialized (news level)
+        this.pushEvent({
+          id: this.generateId(),
+          title: `🔧 ${event.data.agent_id || 'Agent'} - CLI pronto (${event.data.tools_count || 0} tools)`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: event.data,
+          category: 'analysis',
+          level: 'info',
+          agentName: event.data.agent_id,
+          summary: event.data.mcp_servers?.length ? `MCPs: ${event.data.mcp_servers.join(', ')}` : undefined
+        });
+        break;
+
+      case 'agent_stream':
+        // Raw stream-json event (debug level) - push to debug log
+        this.pushStreamLogEntry(event.data);
+        break;
+
+      case 'agent_result':
+        // Claude CLI finished (news level)
+        const costUsd = event.data.cost_usd;
+        const durationMs = event.data.duration_ms;
+        const durationStr = durationMs ? `${Math.round(durationMs / 1000)}s` : '';
+        this.pushEvent({
+          id: this.generateId(),
+          title: `📊 ${event.data.agent_id || 'Agent'} - Resultado ${durationStr}`,
+          severity: event.data.subtype === 'error' ? 'error' : 'info',
+          timestamp: Date.now(),
+          meta: event.data,
+          category: event.data.subtype === 'error' ? 'critical' : 'success',
+          level: 'info',
+          agentName: event.data.agent_id,
+          summary: costUsd ? `Custo: $${costUsd.toFixed(4)}` : undefined
+        });
+        break;
+
+      case 'stream_end':
+        // Agent finished streaming
+        const stats = event.data.stats || {};
+        this.pushEvent({
+          id: event.data.task_id || this.generateId(),
+          title: `📡 ${event.data.agent_id || 'Agent'} - Stream finalizado`,
+          severity: 'info',
+          timestamp: Date.now(),
+          meta: event.data,
+          category: 'success',
+          level: 'debug',
+          agentName: event.data.agent_id,
+          summary: stats.tool_calls ? `${stats.tool_calls} tool calls, ${stats.tokens_out || 0} tokens out` : undefined,
+          status: 'completed'
         });
         break;
 

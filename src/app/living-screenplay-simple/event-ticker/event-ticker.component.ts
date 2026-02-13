@@ -1,8 +1,8 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output, OnChanges, SimpleChanges, ElementRef, ViewChild, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
-import { GamificationEventsService, GamificationEvent, EventLevel } from '../../services/gamification-events.service';
+import { GamificationEventsService, GamificationEvent, EventLevel, StreamLogEntry } from '../../services/gamification-events.service';
 import { marked } from 'marked';
 
 @Component({
@@ -39,8 +39,32 @@ import { marked } from 'marked';
         </button>
       </div>
 
-      <!-- News Items -->
-      <div class="news-list">
+      <!-- Debug Console (when filter = debug) -->
+      <div class="stream-console" *ngIf="currentFilter === 'debug'" #consoleScroll>
+        <div class="console-header">
+          <span class="console-title">Debug</span>
+          <span class="console-count">{{ streamLog.length }}</span>
+          <button class="console-clear" (click)="clearConsole()">Limpar</button>
+        </div>
+        <div class="console-body">
+          <div class="console-line"
+               *ngFor="let entry of streamLog; trackBy: trackByTimestamp"
+               [class]="'line-' + entry.type">
+            <span class="line-time">{{ formatTime(entry.timestamp) }}</span>
+            <span class="line-agent" [style.color]="getAgentColor(entry.agentId)">{{ getAgentShortName(entry.agentId) }}</span>
+            <span class="line-type">{{ getTypeLabel(entry.type) }}</span>
+            <span class="line-text">
+              <span class="text-prefix" [style.color]="getTypeColor(entry.type)">{{ getTypeLabel(entry.type) }}</span> {{ entry.text }}
+            </span>
+          </div>
+          <div class="console-empty" *ngIf="streamLog.length === 0">
+            Aguardando eventos de streaming...
+          </div>
+        </div>
+      </div>
+
+      <!-- News Items (when filter != debug) -->
+      <div class="news-list" *ngIf="currentFilter !== 'debug'">
         <ng-container *ngIf="filteredEvents.length > 0; else emptyState">
           <a
             class="news-article"
@@ -98,7 +122,7 @@ import { marked } from 'marked';
           </div>
         </ng-template>
       </div>
-      <div class="list-footer" *ngIf="totalAvailable > filteredEvents.length">
+      <div class="list-footer" *ngIf="currentFilter !== 'debug' && totalAvailable > filteredEvents.length">
         <button class="load-more" (click)="loadMore()">Carregar mais</button>
         <span class="count">Mostrando {{ filteredEvents.length }} de {{ totalAvailable }}</span>
       </div>
@@ -384,6 +408,130 @@ import { marked } from 'marked';
     /* Level Badge */
     .level-badge { display: none; }
 
+    /* ========== Debug Console (light theme) ========== */
+    .stream-console {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      background: #fafafa;
+      border-radius: 4px;
+      margin: 4px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .console-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #f3f4f6;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .console-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #374151;
+      flex: 1;
+    }
+
+    .console-count {
+      font-size: 10px;
+      color: #9ca3af;
+    }
+
+    .console-clear {
+      font-size: 10px;
+      padding: 2px 8px;
+      background: #e5e7eb;
+      color: #4b5563;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .console-clear:hover {
+      background: #d1d5db;
+    }
+
+    .console-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .console-line {
+      display: grid;
+      grid-template-columns: 52px minmax(20px, auto) 1fr;
+      gap: 0 6px;
+      padding: 2px 10px;
+      color: #374151;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .console-line:hover {
+      background: #f0f0f0;
+    }
+
+    .line-time {
+      color: #9ca3af;
+      font-size: 10px;
+    }
+
+    .line-agent {
+      font-weight: 600;
+      font-size: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 120px;
+    }
+
+    .line-type {
+      display: none;
+    }
+
+    .line-text {
+      color: #374151;
+      grid-column: 1 / -1;
+      padding-left: 4px;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .line-text:empty { display: none; }
+
+    .text-prefix {
+      font-weight: 700;
+      font-size: 10px;
+      margin-right: 4px;
+    }
+
+    /* Type-specific text colors (light theme) */
+    .line-system .line-text { color: #6b21a8; }
+    .line-tool_use .line-text { color: #92400e; }
+    .line-tool_result .line-text { color: #0c4a6e; }
+    .line-result .line-text { color: #166534; font-weight: 600; }
+    .line-thinking .line-text { color: #9ca3af; font-style: italic; }
+    .line-other .line-text { color: #9ca3af; font-size: 10px; }
+
+    .console-empty {
+      padding: 20px;
+      text-align: center;
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    .console-body::-webkit-scrollbar { width: 6px; }
+    .console-body::-webkit-scrollbar-track { background: #fafafa; }
+    .console-body::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .console-body::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
     /* Empty State */
     .empty-state {
       display: flex;
@@ -522,19 +670,25 @@ import { marked } from 'marked';
     .markdown-content ::ng-deep h3 { font-size: 11px; }
   `]
 })
-export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
+export class EventTickerComponent implements OnInit, OnDestroy, OnChanges, AfterViewChecked {
   @Input() isExpanded = false; // Recebe estado do painel
   @Input() collapsedLimit = 3;
   @Input() expandedLimit = 10;
   @Output() select = new EventEmitter<GamificationEvent>();
   @Output() investigate = new EventEmitter<GamificationEvent>();
+  @ViewChild('consoleScroll') consoleScrollRef?: ElementRef;
 
   filteredEvents: GamificationEvent[] = [];
   currentFilter: 'all' | EventLevel = 'all';
   totalAvailable = 0;
 
+  /** Stream debug console log entries */
+  streamLog: StreamLogEntry[] = [];
+  private shouldAutoScroll = true;
+
   private allEvents: GamificationEvent[] = [];
   private sub?: Subscription;
+  private streamSub?: Subscription;
   private itemsLimit = 3;
 
   constructor(
@@ -548,6 +702,22 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
       this.allEvents = [...list].slice(-50); // Manter últimos 50
       this.applyFilter();
     });
+
+    // Subscribe to stream debug log
+    this.streamSub = this.events.streamLog$.subscribe(log => {
+      this.streamLog = log;
+      this.shouldAutoScroll = true;
+    });
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldAutoScroll && this.consoleScrollRef) {
+      const el = this.consoleScrollRef.nativeElement.querySelector('.console-body');
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+      this.shouldAutoScroll = false;
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -559,6 +729,7 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
 
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
+    this.streamSub?.unsubscribe();
   }
 
   setFilter(filter: 'all' | EventLevel): void {
@@ -586,6 +757,66 @@ export class EventTickerComponent implements OnInit, OnDestroy, OnChanges {
 
   trackById(_: number, ev: GamificationEvent): string {
     return ev.id;
+  }
+
+  trackByTimestamp(index: number, entry: StreamLogEntry): number {
+    return entry.timestamp + index;
+  }
+
+  formatTime(ts: number): string {
+    const d = new Date(ts);
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  clearConsole(): void {
+    this.events.clearStreamLog();
+  }
+
+  getTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      'system': 'SYS',
+      'text': '',
+      'tool_use': 'TOOL',
+      'tool_result': 'RES',
+      'result': 'DONE',
+      'thinking': 'THINK',
+      'other': ''
+    };
+    return labels[type] ?? type;
+  }
+
+  getTypeColor(type: string): string {
+    const colors: Record<string, string> = {
+      'system': '#7c3aed',
+      'text': '#374151',
+      'tool_use': '#b45309',
+      'tool_result': '#0369a1',
+      'result': '#15803d',
+      'thinking': '#9ca3af',
+      'other': '#9ca3af'
+    };
+    return colors[type] || '#374151';
+  }
+
+  /** Palette of distinct colors for agents */
+  private agentColorMap = new Map<string, string>();
+  private readonly agentColors = [
+    '#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed',
+    '#db2777', '#0891b2', '#65a30d', '#ea580c', '#4f46e5'
+  ];
+
+  getAgentColor(agentId: string): string {
+    if (!this.agentColorMap.has(agentId)) {
+      const idx = this.agentColorMap.size % this.agentColors.length;
+      this.agentColorMap.set(agentId, this.agentColors[idx]);
+    }
+    return this.agentColorMap.get(agentId)!;
+  }
+
+  getAgentShortName(agentId: string): string {
+    // "TestQuickValidation_Agent" -> "TestQuickV..."
+    const name = agentId.replace(/_Agent$/, '').replace(/_/g, ' ');
+    return name.length > 14 ? name.slice(0, 12) + '..' : name;
   }
 
   formatRelative(ts: number): string {
