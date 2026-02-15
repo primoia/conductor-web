@@ -35,28 +35,21 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
         <!-- Bot Messages: completed/normal (with Markdown and Copy Button) -->
         <div *ngIf="message.type === 'bot' && message.status !== 'pending'" class="message-content bot-content-wrapper">
           <div class="message-actions">
-            <label
-              class="toggle-btn"
-              *ngIf="message.id"
-              [title]="message.isDeleted ? 'Habilitar iteração no prompt' : 'Desabilitar iteração no prompt'">
-              <input
-                type="checkbox"
-                [checked]="!message.isDeleted"
-                (change)="toggleMessage(message)"
-              />
-              <span class="toggle-slider"></span>
-            </label>
-            <button class="copy-btn" (click)="copyToClipboard(message)" title="Copiar mensagem">
-              <span *ngIf="copiedMessageId !== message.id">📋</span>
-              <span *ngIf="copiedMessageId === message.id">✅</span>
-            </button>
-            <button
-              class="hide-btn"
-              *ngIf="message.id"
-              (click)="hideMessage(message)"
-              title="Ocultar permanentemente (não aparece mais no chat)">
-              🗑️
-            </button>
+            <button class="msg-gear-btn" (click)="toggleMessageMenu(message.id, $event)">⚙️</button>
+            <div class="msg-menu" *ngIf="activeMenuMessageId === message.id">
+              <div class="msg-menu-backdrop" (click)="activeMenuMessageId = null"></div>
+              <div class="msg-menu-list">
+                <button class="msg-menu-item" (click)="activeMenuMessageId = null; copyToClipboard(message)">
+                  {{ copiedMessageId === message.id ? '✅' : '📋' }} Copiar
+                </button>
+                <button class="msg-menu-item" *ngIf="message.id" (click)="activeMenuMessageId = null; toggleMessage(message)">
+                  {{ message.isDeleted ? '🔘' : '✅' }} {{ message.isDeleted ? 'Habilitar no prompt' : 'Desabilitar no prompt' }}
+                </button>
+                <button class="msg-menu-item danger" *ngIf="message.id" (click)="activeMenuMessageId = null; hideMessage(message)">
+                  🗑️ Ocultar
+                </button>
+              </div>
+            </div>
           </div>
           <strong>{{ message.agent ? (message.agent.emoji || '🤖') + ' ' + message.agent.name : 'Conductor' }}:</strong>
           <div class="markdown-content" [innerHTML]="formatMessage(message.content)"></div>
@@ -148,6 +141,7 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
       color: #2c3e50;
       align-self: flex-start;
       border: 1px solid #e1e4e8;
+      width: 95%;
     }
 
     .bot-message:hover .message-actions {
@@ -209,7 +203,7 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
       z-index: 10;
     }
 
-    .copy-btn {
+    .msg-gear-btn {
       background: #f0f3f7;
       border: 1px solid #e1e4e8;
       color: #6b7280;
@@ -224,81 +218,54 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
       transition: all 0.2s ease;
     }
 
-    .copy-btn:hover {
+    .msg-gear-btn:hover {
       background: #e1e4e8;
       transform: scale(1.1);
     }
 
-    .hide-btn {
-      background: transparent;
-      border: none;
-      color: #9ca3af;
-      cursor: pointer;
-      font-size: 14px;
-      width: 20px;
-      height: 20px;
+    .msg-menu {
+      position: relative;
+    }
+
+    .msg-menu-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+    }
+
+    .msg-menu-list {
+      position: absolute;
+      top: 4px;
+      right: 0;
+      background: #fff;
+      border-radius: 10px;
+      min-width: 200px;
+      padding: 4px 0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+      z-index: 100;
+    }
+
+    .msg-menu-item {
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: all 0.2s ease;
-      opacity: 0.5;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      background: none;
+      font-size: 14px;
+      color: #1e293b;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s;
     }
 
-    .hide-btn:hover {
+    .msg-menu-item:hover {
+      background: #f1f5f9;
+    }
+
+    .msg-menu-item.danger {
       color: #ef4444;
-      opacity: 1;
-      transform: scale(1.1);
-    }
-
-    /* Toggle switch styles */
-    .toggle-btn {
-      position: relative;
-      display: inline-block;
-      width: 32px;
-      height: 18px;
-      cursor: pointer;
-    }
-
-    .toggle-btn input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #cbd5e0;
-      transition: 0.3s;
-      border-radius: 18px;
-    }
-
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 12px;
-      width: 12px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.3s;
-      border-radius: 50%;
-    }
-
-    .toggle-btn input:checked + .toggle-slider {
-      background-color: #10b981;
-    }
-
-    .toggle-btn input:checked + .toggle-slider:before {
-      transform: translateX(14px);
-    }
-
-    .toggle-btn:hover .toggle-slider {
-      box-shadow: 0 0 4px rgba(0,0,0,0.2);
     }
 
     .markdown-content ::ng-deep pre {
@@ -407,8 +374,14 @@ export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
   private previousMessageCount = 0;
   private previousStreamingContent = '';
   copiedMessageId: string | null = null;
+  activeMenuMessageId: string | null = null;
 
   constructor(private sanitizer: DomSanitizer) {}
+
+  toggleMessageMenu(messageId: string | undefined, event: Event): void {
+    event.stopPropagation();
+    this.activeMenuMessageId = this.activeMenuMessageId === messageId ? null : (messageId || null);
+  }
 
   ngAfterViewChecked(): void {
     if (this.autoScroll && this.shouldScrollToBottom) {

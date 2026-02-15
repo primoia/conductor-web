@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -61,9 +61,6 @@ const DEFAULT_CONFIG: ConductorConfig = {
     <div class="mobile-chat-root">
       <!-- TOP BAR -->
       <div class="top-bar">
-        <button class="top-btn" (click)="onToggleSidebar()" title="Conversas">
-          <span>{{ sidebarState === 'hidden' ? '☰' : '✕' }}</span>
-        </button>
         <div class="top-title" (click)="showScreenplayViewer = !!activeScreenplayId">
           <app-status-indicator
             [isConnected]="chatState.isConnected"
@@ -71,14 +68,35 @@ const DEFAULT_CONFIG: ConductorConfig = {
           />
           <span class="screenplay-name">{{ activeScreenplayTitle || 'Selecionar Roteiro' }}</span>
         </div>
-        <button class="top-btn events-btn" (click)="showAgentEvents = true" title="Eventos dos Agentes">
-          <span>🔔</span>
-          <span class="badge" *ngIf="resultEventCount > 0">{{ resultEventCount > 99 ? '99+' : resultEventCount }}</span>
+        <button class="top-btn top-gear-btn" (click)="showConvMenu = !showConvMenu" title="Conversas">
+          <span>💬</span>
         </button>
-        <button class="top-btn events-btn" (click)="showDebugEvents = true" title="Eventos de Debug">
-          <span>🐛</span>
-          <span class="badge" *ngIf="debugEventCount > 0">{{ debugEventCount > 99 ? '99+' : debugEventCount }}</span>
+        <button class="top-btn top-gear-btn" (click)="showTopMenu = !showTopMenu" title="Opcoes">
+          <span>⚙️</span>
         </button>
+      </div>
+
+      <!-- TOP MENU POPUP -->
+      <div class="top-menu-popup" *ngIf="showTopMenu" (click)="showTopMenu = false">
+        <div class="top-menu-list" (click)="$event.stopPropagation()">
+          <button class="opt-item" (click)="showTopMenu = false; editorScreenplayId = null; showScreenplayEditor = true">🆕 Novo Roteiro</button>
+          <button class="opt-item" (click)="showTopMenu = false; showScreenplaySelector = true">📂 Selecionar Roteiro</button>
+          <button class="opt-item" (click)="showTopMenu = false; editorScreenplayId = activeScreenplayId; showScreenplayEditor = true" [disabled]="!activeScreenplayId">📝 Editar Roteiro</button>
+          <div class="opt-divider"></div>
+          <button class="opt-item" (click)="showTopMenu = false; showAgentEvents = true">🔔 Eventos dos Agentes</button>
+          <button class="opt-item" (click)="showTopMenu = false; showDebugEvents = true">🐛 Eventos de Debug</button>
+        </div>
+      </div>
+
+      <!-- CONV MENU POPUP -->
+      <div class="top-menu-popup" *ngIf="showConvMenu" (click)="showConvMenu = false">
+        <div class="top-menu-list" (click)="$event.stopPropagation()">
+          <button class="opt-item" (click)="showConvMenu = false; onCreateNewConversation()" [disabled]="!activeScreenplayId">➕ Adicionar Conversa</button>
+          <button class="opt-item" (click)="showConvMenu = false; openConvEditModal()" [disabled]="!activeConversationId">✏️ Editar Conversa</button>
+          <button class="opt-item danger" (click)="showConvMenu = false; confirmDeleteConversation()" [disabled]="!activeConversationId">🗑️ Excluir Conversa</button>
+          <div class="opt-divider"></div>
+          <button class="opt-item" (click)="showConvMenu = false; onToggleSidebar()">{{ sidebarState === 'hidden' ? '📋 Mostrar Conversas' : '📋 Esconder Conversas' }}</button>
+        </div>
       </div>
 
       <!-- MAIN AREA -->
@@ -92,16 +110,18 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
           <!-- COMPACT DOCK -->
           <div class="dock-compact" *ngIf="sidebarState === 'compact'">
-            <button class="dock-btn screenplay-btn" (click)="showScreenplaySelector = true" title="Selecionar roteiro">📝</button>
-            <button class="dock-btn add-conv-btn" [disabled]="!activeScreenplayId" (click)="onCreateNewConversation()" title="Nova conversa">➕</button>
-            <button class="dock-btn del-conv-btn" [disabled]="!activeConversationId" (click)="confirmDeleteConversation()" title="Excluir conversa">🗑️</button>
-            <div class="dock-divider"></div>
-            <div class="dock-divider"></div>
+            <div class="pull-refresh-indicator" [style.height.px]="pullDistance" [class.triggered]="pullTriggered">
+              <span class="pull-refresh-icon" [style.transform]="'rotate(' + (pullDistance * 4) + 'deg)'">{{ pullTriggered ? '✓' : '↻' }}</span>
+            </div>
             <div
               class="dock-conv-list"
+              #convListEl
               cdkDropList
               cdkDropListLockAxis="y"
-              (cdkDropListDropped)="onConversationDrop($event)">
+              (cdkDropListDropped)="onConversationDrop($event)"
+              (touchstart)="onPullStart($event)"
+              (touchmove)="onPullMove($event)"
+              (touchend)="onPullEnd()">
               <div *ngFor="let conv of conversations" class="dock-conv-wrapper" cdkDrag [cdkDragStartDelay]="200">
                 <div class="dock-conv-preview" *cdkDragPreview>{{ getConversationInitial(conv.title) }}</div>
                 <div class="dock-conv-placeholder" *cdkDragPlaceholder></div>
@@ -136,9 +156,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
         <!-- CHAT COLUMN -->
         <div class="chat-column">
           <!-- CONVERSATION INFO BAR -->
-          <div class="conv-info-bar" *ngIf="activeConversationId" (click)="openConvEditModal()">
+          <div class="conv-info-bar" *ngIf="activeConversationId">
             <span class="conv-info-title">{{ activeConversationTitle || 'Sem titulo' }}</span>
-            <span class="conv-info-edit">✎</span>
           </div>
 
           <!-- CHAT MESSAGES -->
@@ -176,12 +195,10 @@ const DEFAULT_CONFIG: ConductorConfig = {
               </div>
             </div>
             <div class="agent-dock-spacer"></div>
-            <button class="agent-dock-btn del-agent" (click)="confirmDeleteAgent()" [disabled]="!activeAgentId" title="Remover agente">🗑️</button>
-            <button class="agent-dock-btn add-agent" (click)="showAgentSelector = true" [disabled]="!activeConversationId" title="Adicionar agente">➕</button>
             <button
               class="agent-dock-btn settings-btn"
-              *ngIf="activeAgentId"
               (click)="showAgentOptions = !showAgentOptions"
+              [disabled]="!activeConversationId"
               title="Opcoes do agente">
               ⚙️
             </button>
@@ -190,9 +207,10 @@ const DEFAULT_CONFIG: ConductorConfig = {
           <!-- AGENT OPTIONS POPUP -->
           <div class="agent-options-popup" *ngIf="showAgentOptions" (click)="showAgentOptions = false">
             <div class="agent-options-menu" (click)="$event.stopPropagation()">
-              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('personaEditModal')">✏️ Editar Persona</button>
-              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('mcpManagerModal')">🔌 Gerenciar MCPs</button>
-              <button class="opt-item" (click)="showAgentOptions = false; onDeleteAgentClick()">🗑️ Remover Agente</button>
+              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('personaEditModal')" [disabled]="!activeAgentId">✏️ Editar Persona</button>
+              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('mcpManagerModal')" [disabled]="!activeAgentId">🔌 Gerenciar MCPs</button>
+              <button class="opt-item" (click)="showAgentOptions = false; showAgentSelector = true" [disabled]="!activeConversationId">➕ Adicionar Agente</button>
+              <button class="opt-item danger" (click)="showAgentOptions = false; onDeleteAgentClick()" [disabled]="!activeAgentId">🗑️ Remover Agente</button>
             </div>
           </div>
 
@@ -211,37 +229,35 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
           <!-- CHAT FOOTER -->
           <div class="chat-footer">
+            <button
+              class="footer-btn footer-gear-btn"
+              (click)="showFooterMenu = !showFooterMenu"
+              title="Opcoes do chat">
+              ⚙️
+            </button>
             <span class="footer-agent-name" *ngIf="selectedAgentName && activeAgentId">{{ selectedAgentName }}</span>
             <div class="footer-spacer"></div>
-            <button
-              class="footer-btn mode-btn"
-              [class.agent-mode]="currentMode === 'agent'"
-              (click)="toggleMode()"
-              [disabled]="chatState.isLoading"
-              [title]="currentMode === 'ask' ? 'Modo Ask' : 'Modo Agent'">
-              {{ currentMode === 'ask' ? '💬' : '🤖' }}
-            </button>
-            <button
-              class="footer-btn mic-btn"
-              [class.recording]="isRecording"
-              (click)="toggleRecording()"
-              [disabled]="chatState.isLoading || !speechSupported"
-              [title]="isRecording ? 'Parar gravacao' : 'Gravar audio'">
-              {{ isRecording ? '🔴' : '🎤' }}
-            </button>
-            <button
-              class="footer-btn provider-btn"
-              (click)="cycleProvider()"
-              [disabled]="chatState.isLoading"
-              [title]="'Provider: ' + getProviderLabel()">
-              {{ getProviderLabel() }}
-            </button>
             <button
               class="footer-btn send-btn"
               (click)="sendMessage()"
               [disabled]="chatState.isLoading || isEditorEmpty()">
               {{ chatState.isLoading ? '⏳' : '⬆️' }}
             </button>
+          </div>
+
+          <!-- FOOTER MENU POPUP -->
+          <div class="footer-menu-popup" *ngIf="showFooterMenu" (click)="showFooterMenu = false">
+            <div class="footer-menu-list" (click)="$event.stopPropagation()">
+              <button class="opt-item" (click)="showFooterMenu = false; toggleMode()" [disabled]="chatState.isLoading">
+                {{ currentMode === 'ask' ? '💬' : '🤖' }} Modo: {{ currentMode === 'ask' ? 'Ask' : 'Agent' }}
+              </button>
+              <button class="opt-item" (click)="showFooterMenu = false; toggleRecording()" [disabled]="chatState.isLoading || !speechSupported">
+                {{ isRecording ? '🔴 Parar Gravacao' : '🎤 Gravar Audio' }}
+              </button>
+              <button class="opt-item" (click)="showFooterMenu = false; cycleProvider()" [disabled]="chatState.isLoading">
+                🔄 Provider: {{ getProviderLabel() }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -401,12 +417,46 @@ const DEFAULT_CONFIG: ConductorConfig = {
       background: rgba(255, 255, 255, 0.35);
     }
 
-    .events-btn {
+    .top-gear-btn {
       position: relative;
       width: 36px;
       height: 36px;
       font-size: 16px;
       border-radius: 8px;
+    }
+
+    .top-menu-popup {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .top-menu-list {
+      position: fixed;
+      top: 60px;
+      right: 12px;
+      background: #fff;
+      border-radius: 12px;
+      min-width: 240px;
+      padding: 4px 0;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+      z-index: 1501;
+    }
+
+    .opt-badge {
+      margin-left: auto;
+      background: #ef4444;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
     }
 
     .badge {
@@ -524,7 +574,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
       align-items: center;
       padding: 10px 0;
       height: 100%;
-      gap: 2px;
+      gap: 6px;
     }
 
     .dock-btn {
@@ -556,22 +606,6 @@ const DEFAULT_CONFIG: ConductorConfig = {
       cursor: not-allowed;
     }
 
-    .dock-btn.screenplay-btn {
-      background: #f3e8ff;
-      border-color: #d8b4fe;
-      margin-bottom: 6px;
-    }
-
-    .dock-btn.add-conv-btn {
-      background: #f0fdf4;
-      border-color: #86efac;
-    }
-
-    .dock-btn.del-conv-btn {
-      background: #fef2f2;
-      border-color: #fecaca;
-      font-size: 14px;
-    }
 
     .dock-divider {
       width: 32px;
@@ -579,6 +613,25 @@ const DEFAULT_CONFIG: ConductorConfig = {
       background: #e1e4e8;
       margin: 6px 0;
       flex-shrink: 0;
+    }
+
+    .pull-refresh-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      transition: height 0.2s ease;
+    }
+
+    .pull-refresh-icon {
+      font-size: 20px;
+      color: #94a3b8;
+      transition: color 0.2s;
+    }
+
+    .pull-refresh-indicator.triggered .pull-refresh-icon {
+      color: #667eea;
     }
 
     .dock-conv-list {
@@ -741,17 +794,6 @@ const DEFAULT_CONFIG: ConductorConfig = {
       cursor: not-allowed;
     }
 
-    .agent-dock-btn.del-agent {
-      background: #fef2f2;
-      border-color: #fecaca;
-      font-size: 14px;
-    }
-
-    .agent-dock-btn.add-agent {
-      background: #f0fdf4;
-      border-color: #86efac;
-    }
-
     .agent-dock-btn.settings-btn {
       background: #f1f5f9;
     }
@@ -834,6 +876,25 @@ const DEFAULT_CONFIG: ConductorConfig = {
 
     .opt-item:active {
       background: #e2e8f0;
+    }
+
+    .opt-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 4px 0;
+    }
+
+    .opt-item.danger {
+      color: #ef4444;
+    }
+
+    .opt-item:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .opt-item:disabled:hover {
+      background: none;
     }
 
     /* ================================================ */
@@ -942,14 +1003,27 @@ const DEFAULT_CONFIG: ConductorConfig = {
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
     }
 
-    .provider-btn {
-      width: auto !important;
-      padding: 0 10px;
+    .footer-gear-btn {
       background: #f1f5f9;
-      font-size: 11px !important;
-      font-weight: 600;
-      color: #475569;
-      white-space: nowrap;
+    }
+
+    .footer-menu-popup {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .footer-menu-list {
+      position: fixed;
+      bottom: 60px;
+      left: 12px;
+      background: #fff;
+      border-radius: 12px;
+      min-width: 220px;
+      padding: 4px 0;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+      z-index: 1501;
     }
 
     .footer-agent-name {
@@ -1204,6 +1278,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
 export class MobileChatComponent implements OnInit, OnDestroy {
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
   @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
+  @ViewChild('convListEl') convListEl!: ElementRef<HTMLElement>;
 
   // Chat state
   chatState: ChatState = { messages: [], isConnected: false, isLoading: false };
@@ -1239,11 +1314,18 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   showDebugEvents = false;
   showAgentSelector = false;
   showAgentOptions = false;
+  showTopMenu = false;
+  showConvMenu = false;
+  showFooterMenu = false;
   showConvEditModal = false;
   resultEventCount = 0;
   debugEventCount = 0;
   isRecording = false;
   speechSupported = false;
+  pullDistance = 0;
+  pullTriggered = false;
+  private pullStartY = 0;
+  private isPulling = false;
   activeConversationTitle = '';
   editConvTitle = '';
   editConvContext = '';
@@ -1344,7 +1426,10 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.showFooterMenu) { this.showFooterMenu = false; return; }
     if (this.showConvEditModal) { this.showConvEditModal = false; return; }
+    if (this.showConvMenu) { this.showConvMenu = false; return; }
+    if (this.showTopMenu) { this.showTopMenu = false; return; }
     if (this.showAgentOptions) { this.showAgentOptions = false; return; }
     if (this.showAgentEvents) { this.showAgentEvents = false; return; }
     if (this.showDebugEvents) { this.showDebugEvents = false; return; }
@@ -1522,6 +1607,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.conversationService.getConversation(conversationId).subscribe({
       next: (conversation) => {
         this.activeConversationTitle = conversation.title || '';
+        this.contextualAgents = [];
 
         const messages: Message[] = conversation.messages.map((msg: ConvMessage) => ({
           id: msg.id,
@@ -1541,6 +1627,27 @@ export class MobileChatComponent implements OnInit, OnDestroy {
           type: 'system',
           timestamp: new Date()
         }];
+
+        // Restore all unique agents from conversation messages to the dock
+        const agentsFromMessages = new Map<string, any>();
+        messages.forEach(msg => {
+          if (msg.agent?.instance_id && !agentsFromMessages.has(msg.agent.instance_id)) {
+            agentsFromMessages.set(msg.agent.instance_id, msg.agent);
+          }
+        });
+        agentsFromMessages.forEach((agent, instanceId) => {
+          if (!this.contextualAgents.find(a => a.id === instanceId)) {
+            this.contextualAgents = [...this.contextualAgents, {
+              id: instanceId,
+              agent_id: agent.agent_id,
+              emoji: agent.emoji || '🤖',
+              definition: { title: agent.name || 'Agent', description: '', unicode: '' },
+              status: 'pending' as const,
+              position: { x: 0, y: 0 },
+              config: { cwd: this.screenplayWorkingDirectory || undefined }
+            }];
+          }
+        });
 
         // Set active agent from conversation
         if (conversation.active_agent) {
@@ -1582,6 +1689,9 @@ export class MobileChatComponent implements OnInit, OnDestroy {
           this.clearAgentState();
         }
 
+        // Apply saved dock order
+        this.applySavedAgentDockOrder();
+
         this.chatState.isLoading = false;
       },
       error: (err) => {
@@ -1607,6 +1717,41 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   getConversationInitial(title: string): string {
     if (!title) return '?';
     return title.charAt(0).toUpperCase();
+  }
+
+  onPullStart(event: TouchEvent): void {
+    const el = this.convListEl?.nativeElement;
+    if (el && el.scrollTop <= 0) {
+      this.pullStartY = event.touches[0].clientY;
+      this.isPulling = true;
+    }
+  }
+
+  onPullMove(event: TouchEvent): void {
+    if (!this.isPulling) return;
+    const el = this.convListEl?.nativeElement;
+    if (el && el.scrollTop > 0) {
+      this.isPulling = false;
+      this.pullDistance = 0;
+      return;
+    }
+    const delta = event.touches[0].clientY - this.pullStartY;
+    if (delta > 0) {
+      this.pullDistance = Math.min(delta * 0.4, 60);
+      this.pullTriggered = this.pullDistance >= 50;
+    }
+  }
+
+  onPullEnd(): void {
+    if (this.pullTriggered) {
+      this.pullDistance = 40;
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
+    } else {
+      this.pullDistance = 0;
+    }
+    this.isPulling = false;
   }
 
   // ==========================================
@@ -1991,6 +2136,35 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   onAgentDrop(event: CdkDragDrop<any[]>): void {
     if (event.previousIndex === event.currentIndex) return;
     moveItemInArray(this.contextualAgents, event.previousIndex, event.currentIndex);
+    this.saveAgentDockOrder();
+  }
+
+  private saveAgentDockOrder(): void {
+    if (!this.activeConversationId) return;
+    const ids = this.contextualAgents.map(a => a.id);
+    localStorage.setItem(`agent-dock-order-${this.activeConversationId}`, JSON.stringify(ids));
+  }
+
+  private applySavedAgentDockOrder(): void {
+    if (!this.activeConversationId) return;
+    const raw = localStorage.getItem(`agent-dock-order-${this.activeConversationId}`);
+    if (!raw) return;
+    try {
+      const savedIds: string[] = JSON.parse(raw);
+      const agentMap = new Map(this.contextualAgents.map(a => [a.id, a]));
+      const ordered: any[] = [];
+      // First, add agents in saved order
+      savedIds.forEach(id => {
+        const agent = agentMap.get(id);
+        if (agent) {
+          ordered.push(agent);
+          agentMap.delete(id);
+        }
+      });
+      // Then append any new agents not in saved order
+      agentMap.forEach(agent => ordered.push(agent));
+      this.contextualAgents = ordered;
+    } catch {}
   }
 
   focusEditor(): void {
