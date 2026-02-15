@@ -1,128 +1,198 @@
 // =============================================================================
-// MCP MANAGER MODAL STYLES - Conductor Web
-// =============================================================================
-// Normalizado seguindo especificação de modais padrão v1.0
-// Usa variáveis e mixins compartilhados
+// MCP MANAGER MODAL STYLES - Mobile-first pattern
 // =============================================================================
 
-@use '../styles/modal-variables' as *;
-@use '../styles/modal-mixins' as mixins;
-
-.modal-overlay {
-  @include mixins.modal-backdrop();
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2100;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
 }
 
-.mcp-manager {
-  @include mixins.modal-container(520px);
-  max-height: 85vh;
+.modal-container {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+@media (min-width: 768px) {
+  .modal-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .modal-container {
+    width: 90%;
+    max-width: 800px;
+    height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+}
+
+// Header
 .modal-header {
-  @include mixins.modal-header();
-  gap: $modal-spacing-sm;
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  flex-shrink: 0;
+  gap: 8px;
+}
 
-  h2 {
-    margin: 0;
-    font-size: $modal-font-size-lg;
-    font-weight: $font-weight-semibold;
-    color: $modal-title-color;
-  }
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
 
-  .instance-name {
-    color: $modal-text-secondary;
-    font-size: $modal-font-size-sm;
-    font-weight: normal;
-  }
+.instance-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
 
-  .close-btn {
-    @include mixins.modal-close-button();
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
   }
 }
 
+// Body
 .modal-body {
-  @include mixins.modal-body();
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  -webkit-overflow-scrolling: touch;
 
-  &.loading {
-    @include mixins.loading-state();
-    min-height: 150px;
-    color: $modal-text-secondary;
+  &.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #64748b;
   }
 }
 
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// MCP Sections
 .mcp-section {
-  margin-bottom: $modal-spacing-lg;
+  margin-bottom: 20px;
 
   h3 {
     display: flex;
     align-items: center;
-    gap: $modal-spacing-sm;
-    margin: 0 0 $modal-spacing-xs 0;
-    font-size: $modal-font-size-sm;
-    font-weight: $font-weight-semibold;
-    color: $modal-title-color;
+    gap: 8px;
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
   }
 
   .hint {
-    margin: 0 0 $modal-spacing-sm 0;
-    font-size: $modal-font-size-xs;
-    color: $modal-text-secondary;
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    color: #94a3b8;
   }
 
   &.combined {
-    background: $modal-body-bg-alt;
-    padding: $modal-spacing-md;
-    border-radius: $modal-border-radius;
-    margin-top: $modal-spacing-md;
-    border: 1px solid $modal-border-color;
+    background: #f8fafc;
+    padding: 14px;
+    border-radius: 10px;
+    margin-top: 12px;
+    border: 1px solid #e2e8f0;
   }
 }
 
+// Badges
 .badge {
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: $modal-border-radius-sm;
+  border-radius: 4px;
   text-transform: uppercase;
-  font-weight: $font-weight-medium;
+  font-weight: 500;
 
   &.readonly {
-    background: $modal-body-bg-alt;
-    color: $modal-text-secondary;
-    border: 1px solid $modal-border-color;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 1px solid #e2e8f0;
   }
 
   &.editable {
-    background: rgba($modal-primary-color, 0.1);
-    color: $modal-primary-color;
-    border: 1px solid rgba($modal-primary-color, 0.2);
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    border: 1px solid rgba(102, 126, 234, 0.2);
   }
 }
 
+// MCP Tags
 .mcp-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: $modal-spacing-sm;
+  gap: 8px;
   min-height: 32px;
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: $modal-spacing-xs;
-  padding: $modal-spacing-sm $modal-spacing-md;
-  border-radius: $modal-border-radius;
-  font-size: $modal-font-size-sm;
-  transition: $modal-transition;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.15s;
 
   &.template {
-    background: $modal-body-bg-alt;
-    color: $modal-text-primary;
-    border: 1px solid $modal-border-color;
+    background: #f1f5f9;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
   }
 
   &.instance {
-    background: rgba($modal-primary-color, 0.1);
-    color: darken($modal-primary-color, 10%);
-    border: 1px solid rgba($modal-primary-color, 0.2);
+    background: rgba(102, 126, 234, 0.1);
+    color: #4c63b6;
+    border: 1px solid rgba(102, 126, 234, 0.2);
   }
 
   &.removable {
@@ -130,14 +200,14 @@
 
     .remove {
       opacity: 0;
-      margin-left: $modal-spacing-xs;
-      transition: opacity 0.15s ease;
-      color: $modal-error-color;
+      margin-left: 4px;
+      transition: opacity 0.15s;
+      color: #ef4444;
     }
 
     &:hover {
-      background: rgba($modal-primary-color, 0.15);
-      border-color: rgba($modal-primary-color, 0.3);
+      background: rgba(102, 126, 234, 0.15);
+      border-color: rgba(102, 126, 234, 0.3);
 
       .remove {
         opacity: 1;
@@ -146,147 +216,140 @@
   }
 }
 
+// Status indicators
 .status {
   font-size: 10px;
 
-  &.healthy {
-    color: $modal-success-color;
-  }
-
-  &.stopped {
-    color: $modal-text-muted;
-  }
-
-  &.starting {
-    color: $modal-warning-color;
-  }
-
-  &.unhealthy {
-    color: $modal-error-color;
-  }
-
-  &.unknown {
-    color: $modal-text-muted;
-    opacity: 0.6;
-  }
+  &.healthy { color: #22c55e; }
+  &.stopped { color: #94a3b8; }
+  &.starting { color: #f59e0b; }
+  &.unhealthy { color: #ef4444; }
+  &.unknown { color: #94a3b8; opacity: 0.6; }
 }
 
 .empty {
-  color: $modal-text-muted;
+  color: #94a3b8;
   font-style: italic;
-  font-size: $modal-font-size-sm;
+  font-size: 13px;
 }
 
+// Add row
 .add-row {
   display: flex;
-  gap: $modal-spacing-sm;
-  margin-top: $modal-spacing-md;
+  gap: 8px;
+  margin-top: 12px;
 
   select {
     flex: 1;
-    padding: $modal-spacing-sm $modal-spacing-md;
-    border: 1px solid $modal-border-color;
-    border-radius: $modal-border-radius;
-    background: $modal-bg;
-    color: $modal-text-primary;
-    font-size: $modal-font-size-sm;
-    transition: $modal-transition;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
 
     &:focus {
-      outline: none;
-      border-color: $modal-primary-color;
-      box-shadow: 0 0 0 3px rgba($modal-primary-color, 0.1);
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
     }
   }
 
   .btn-add {
-    @include mixins.btn-primary();
-    padding: $modal-spacing-sm $modal-spacing-md;
-    font-size: $modal-font-size-sm;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
 
     &:disabled {
-      opacity: $btn-disabled-opacity;
+      opacity: 0.5;
       cursor: not-allowed;
     }
   }
 }
 
+// Combined list
 .combined-list {
   display: flex;
   flex-wrap: wrap;
-  gap: $modal-spacing-sm;
+  gap: 6px;
 }
 
 .combined-tag {
-  font-size: $modal-font-size-xs;
-  padding: $modal-spacing-xs $modal-spacing-sm;
-  background: rgba($modal-primary-color, 0.05);
-  border-radius: $modal-border-radius-sm;
-  color: $modal-text-primary;
-  border: 1px solid $modal-border-color;
+  font-size: 12px;
+  padding: 4px 10px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 6px;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
 }
 
+// Banners
 .info-banner {
   display: flex;
   align-items: center;
-  gap: $modal-spacing-sm;
-  padding: $modal-spacing-sm $modal-spacing-md;
-  background: rgba($modal-primary-color, 0.1);
-  border: 1px solid rgba($modal-primary-color, 0.2);
-  border-radius: $modal-border-radius;
-  font-size: $modal-font-size-xs;
-  color: darken($modal-primary-color, 10%);
-  margin-top: $modal-spacing-md;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #4c63b6;
+  margin-top: 12px;
 }
 
 .error-banner {
-  @include mixins.error-message();
-  margin: $modal-spacing-sm $modal-spacing-md;
+  padding: 10px 20px;
+  background: #fef2f2;
+  color: #ef4444;
+  font-size: 13px;
+  border-bottom: 1px solid #fecaca;
+  flex-shrink: 0;
 }
 
-.modal-footer {
-  @include mixins.modal-footer();
+// Footer
+.modal-footer-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
 
-  .btn-secondary {
-    @include mixins.btn-secondary();
-  }
+.btn-cancel {
+  padding: 10px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #64748b;
+  font-size: 14px;
+  cursor: pointer;
 
-  .btn-primary {
-    @include mixins.btn-primary();
+  &:disabled {
+    opacity: 0.5;
   }
 }
 
-// =============================================================================
-// RESPONSIVE
-// =============================================================================
+.btn-save {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
 
-@media (max-width: $modal-breakpoint-tablet) {
-  .mcp-manager {
-    max-width: 95%;
-  }
-}
-
-@media (max-width: $modal-breakpoint-mobile) {
-  .mcp-manager {
-    width: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-
-  .mcp-section {
-    margin-bottom: $modal-spacing-md;
-
-    h3 {
-      font-size: $modal-font-size-xs;
-    }
-  }
-
-  .add-row {
-    flex-direction: column;
-
-    .btn-add {
-      width: 100%;
-      justify-content: center;
-    }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }

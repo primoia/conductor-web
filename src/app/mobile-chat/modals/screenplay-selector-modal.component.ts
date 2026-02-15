@@ -62,6 +62,9 @@ import { ScreenplayStorage, ScreenplayListItem } from '../../services/screenplay
                 <span class="tag" *ngFor="let tag of sp.tags!.slice(0, 3)">{{ tag }}</span>
               </span>
             </div>
+            <div class="card-path" *ngIf="sp.importPath">
+              {{ getDisplayPath(sp) }}
+            </div>
             <div class="card-description" *ngIf="sp.description">
               {{ sp.description | slice:0:120 }}{{ (sp.description?.length || 0) > 120 ? '...' : '' }}
             </div>
@@ -338,6 +341,13 @@ import { ScreenplayStorage, ScreenplayListItem } from '../../services/screenplay
       border-radius: 4px;
     }
 
+    .card-path {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+    }
+
     .card-description {
       font-size: 13px;
       color: #64748b;
@@ -454,6 +464,25 @@ export class ScreenplaySelectorModalComponent implements OnChanges, OnDestroy {
 
   onClose(): void {
     this.closeModal.emit();
+  }
+
+  getDisplayPath(sp: ScreenplayListItem): string {
+    if (!sp.importPath) return '';
+    let path = sp.importPath;
+    const prefixes = ['/mnt/ramdisk/primoia-main/', '/home/', '/Users/'];
+    for (const prefix of prefixes) {
+      const idx = path.indexOf(prefix);
+      if (idx !== -1) {
+        path = path.substring(idx + prefix.length);
+        // Remove username segment for /home/ and /Users/
+        if (prefix !== '/mnt/ramdisk/primoia-main/') {
+          const slashIdx = path.indexOf('/');
+          if (slashIdx !== -1) path = path.substring(slashIdx + 1);
+        }
+        break;
+      }
+    }
+    return path;
   }
 
   formatDate(dateStr: string): string {

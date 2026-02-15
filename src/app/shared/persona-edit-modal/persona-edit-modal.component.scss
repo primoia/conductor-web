@@ -1,32 +1,89 @@
 // =============================================================================
 // PERSONA EDIT MODAL STYLES - Conductor Web
 // =============================================================================
-// ✅ Normalizado seguindo especificação de modais padrão v1.0
-// ✅ Usa variáveis e mixins compartilhados
-// ✅ Responsivo (3 breakpoints: desktop, tablet, mobile)
-// ✅ Acessibilidade WCAG 2.1 AA compliant
-// =============================================================================
 
 @use '../styles/modal-variables' as *;
 @use '../styles/modal-mixins' as mixins;
 
 .persona-edit-modal {
   .modal-backdrop {
-    @include mixins.modal-backdrop();
-    // REMOVIDO: backdrop-filter: blur(4px); - performance issue
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 2100;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
   }
 
   .modal-container {
-    @include mixins.modal-container();
-    max-width: 1100px;
-    width: 95%;
-    max-height: 92vh;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .modal-backdrop {
+      align-items: center;
+      padding: 24px;
+    }
+    .modal-container {
+      width: 90%;
+      max-width: 800px;
+      height: 85vh;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  // Header - same pattern as other mobile modals
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .modal-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
   }
 
   .modal-body {
-    @include mixins.modal-body();
-    padding: 0;
+    flex: 1;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
   // Editor Container
@@ -34,55 +91,40 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 600px;
   }
 
   // Editor Tabs
   .editor-tabs {
     display: flex;
-    border-bottom: 1px solid $modal-border-color;
-    background: $modal-body-bg-alt;
-    position: relative;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    flex-shrink: 0;
 
     .tab {
-      @include mixins.button-reset();
-      padding: 16px 24px;
+      padding: 12px 24px;
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
-      color: $modal-text-secondary;
+      color: #64748b;
+      border: none;
+      background: none;
       border-bottom: 3px solid transparent;
-      transition: $modal-transition;
+      transition: all 0.2s;
       flex: 1;
-      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
 
       &:hover {
-        background: rgba($modal-primary-color, 0.05);
-        color: darken($modal-text-secondary, 10%);
-        transform: translateY(-1px);
+        background: rgba(102, 126, 234, 0.05);
+        color: #475569;
       }
 
       &.active {
-        color: $modal-primary-color;
-        border-bottom-color: $modal-primary-color;
-        background: $modal-bg;
+        color: #667eea;
+        border-bottom-color: #667eea;
+        background: #fff;
         font-weight: 600;
-        box-shadow: 0 -2px 8px rgba($modal-primary-color, 0.1);
-      }
-
-      // Ícones dos tabs
-      &[data-tab="edit"]::after {
-        content: '✏️';
-        font-size: 16px;
-      }
-
-      &[data-tab="preview"]::after {
-        content: '👁️';
-        font-size: 16px;
       }
     }
   }
@@ -90,309 +132,201 @@
   // Editor Content
   .editor-content {
     flex: 1;
-    position: relative;
     display: flex;
     flex-direction: column;
-    min-height: 500px;
+    min-height: 0;
   }
 
   // Persona Textarea
   .persona-textarea {
     width: 100%;
-    height: 100%;
-    min-height: 500px;
-    padding: 20px;
+    flex: 1;
+    min-height: 200px;
+    padding: 16px;
     border: none;
     font-size: 14px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
     line-height: 1.6;
     resize: none;
     outline: none;
-    background: $modal-bg;
-    color: $modal-text-primary;
-    transition: $modal-transition;
+    background: #fff;
+    color: #1e293b;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
 
     &::placeholder {
-      color: $modal-text-muted;
+      color: #94a3b8;
       font-style: italic;
     }
 
     &:focus {
-      background: $modal-body-bg-alt;
-      box-shadow: inset 0 0 0 2px rgba($modal-primary-color, 0.1);
+      background: #fafbff;
+      box-shadow: inset 0 0 0 2px rgba(102, 126, 234, 0.1);
     }
 
     &.error {
-      border: 2px solid $modal-error-color;
-      background: lighten($modal-error-color, 45%);
-      box-shadow: 0 0 0 3px rgba($modal-error-color, 0.1);
+      border: 2px solid #ef4444;
+      background: #fef2f2;
     }
-
-    @include mixins.custom-scrollbar();
   }
 
   // Persona Preview
   .persona-preview {
-    padding: 20px;
-    height: 100%;
-    min-height: 500px;
+    padding: 16px;
+    flex: 1;
+    min-height: 200px;
     overflow-y: auto;
-    background: $modal-body-bg-alt;
-    border-left: 1px solid $modal-border-color;
+    background: #f8fafc;
+    -webkit-overflow-scrolling: touch;
 
-    @include mixins.custom-scrollbar();
-
-    // Estilos para elementos markdown
-    h1, h2, h3, h4, h5, h6 {
-      color: $modal-text-primary;
+    h1, h2, h3 {
+      color: #1e293b;
       margin-top: 0;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       font-weight: 600;
-      line-height: 1.3;
     }
 
-    h1 {
-      font-size: 24px;
-      border-bottom: 2px solid $modal-border-color;
-      padding-bottom: 8px;
-    }
-
-    h2 {
-      font-size: 20px;
-      border-bottom: 1px solid $modal-border-color;
-      padding-bottom: 4px;
-    }
-
-    h3 { font-size: 18px; }
+    h1 { font-size: 22px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 16px; }
 
     p {
-      margin: 12px 0;
+      margin: 8px 0;
       line-height: 1.7;
-      color: $modal-text-secondary;
-    }
-
-    strong {
-      font-weight: 600;
-      color: $modal-text-primary;
-    }
-
-    em {
-      font-style: italic;
-      color: $modal-text-secondary;
-    }
-
-    ul, ol {
-      margin: 12px 0;
-      padding-left: 24px;
-    }
-
-    li {
-      margin: 6px 0;
-      line-height: 1.6;
+      color: #475569;
     }
 
     code {
-      background: lighten($modal-text-muted, 50%);
+      background: #f1f5f9;
       padding: 2px 6px;
       border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', monospace;
       font-size: 13px;
-      color: $modal-error-color;
-      border: 1px solid $modal-border-color;
     }
 
     pre {
-      background: $modal-body-bg-alt;
+      background: #1e293b;
+      color: #e2e8f0;
       padding: 16px;
-      border-radius: $modal-border-radius;
+      border-radius: 8px;
       overflow-x: auto;
-      margin: 16px 0;
-      border: 1px solid $modal-border-color;
-      box-shadow: $modal-box-shadow-sm;
+      font-size: 13px;
 
       code {
         background: none;
         padding: 0;
-        border: none;
-        color: $modal-text-secondary;
-        font-size: 13px;
+        color: inherit;
       }
     }
 
     blockquote {
-      border-left: 4px solid $modal-primary-color;
-      padding-left: 20px;
-      margin: 16px 0;
-      color: $modal-text-secondary;
-      font-style: italic;
-      background: rgba($modal-primary-color, 0.05);
-      padding: 16px 20px;
-      border-radius: 0 $modal-border-radius $modal-border-radius 0;
+      border-left: 3px solid #667eea;
+      margin: 12px 0;
+      padding: 8px 16px;
+      background: #f8fafc;
+      color: #475569;
     }
   }
 
-  // Persistence Option (Checkbox)
+  // Persistence Option
   .persistence-option {
-    padding: 16px 20px;
-    background: linear-gradient(135deg, rgba($modal-primary-color, 0.03) 0%, rgba($modal-primary-color, 0.08) 100%);
-    border-top: 1px solid $modal-border-color;
-    border-bottom: 1px solid $modal-border-color;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
 
     .checkbox-container {
       display: flex;
       align-items: center;
       cursor: pointer;
       user-select: none;
-      gap: 12px;
+      gap: 10px;
 
       input[type="checkbox"] {
         width: 18px;
         height: 18px;
-        accent-color: $modal-primary-color;
+        accent-color: #667eea;
         cursor: pointer;
         flex-shrink: 0;
       }
 
       .checkbox-label {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
-        color: $modal-text-primary;
+        color: #1e293b;
       }
     }
 
     .persistence-hint {
       display: block;
-      margin-top: 8px;
-      margin-left: 30px;
-      font-size: 12px;
-      color: $modal-text-secondary;
+      margin-top: 4px;
+      margin-left: 28px;
+      font-size: 11px;
+      color: #94a3b8;
       line-height: 1.4;
     }
   }
 
-  // Editor Footer
-  .editor-footer {
-    padding: 32px 40px;
-    background: linear-gradient(135deg, $modal-body-bg-alt 0%, $modal-bg 100%);
-    border-top: 1px solid $modal-border-color;
-  }
-
-  .validation-info {
+  // Validation info
+  .editor-info {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-    gap: 8px;
+    padding: 6px 16px;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
   }
 
   .char-count {
-    font-size: 13px;
-    color: $modal-text-secondary;
-    font-weight: 500;
-    padding: 4px 8px;
-    background: rgba($modal-text-secondary, 0.1);
-    border-radius: 4px;
-    transition: $modal-transition;
+    font-size: 12px;
+    color: #94a3b8;
 
-    &.warning {
-      color: $modal-warning-color;
-      background: rgba($modal-warning-color, 0.1);
-    }
-
-    &.error {
-      color: $modal-error-color;
-      background: rgba($modal-error-color, 0.1);
-    }
+    &.warning { color: #f59e0b; }
+    &.error { color: #ef4444; }
   }
 
   .save-status {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: $modal-transition;
 
-    &.saved {
-      color: $modal-success-color;
-      background: rgba($modal-success-color, 0.1);
-    }
-
-    &.error {
-      color: $modal-error-color;
-      background: rgba($modal-error-color, 0.1);
-    }
-
-    &.saving {
-      color: $modal-primary-color;
-      background: rgba($modal-primary-color, 0.1);
-    }
+    &.saved { color: #22c55e; }
+    &.error { color: #ef4444; }
+    &.saving { color: #667eea; }
   }
 
-  // Validation Errors & Warnings
-  .validation-errors,
-  .validation-warnings {
-    margin-bottom: 8px;
+  // Footer - same pattern as other mobile modals
+  .modal-footer-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
   }
 
-  .error-item {
-    @include mixins.validation-message($modal-error-color);
-
-    &::before {
-      content: '❌';
-      font-size: 14px;
-    }
+  .btn-cancel {
+    padding: 10px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #64748b;
+    font-size: 14px;
+    cursor: pointer;
   }
 
-  .warning-item {
-    @include mixins.validation-message($modal-warning-color);
+  .btn-save {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
 
-    &::before {
-      content: '⚠️';
-      font-size: 14px;
-    }
-  }
-
-  // Responsive adjustments
-  @media (max-width: $modal-breakpoint-tablet) {
-    .modal-container {
-      width: 98%;
-      max-height: 95vh;
-    }
-
-    .editor-tabs .tab {
-      padding: 12px 16px;
-      font-size: 13px;
-    }
-
-    .persona-textarea,
-    .persona-preview {
-      padding: 16px;
-      min-height: 300px;
-    }
-  }
-
-  @media (max-width: $modal-breakpoint-mobile) {
-    .modal-container {
-      width: 100%;
-      height: 100vh;
-      max-height: 100vh;
-      border-radius: 0;
-    }
-
-    .editor-tabs .tab {
-      padding: 10px 12px;
-      font-size: 12px;
-    }
-
-    .persona-textarea,
-    .persona-preview {
-      padding: 12px;
-      min-height: 250px;
-    }
-
-    .editor-footer {
-      padding: 24px 32px;
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 }

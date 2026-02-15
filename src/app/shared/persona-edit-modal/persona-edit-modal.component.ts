@@ -4,8 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { BaseModalComponent } from '../modals/base/base-modal.component';
 import { PersonaEditService, ValidationState, SaveState } from '../../services/persona-edit.service';
 import { Subject, debounceTime, takeUntil } from 'rxjs';
-import { ModalHeaderComponent } from '../modals/base/modal-header.component';
-import { ModalFooterComponent, ModalButton } from '../modals/base/modal-footer.component';
 
 /**
  * Modal para edição de persona
@@ -21,7 +19,7 @@ import { ModalFooterComponent, ModalButton } from '../modals/base/modal-footer.c
 @Component({
   selector: 'app-persona-edit-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalHeaderComponent, ModalFooterComponent],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './persona-edit-modal.component.html',
   styleUrls: ['./persona-edit-modal.component.scss']
@@ -67,8 +65,8 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // Recarrega a persona quando currentPersona ou instanceId mudam
-    if (changes['currentPersona'] || changes['instanceId']) {
+    // Recarrega a persona quando o modal abre ou quando currentPersona/instanceId mudam
+    if (changes['currentPersona'] || changes['instanceId'] || (changes['isVisible'] && this.isVisible)) {
       this.loadPersona();
       this.validatePersona();
     }
@@ -301,33 +299,4 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
     }
   }
 
-  /**
-   * Configura ações do footer (botões)
-   */
-  getFooterActions(): ModalButton[] {
-    return [
-      {
-        label: 'Cancelar',
-        type: 'secondary',
-        action: 'cancel'
-      },
-      {
-        label: this.saveState.status === 'saving' ? 'Salvando...' : 'Salvar',
-        type: 'primary',
-        action: 'save',
-        disabled: !this.validationState.isValid || this.saveState.status === 'saving'
-      }
-    ];
-  }
-
-  /**
-   * Handler de cliques em ações do footer
-   */
-  onFooterAction(action: string): void {
-    if (action === 'save') {
-      this.save();
-    } else if (action === 'cancel') {
-      this.close();
-    }
-  }
 }

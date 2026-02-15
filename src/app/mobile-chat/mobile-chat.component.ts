@@ -94,6 +94,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
           <div class="dock-compact" *ngIf="sidebarState === 'compact'">
             <button class="dock-btn screenplay-btn" (click)="showScreenplaySelector = true" title="Selecionar roteiro">📝</button>
             <button class="dock-btn add-conv-btn" [disabled]="!activeScreenplayId" (click)="onCreateNewConversation()" title="Nova conversa">➕</button>
+            <button class="dock-btn del-conv-btn" [disabled]="!activeConversationId" (click)="confirmDeleteConversation()" title="Excluir conversa">🗑️</button>
+            <div class="dock-divider"></div>
             <div class="dock-divider"></div>
             <div
               class="dock-conv-list"
@@ -174,6 +176,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
               </div>
             </div>
             <div class="agent-dock-spacer"></div>
+            <button class="agent-dock-btn del-agent" (click)="confirmDeleteAgent()" [disabled]="!activeAgentId" title="Remover agente">🗑️</button>
             <button class="agent-dock-btn add-agent" (click)="showAgentSelector = true" [disabled]="!activeConversationId" title="Adicionar agente">➕</button>
             <button
               class="agent-dock-btn settings-btn"
@@ -343,16 +346,16 @@ const DEFAULT_CONFIG: ConductorConfig = {
     /* ================================================ */
     :host {
       display: block;
-      width: 100%;
-      height: 100vh;
-      height: 100dvh;
+      position: fixed;
+      inset: 0;
       overflow: hidden;
     }
 
     .mobile-chat-root {
+      position: fixed;
+      inset: 0;
       display: flex;
       flex-direction: column;
-      height: 100%;
       background: #f8f9fa;
       overflow: hidden;
     }
@@ -482,7 +485,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     .conv-dock.compact {
-      width: 50px;
+      width: 62px;
     }
 
     .conv-dock.full {
@@ -498,7 +501,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     @media (min-width: 768px) {
-      .conv-dock.compact { width: 56px; }
+      .conv-dock.compact { width: 68px; }
       .conv-dock.full {
         position: relative;
         top: auto;
@@ -511,7 +514,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
     }
 
     @media (min-width: 1024px) {
-      .conv-dock.compact { width: 60px; }
+      .conv-dock.compact { width: 72px; }
     }
 
     /* COMPACT DOCK INTERNALS */
@@ -562,6 +565,12 @@ const DEFAULT_CONFIG: ConductorConfig = {
     .dock-btn.add-conv-btn {
       background: #f0fdf4;
       border-color: #86efac;
+    }
+
+    .dock-btn.del-conv-btn {
+      background: #fef2f2;
+      border-color: #fecaca;
+      font-size: 14px;
     }
 
     .dock-divider {
@@ -730,6 +739,12 @@ const DEFAULT_CONFIG: ConductorConfig = {
     .agent-dock-btn:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+    }
+
+    .agent-dock-btn.del-agent {
+      background: #fef2f2;
+      border-color: #fecaca;
+      font-size: 14px;
     }
 
     .agent-dock-btn.add-agent {
@@ -1453,6 +1468,14 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  confirmDeleteConversation(): void {
+    if (!this.activeConversationId) return;
+    const title = this.activeConversationTitle || 'esta conversa';
+    if (confirm(`Excluir "${title}"?\n\nEsta acao nao pode ser desfeita.`)) {
+      this.onDeleteConversation(this.activeConversationId);
+    }
+  }
+
   onDeleteConversation(conversationId: string): void {
     this.conversationService.deleteConversation(conversationId).subscribe({
       next: () => {
@@ -1543,14 +1566,14 @@ export class MobileChatComponent implements OnInit, OnDestroy {
                 definition: { title: conversation.active_agent.name, description: '', unicode: '' },
                 status: 'pending' as const,
                 position: { x: 0, y: 0 },
-                config: {}
+                config: { cwd: this.screenplayWorkingDirectory || undefined }
               }];
             }
 
             if (agentInList?.config?.cwd) {
               this.activeAgentCwd = agentInList.config.cwd;
             } else {
-              this.activeAgentCwd = localStorage.getItem(`agent-cwd-${this.activeAgentId}`) || null;
+              this.activeAgentCwd = localStorage.getItem(`agent-cwd-${this.activeAgentId}`) || this.screenplayWorkingDirectory || null;
             }
           } else {
             this.clearAgentState();
@@ -1608,7 +1631,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.selectedAgentDbId = agent.agent_id;
     this.selectedAgentName = agent.definition?.title || agent.emoji;
     this.selectedAgentEmoji = agent.emoji;
-    this.activeAgentCwd = agent.config?.cwd || localStorage.getItem(`agent-cwd-${agent.id}`) || null;
+    this.activeAgentCwd = agent.config?.cwd || localStorage.getItem(`agent-cwd-${agent.id}`) || this.screenplayWorkingDirectory || null;
 
     this.navigationStateService.setInstance(agent.id);
     this.loadAgentContext(agent.id);
@@ -1650,23 +1673,32 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
+  confirmDeleteAgent(): void {
+    if (!this.activeAgentId) return;
+    const name = this.selectedAgentName || 'este agente';
+    if (confirm(`Remover "${name}"?\n\nO agente sera removido da barra.`)) {
+      this.onDeleteAgentClick();
+    }
+  }
+
   onDeleteAgentClick(): void {
     if (!this.activeAgentId) return;
 
     const instanceId = this.activeAgentId;
 
-    this.agentService.deleteInstance(instanceId, true).subscribe({
-      next: () => {
-        this.contextualAgents = this.contextualAgents.filter(a => a.id !== instanceId);
+    // Remove from dock immediately
+    this.contextualAgents = this.contextualAgents.filter(a => a.id !== instanceId);
 
-        if (this.contextualAgents.length > 0) {
-          this.onDockAgentClick(this.contextualAgents[0]);
-        } else {
-          this.clearAgentState();
-        }
-      },
+    if (this.contextualAgents.length > 0) {
+      this.onDockAgentClick(this.contextualAgents[0]);
+    } else {
+      this.clearAgentState();
+    }
+
+    // Try to delete on server (fire-and-forget)
+    this.agentService.deleteInstance(instanceId, true).subscribe({
       error: (err) => {
-        console.error('❌ [MOBILE] Error deleting agent:', err);
+        console.error('❌ [MOBILE] Error deleting agent on server:', err);
       }
     });
   }
@@ -1675,7 +1707,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.agentService.getAgentContext(instanceId).subscribe({
       next: (context: AgentContext) => {
         this.activeAgentContext = context;
-        if (context.cwd) {
+        if (context.cwd && context.cwd !== '/app') {
           this.activeAgentCwd = context.cwd;
         }
       },
@@ -1734,7 +1766,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       agentDbId: this.selectedAgentDbId,
       agentName: this.selectedAgentName || 'Unknown',
       agentEmoji: this.selectedAgentEmoji || '🤖',
-      cwd: this.activeAgentCwd || undefined,
+      cwd: this.activeAgentCwd || this.screenplayWorkingDirectory || undefined,
       screenplayId: this.activeScreenplayId || undefined,
       instanceId: this.activeAgentId
     };

@@ -48,6 +48,17 @@ import { ScreenplayStorage, Screenplay } from '../../services/screenplay-storage
               (touchend)="$event.stopPropagation()">
           </div>
 
+          <div class="field-row">
+            <label class="field-label">Caminho do arquivo</label>
+            <input
+              class="field-input field-path"
+              type="text"
+              inputmode="url"
+              [(ngModel)]="importPath"
+              placeholder="/caminho/para/roteiro.md"
+              (touchend)="$event.stopPropagation()">
+          </div>
+
           <div class="field-row content-row">
             <label class="field-label">Conteudo (Markdown)</label>
             <textarea
@@ -210,6 +221,12 @@ import { ScreenplayStorage, Screenplay } from '../../services/screenplay-storage
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
     }
 
+    .field-path {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 13px;
+      color: #64748b;
+    }
+
     .field-content {
       flex: 1;
       min-height: 200px;
@@ -276,6 +293,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
   name = '';
   description = '';
   content = '';
+  importPath = '';
   isLoading = false;
   isSaving = false;
 
@@ -289,6 +307,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         this.name = '';
         this.description = '';
         this.content = '';
+        this.importPath = '';
         this.isLoading = false;
       }
     }
@@ -301,6 +320,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         this.name = sp.name || '';
         this.description = sp.description || '';
         this.content = sp.content || '';
+        this.importPath = sp.importPath || '';
         this.isLoading = false;
       },
       error: (err) => {
@@ -319,7 +339,8 @@ export class ScreenplayEditorModalComponent implements OnChanges {
       this.screenplayStorage.updateScreenplay(this.screenplayId, {
         name: this.name.trim(),
         description: this.description?.trim() || undefined,
-        content: this.content
+        content: this.content,
+        importPath: this.importPath?.trim() || undefined
       }).subscribe({
         next: () => {
           this.isSaving = false;
@@ -335,7 +356,8 @@ export class ScreenplayEditorModalComponent implements OnChanges {
       this.screenplayStorage.createScreenplay({
         name: this.name.trim(),
         description: this.description?.trim() || undefined,
-        content: this.content
+        content: this.content,
+        importPath: this.importPath?.trim() || undefined
       }).subscribe({
         next: (created) => {
           this.isSaving = false;
