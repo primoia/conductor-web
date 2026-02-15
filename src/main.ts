@@ -36,6 +36,10 @@ bootstrapApplication(App, {
       { path: 'city/ministers', component: MinistersPanel },
       { path: 'city/council', component: WeeklyCouncil },
       { path: 'city/neighborhood', component: NeighborhoodView },
+      {
+        path: 'm',
+        loadComponent: () => import('./app/mobile-chat/mobile-chat.component').then(m => m.MobileChatComponent)
+      },
       { path: '**', redirectTo: '' }
     ]),
     {

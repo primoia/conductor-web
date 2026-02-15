@@ -472,14 +472,38 @@ export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
 
   copyToClipboard(message: Message): void {
     if (!message || !message.content) return;
-    navigator.clipboard.writeText(message.content).then(() => {
+
+    const onSuccess = () => {
       this.copiedMessageId = message.id;
       setTimeout(() => {
         this.copiedMessageId = null;
       }, 2000);
-    }).catch(err => {
-      console.error('Failed to copy text: ', err);
-    });
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(message.content).then(onSuccess).catch(() => {
+        this.fallbackCopy(message.content, onSuccess);
+      });
+    } else {
+      this.fallbackCopy(message.content, onSuccess);
+    }
+  }
+
+  private fallbackCopy(text: string, onSuccess: () => void): void {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      onSuccess();
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+    document.body.removeChild(textarea);
   }
 
   /**

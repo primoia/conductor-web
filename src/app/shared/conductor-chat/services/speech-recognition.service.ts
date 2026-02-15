@@ -119,27 +119,10 @@ export class SpeechRecognitionService {
 
     this.transcriptSubject.next('');
 
-    // Check permissions first
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'microphone' as PermissionName })
-        .then((result) => {
-          console.log('Microphone permission state:', result.state);
-
-          if (result.state === 'denied') {
-            console.warn('Permissão do microfone negada pelo navegador');
-            return;
-          }
-
-          this.startRecognitionInstance();
-        })
-        .catch((error) => {
-          console.log('Permissions API error:', error, '- trying direct start');
-          this.startRecognitionInstance();
-        });
-    } else {
-      console.log('No permissions API - trying direct start');
-      this.startRecognitionInstance();
-    }
+    // Always try direct start - navigator.permissions can report 'denied'
+    // on HTTP (non-secure) contexts even when the Speech API still works.
+    // Let the recognition.onerror handler deal with actual permission failures.
+    this.startRecognitionInstance();
   }
 
   private startRecognitionInstance(): void {

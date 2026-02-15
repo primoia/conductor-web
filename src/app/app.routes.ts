@@ -32,6 +32,10 @@ export const routes: Routes = [
     component: NeighborhoodView
   },
   {
+    path: 'm',
+    loadComponent: () => import('./mobile-chat/mobile-chat.component').then(m => m.MobileChatComponent)
+  },
+  {
     path: '',
     redirectTo: '/screenplay',
     pathMatch: 'full'
