@@ -3615,8 +3615,9 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     console.log('💬 [SIDEBAR] Conversas compactas visíveis');
     this.saveMobileSidebarState();
 
-    // 🔥 Carregar conversas quando mostrar pela primeira vez
-    if (this.activeScreenplayId && this._conversations.length === 0) {
+    // 🔥 SEMPRE carregar conversas ao mostrar (não só quando vazia)
+    // Isso garante que conversas recém-criadas apareçam na dock compacta
+    if (this.activeScreenplayId) {
       this.loadConversations();
     }
   }
@@ -3625,9 +3626,19 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * 🔥 NOVO: Cria nova conversa SEM expandir a sidebar
    */
   createNewConversationWithoutExpanding(): void {
-    // Simplesmente delega para o método existente sem mudar o estado
+    console.log('➕ [SIDEBAR] Criando nova conversa (sidebar permanece compact)');
+
+    // Criar conversa e garantir que a lista seja atualizada
     this.onCreateNewConversation();
-    console.log('➕ [SIDEBAR] Nova conversa criada (sidebar permanece compact)');
+
+    // 🔥 FIX: Forçar reload da lista após um pequeno delay
+    // para garantir que a nova conversa apareça na dock compacta
+    setTimeout(() => {
+      if (this.sidebarState === 'compact' && this.activeScreenplayId) {
+        this.loadConversations();
+        console.log('✅ [SIDEBAR] Lista de conversas recarregada em modo compact');
+      }
+    }, 300);
   }
 
   /**

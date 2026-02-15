@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription } from 'rxjs';
@@ -22,6 +22,7 @@ import { ScreenplayStorage, ScreenplayListItem } from '../../services/screenplay
         <!-- Search -->
         <div class="search-bar">
           <input
+            #searchInput
             type="text"
             class="search-input"
             inputmode="text"
@@ -29,6 +30,7 @@ import { ScreenplayStorage, ScreenplayListItem } from '../../services/screenplay
             [(ngModel)]="searchQuery"
             (ngModelChange)="onSearchChange($event)"
             (touchend)="$event.stopPropagation()"
+            (pointerup)="onSearchPointerUp($event)"
           />
         </div>
 
@@ -361,6 +363,7 @@ export class ScreenplaySelectorModalComponent implements OnChanges, OnDestroy {
   @Output() screenplaySelected = new EventEmitter<string>();
   @Output() editScreenplay = new EventEmitter<string | null>(); // null = create new
   @Output() closeModal = new EventEmitter<void>();
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
 
   screenplays: ScreenplayListItem[] = [];
   searchQuery = '';
@@ -417,6 +420,7 @@ export class ScreenplaySelectorModalComponent implements OnChanges, OnDestroy {
     this.screenplayStorage.getScreenplays(search, this.currentPage, 20).subscribe({
       next: (response) => {
         if (this.currentPage === 1) {
+          // Backend já ordena por lastUsedAt DESC, então não precisa re-ordenar
           this.screenplays = response.items;
         } else {
           this.screenplays = [...this.screenplays, ...response.items];
@@ -459,11 +463,33 @@ export class ScreenplaySelectorModalComponent implements OnChanges, OnDestroy {
   }
 
   onSelect(id: string): void {
+    // Atualiza lastUsedAt no backend
+    this.screenplayStorage.markScreenplayAsUsed(id).subscribe({
+      next: () => {
+        console.log(`[ScreenplaySelector] Marked screenplay ${id} as used`);
+      },
+      error: (err) => {
+        console.error('[ScreenplaySelector] Error marking screenplay as used:', err);
+        // Não bloqueia a seleção mesmo se falhar
+      }
+    });
+
     this.screenplaySelected.emit(id);
   }
 
   onClose(): void {
     this.closeModal.emit();
+  }
+
+  onSearchPointerUp(event: PointerEvent): void {
+    if (event.pointerType === 'pen') {
+      // Re-focus the input to force keyboard on stylus
+      const el = this.searchInput?.nativeElement;
+      if (el) {
+        el.blur();
+        setTimeout(() => el.focus(), 50);
+      }
+    }
   }
 
   getDisplayPath(sp: ScreenplayListItem): string {

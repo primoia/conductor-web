@@ -15,6 +15,7 @@ export interface ScreenplayListItem {
   version: number;
   createdAt: string;
   updatedAt: string;
+  lastUsedAt?: string; // Timestamp da última vez que o screenplay foi usado
   isDeleted: boolean;
   filePath?: string; // Caminho do arquivo no disco (mantido para compatibilidade)
   importPath?: string; // Novo: caminho de importação
@@ -332,6 +333,32 @@ export class ScreenplayStorage {
       catchError(error => {
         console.error(`[ScreenplayStorage] Error syncing file path:`, error);
         return throwError(() => new Error('Failed to sync file path'));
+      })
+    );
+  }
+
+  /**
+   * Mark screenplay as used (updates lastUsedAt timestamp)
+   * @param id Screenplay ID
+   */
+  markScreenplayAsUsed(id: string): Observable<void> {
+    return from(
+      fetch(`${this.baseUrl}/api/screenplays/${id}/mark-as-used`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to mark screenplay as used: ${response.status} ${response.statusText}`);
+        }
+        // 204 No Content returns nothing
+        return;
+      })
+    ).pipe(
+      catchError(error => {
+        console.error(`[ScreenplayStorage] Error marking screenplay ${id} as used:`, error);
+        return throwError(() => new Error('Failed to mark screenplay as used'));
       })
     );
   }

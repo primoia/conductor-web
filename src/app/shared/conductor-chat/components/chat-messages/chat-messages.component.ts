@@ -33,7 +33,7 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
         </div>
 
         <!-- Bot Messages: completed/normal (with Markdown and Copy Button) -->
-        <div *ngIf="message.type === 'bot' && message.status !== 'pending'" class="message-content bot-content-wrapper">
+        <div *ngIf="message.type === 'bot' && message.status !== 'pending'" class="message-content bot-content-wrapper" (dblclick)="onReadMode(message)">
           <div class="message-actions">
             <button class="msg-gear-btn" (click)="toggleMessageMenu(message.id, $event)">⚙️</button>
             <div class="msg-menu" *ngIf="activeMenuMessageId === message.id">
@@ -367,6 +367,7 @@ export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
 
   @Output() messageToggled = new EventEmitter<Message>();
   @Output() messageHidden = new EventEmitter<Message>();
+  @Output() messageReadMode = new EventEmitter<Message>();
 
   @ViewChild('messagesContainer') messagesContainer?: ElementRef;
 
@@ -377,6 +378,12 @@ export class ChatMessagesComponent implements AfterViewChecked, OnChanges {
   activeMenuMessageId: string | null = null;
 
   constructor(private sanitizer: DomSanitizer) {}
+
+  onReadMode(message: Message): void {
+    if (message && message.content) {
+      this.messageReadMode.emit(message);
+    }
+  }
 
   toggleMessageMenu(messageId: string | undefined, event: Event): void {
     event.stopPropagation();

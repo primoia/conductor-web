@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener } fro
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { marked } from 'marked';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Subscription } from 'rxjs';
 import { ChatMessagesComponent } from '../shared/conductor-chat/components/chat-messages/chat-messages.component';
@@ -68,11 +70,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
           />
           <span class="screenplay-name">{{ activeScreenplayTitle || 'Selecionar Roteiro' }}</span>
         </div>
-        <button class="top-btn top-gear-btn" (click)="showConvMenu = !showConvMenu" title="Conversas">
-          <span>💬</span>
-        </button>
-        <button class="top-btn top-gear-btn" (click)="showTopMenu = !showTopMenu" title="Opcoes">
-          <span>⚙️</span>
+        <button class="top-btn top-gear-btn" (click)="showTopMenu = !showTopMenu" title="Roteiro">
+          <span>🎬</span>
         </button>
       </div>
 
@@ -158,6 +157,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
           <!-- CONVERSATION INFO BAR -->
           <div class="conv-info-bar" *ngIf="activeConversationId">
             <span class="conv-info-title">{{ activeConversationTitle || 'Sem titulo' }}</span>
+            <button class="conv-info-gear" (click)="$event.stopPropagation(); showConvMenu = !showConvMenu" title="Conversas">💬</button>
           </div>
 
           <!-- CHAT MESSAGES -->
@@ -172,6 +172,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
               [activeConversationId]="activeConversationId || ''"
               (messageToggled)="onMessageToggled($event)"
               (messageHidden)="onMessageHidden($event)"
+              (messageReadMode)="openReadMode($event)"
             />
           </div>
 
@@ -352,6 +353,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
             <button class="conv-edit-cancel" (click)="showConvEditModal = false">Cancelar</button>
             <button class="conv-edit-save" (click)="saveConversationEdit()" [disabled]="!editConvTitle || editConvTitle.trim().length < 3">Salvar</button>
           </div>
+        </div>
+      </div>
+
+      <!-- READ MODE MODAL -->
+      <div class="read-mode-backdrop" *ngIf="readModeMessage" (click)="readModeMessage = null">
+        <div class="read-mode-container" (click)="$event.stopPropagation()">
+          <div class="read-mode-header">
+            <strong class="read-mode-agent">{{ readModeMessage.agent ? (readModeMessage.agent.emoji || '') + ' ' + readModeMessage.agent.name : 'Conductor' }}</strong>
+            <button class="read-mode-close" (click)="readModeMessage = null">✕</button>
+          </div>
+          <div class="read-mode-body" [innerHTML]="formatReadModeContent(readModeMessage.content)"></div>
         </div>
       </div>
     </div>
@@ -1049,30 +1061,49 @@ const DEFAULT_CONFIG: ConductorConfig = {
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #eef2ff, #f0ebff);
+      border-bottom: 1px solid #d4d8f0;
       cursor: pointer;
       flex-shrink: 0;
       transition: background 0.15s;
     }
 
     .conv-info-bar:hover {
-      background: #f0f3f7;
+      background: linear-gradient(135deg, #e6eaff, #e8e2ff);
     }
 
     .conv-info-bar:active {
-      background: #e8ecf1;
+      background: linear-gradient(135deg, #dce1ff, #dfd8ff);
     }
 
     .conv-info-title {
       flex: 1;
       font-size: 14px;
       font-weight: 500;
-      color: #475569;
+      color: #3b3f6b;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       min-width: 0;
+    }
+
+    .conv-info-gear {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .conv-info-gear:hover {
+      background: #e2e8f0;
     }
 
     .conv-info-edit {
@@ -1273,6 +1304,163 @@ const DEFAULT_CONFIG: ConductorConfig = {
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    /* ================================================ */
+    /* READ MODE MODAL */
+    /* ================================================ */
+    .read-mode-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 2200;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .read-mode-container {
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    @media (min-width: 768px) {
+      .read-mode-backdrop {
+        align-items: center;
+        padding: 24px;
+      }
+      .read-mode-container {
+        width: 92%;
+        max-width: 900px;
+        height: 90vh;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    .read-mode-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .read-mode-agent {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .read-mode-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .read-mode-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .read-mode-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1e293b;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .read-mode-body ::ng-deep p {
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+
+    .read-mode-body ::ng-deep pre {
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 14px;
+      overflow-x: auto;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      margin: 8px 0;
+    }
+
+    .read-mode-body ::ng-deep code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+    }
+
+    .read-mode-body ::ng-deep pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .read-mode-body ::ng-deep ul,
+    .read-mode-body ::ng-deep ol {
+      padding-left: 24px;
+      margin-bottom: 12px;
+    }
+
+    .read-mode-body ::ng-deep h1,
+    .read-mode-body ::ng-deep h2,
+    .read-mode-body ::ng-deep h3 {
+      font-weight: 600;
+      margin: 16px 0 8px;
+      color: #1a202c;
+    }
+
+    .read-mode-body ::ng-deep h1 { font-size: 22px; }
+    .read-mode-body ::ng-deep h2 { font-size: 19px; }
+    .read-mode-body ::ng-deep h3 { font-size: 16px; }
+
+    .read-mode-body ::ng-deep blockquote {
+      border-left: 3px solid #667eea;
+      margin: 8px 0;
+      padding: 8px 16px;
+      color: #475569;
+      background: #f8faff;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .read-mode-body ::ng-deep table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
+    }
+
+    .read-mode-body ::ng-deep th,
+    .read-mode-body ::ng-deep td {
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .read-mode-body ::ng-deep th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
   `]
 })
 export class MobileChatComponent implements OnInit, OnDestroy {
@@ -1329,6 +1517,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   activeConversationTitle = '';
   editConvTitle = '';
   editConvContext = '';
+  readModeMessage: Message | null = null;
 
   // Message handling
   private messageContent = '';
@@ -1365,7 +1554,8 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     private gamificationEventsService: GamificationEventsService,
     private screenplayStorage: ScreenplayStorage,
     private notificationService: NotificationService,
-    private speechService: SpeechRecognitionService
+    private speechService: SpeechRecognitionService,
+    private sanitizer: DomSanitizer
   ) {}
 
   // ==========================================
@@ -1426,6 +1616,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {
+    if (this.readModeMessage) { this.readModeMessage = null; return; }
     if (this.showFooterMenu) { this.showFooterMenu = false; return; }
     if (this.showConvEditModal) { this.showConvEditModal = false; return; }
     if (this.showConvMenu) { this.showConvMenu = false; return; }
@@ -1484,15 +1675,16 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.showScreenplayEditor = true;
   }
 
-  onScreenplayEditorSaved(screenplayId: string): void {
-    // Reload selector list
-    this.showScreenplaySelector = false;
-    setTimeout(() => {
-      this.showScreenplaySelector = true;
-    }, 100);
+  async onScreenplayEditorSaved(screenplayId: string): Promise<void> {
+    const isNewScreenplay = this.activeScreenplayId !== screenplayId;
 
-    // If editing the active screenplay, reload title
-    if (screenplayId === this.activeScreenplayId) {
+    if (isNewScreenplay) {
+      // New screenplay created - select it and go straight to chat
+      await this.navigationStateService.setScreenplay(screenplayId);
+      this.sidebarState = 'compact';
+      this.showScreenplaySelector = false;
+    } else {
+      // Editing existing screenplay - reload title
       this.loadScreenplayTitle(screenplayId);
     }
   }
@@ -1519,6 +1711,12 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
   onCreateNewConversation(): void {
     if (!this.activeScreenplayId) return;
+
+    // 📱 FIX: Ensure sidebar is visible before creating conversation
+    if (this.sidebarState === 'hidden') {
+      this.sidebarState = 'compact';
+      console.log('📋 [MOBILE] Sidebar auto-shown before creating conversation');
+    }
 
     const title = `Conversa ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
@@ -1598,6 +1796,14 @@ export class MobileChatComponent implements OnInit, OnDestroy {
           }
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         });
+
+        // 📱 FIX: Always show sidebar in compact mode when conversations are loaded
+        this.sidebarState = 'compact';
+
+        // Auto-create first conversation if screenplay has none
+        if (this.conversations.length === 0) {
+          this.onCreateNewConversation();
+        }
       },
       error: () => { this.conversations = []; }
     });
@@ -2062,6 +2268,18 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       message.isHidden = false;
       if (userMessage) userMessage.isHidden = false;
     }
+  }
+
+  openReadMode(message: Message): void {
+    if (message && message.content) {
+      this.readModeMessage = message;
+    }
+  }
+
+  formatReadModeContent(content: string): SafeHtml {
+    if (!content) return '';
+    const rawHtml = marked(content) as string;
+    return this.sanitizer.bypassSecurityTrustHtml(rawHtml);
   }
 
   // ==========================================

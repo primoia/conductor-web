@@ -23,9 +23,11 @@ import { LoggingService } from './logging.service';
 export interface ConductorChatComponent {
   activeScreenplayId: string | null;
   activeConversationId: string | null;
+  sidebarState: 'hidden' | 'compact' | 'full';  // 📱 Para controle da sidebar mobile
   createNewConversationForScreenplay(): void;
   clear(): void;
   setActiveConversation(conversationId: string | null): void;  // 🔒 BUG FIX: Adicionar método
+  isMobile(): boolean;  // 📱 Detecta se está em modo mobile portrait
   conversationListComponent?: any;
 }
 
@@ -167,6 +169,16 @@ export class ConversationManagementService {
           conductorChat.conversationListComponent.refresh();
         }
 
+        // 📱 FIX: Em modo mobile portrait, mostrar sidebar automaticamente ao carregar conversas
+        // Isso resolve o bug onde a sidebar ficava hidden mesmo após criar/abrir roteiro
+        if (conductorChat.isMobile() && conductorChat.sidebarState === 'hidden') {
+          conductorChat.sidebarState = 'compact';
+          this.logging.info(
+            '📱 [CONVERSATION-MGT] Mobile portrait: sidebar automaticamente alterada para compact',
+            'ConversationManagementService'
+          );
+        }
+
         // Se há conversa preferencial da URL, não auto-selecionar
         if (preferredConversationId) {
           this.logging.info(
@@ -211,6 +223,16 @@ export class ConversationManagementService {
             `🆕 [CONVERSATION-MGT] Criando conversa para roteiro sem conversas`,
             'ConversationManagementService'
           );
+
+          // 📱 FIX: Em modo mobile, mostrar sidebar ao criar primeira conversa
+          if (conductorChat.isMobile() && conductorChat.sidebarState === 'hidden') {
+            conductorChat.sidebarState = 'compact';
+            this.logging.info(
+              '📱 [CONVERSATION-MGT] Mobile portrait: sidebar alterada para compact antes de criar conversa',
+              'ConversationManagementService'
+            );
+          }
+
           conductorChat.createNewConversationForScreenplay();
         }
       },
@@ -223,6 +245,15 @@ export class ConversationManagementService {
 
         // Em caso de erro, criar conversa automaticamente (só se não há URL param)
         if (!preferredConversationId) {
+          // 📱 FIX: Em modo mobile, mostrar sidebar mesmo em caso de erro
+          if (conductorChat.isMobile() && conductorChat.sidebarState === 'hidden') {
+            conductorChat.sidebarState = 'compact';
+            this.logging.info(
+              '📱 [CONVERSATION-MGT] Mobile portrait: sidebar alterada para compact (erro)',
+              'ConversationManagementService'
+            );
+          }
+
           conductorChat.createNewConversationForScreenplay();
         }
       }

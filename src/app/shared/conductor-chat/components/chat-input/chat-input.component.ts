@@ -13,12 +13,20 @@ import Placeholder from '@tiptap/extension-placeholder';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="chat-input-wrapper" (click)="focusEditor()">
-      <!-- Editor TipTap - APENAS o editor, sem controls -->
-      <div
-        #editorContainer
-        class="tiptap-editor-container"
-      ></div>
+    <div class="chat-input-wrapper">
+      <!-- Hidden input to force keyboard on stylus -->
+      <input #penHelper class="pen-keyboard-helper" type="text" inputmode="text" aria-hidden="true" tabindex="-1">
+      <div class="editor-row">
+        <!-- Editor TipTap -->
+        <div
+          #editorContainer
+          class="tiptap-editor-container"
+          (click)="focusEditor()"
+          (pointerup)="onPointerUp($event)"
+        ></div>
+        <!-- Keyboard trigger button -->
+        <button class="keyboard-btn" (click)="focusEditorWithKeyboard()" title="Abrir teclado">⌨️</button>
+      </div>
     </div>
   `,
   styles: [`
@@ -41,6 +49,47 @@ import Placeholder from '@tiptap/extension-placeholder';
       position: relative;
     }
 
+    .pen-keyboard-helper {
+      position: absolute;
+      opacity: 0;
+      height: 0;
+      width: 0;
+      padding: 0;
+      border: 0;
+      pointer-events: none;
+    }
+
+    .editor-row {
+      display: flex;
+      align-items: stretch;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .keyboard-btn {
+      width: 36px;
+      flex-shrink: 0;
+      border: none;
+      background: #f0f3f7;
+      border-left: 1px solid #e2e8f0;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .keyboard-btn:hover {
+      background: #e2e8f0;
+    }
+
+    .keyboard-btn:active {
+      background: #cbd5e0;
+    }
+
     /* ============================================ */
     /* EDITOR CONTAINER - Ocupa 100% do wrapper */
     /* ============================================ */
@@ -48,7 +97,8 @@ import Placeholder from '@tiptap/extension-placeholder';
     /* CRITICAL: min-height para garantir 5 linhas visíveis */
     /* CRITICAL: overflow-y: auto - scroll quando conteúdo excede altura */
     .tiptap-editor-container {
-      width: 100%;
+      flex: 1;
+      min-width: 0;
       height: 100%; /* CRITICAL: Ocupa 100% da altura do wrapper */
       overflow-y: auto; /* Scroll quando conteúdo excede altura */
       overflow-x: hidden;
@@ -220,6 +270,7 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
   @Output() contentHeightChanged = new EventEmitter<number>(); // 🔥 NOVO: Emite altura do conteúdo
 
   @ViewChild('editorContainer') editorContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('penHelper') penHelper!: ElementRef<HTMLInputElement>;
 
   editor!: Editor;
 
@@ -363,11 +414,39 @@ export class ChatInputComponent implements OnInit, OnChanges, OnDestroy, AfterVi
   }
 
   /**
+   * Handle stylus/pen pointer events - force virtual keyboard
+   */
+  onPointerUp(event: PointerEvent): void {
+    if (event.pointerType === 'pen') {
+      event.preventDefault();
+      this.focusEditorWithKeyboard();
+    }
+  }
+
+  /**
    * Focus editor when clicking anywhere in the input area
    */
   focusEditor(): void {
     if (this.editor && !this.isLoading) {
-      this.editor.commands.focus('end'); // Focus at end of content
+      this.editor.commands.focus('end');
+    }
+  }
+
+  /**
+   * Force virtual keyboard by focusing a real input first, then redirecting to editor
+   */
+  focusEditorWithKeyboard(): void {
+    if (!this.editor || this.isLoading) return;
+    const helper = this.penHelper?.nativeElement;
+    if (helper) {
+      // Focus a real <input> to trigger the OS virtual keyboard
+      helper.style.pointerEvents = 'auto';
+      helper.focus();
+      // Then redirect focus to the editor
+      setTimeout(() => {
+        helper.style.pointerEvents = 'none';
+        this.editor.commands.focus('end');
+      }, 50);
     }
   }
 
