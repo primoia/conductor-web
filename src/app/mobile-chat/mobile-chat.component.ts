@@ -1854,10 +1854,16 @@ export class MobileChatComponent implements OnInit, OnDestroy {
         this.activeAgentContext = context;
         if (context.cwd && context.cwd !== '/app') {
           this.activeAgentCwd = context.cwd;
+        } else if (!this.activeAgentCwd) {
+          // Fallback: never leave cwd null if we have screenplayWorkingDirectory
+          this.activeAgentCwd = this.screenplayWorkingDirectory || null;
         }
       },
       error: () => {
         this.activeAgentContext = null;
+        if (!this.activeAgentCwd) {
+          this.activeAgentCwd = this.screenplayWorkingDirectory || null;
+        }
       }
     });
   }
@@ -1915,6 +1921,12 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       screenplayId: this.activeScreenplayId || undefined,
       instanceId: this.activeAgentId
     };
+
+    // Persist cwd to localStorage so it survives conversation reloads
+    const effectiveCwd = params.cwd;
+    if (effectiveCwd && this.activeAgentId) {
+      localStorage.setItem(`agent-cwd-${this.activeAgentId}`, effectiveCwd);
+    }
 
     const callbacks: MessageHandlingCallbacks = {
       onProgressUpdate: (message: string, instanceId: string) => {

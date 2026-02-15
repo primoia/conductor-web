@@ -49,13 +49,25 @@ import { ScreenplayStorage, Screenplay } from '../../services/screenplay-storage
           </div>
 
           <div class="field-row">
+            <label class="field-label">Diretorio de trabalho (CWD) <span class="required">*</span></label>
+            <input
+              class="field-input field-path"
+              type="text"
+              inputmode="url"
+              [(ngModel)]="workingDirectory"
+              placeholder="/mnt/ramdisk/meu-projeto"
+              (touchend)="$event.stopPropagation()">
+            <span class="field-hint">Caminho absoluto onde os agentes executam comandos</span>
+          </div>
+
+          <div class="field-row">
             <label class="field-label">Caminho do arquivo</label>
             <input
               class="field-input field-path"
               type="text"
               inputmode="url"
               [(ngModel)]="importPath"
-              placeholder="/caminho/para/roteiro.md"
+              placeholder="/caminho/para/roteiro.md (opcional)"
               (touchend)="$event.stopPropagation()">
           </div>
 
@@ -76,7 +88,7 @@ import { ScreenplayStorage, Screenplay } from '../../services/screenplay-storage
           <button
             class="btn-save"
             (click)="save()"
-            [disabled]="!name || name.trim().length < 2 || isSaving">
+            [disabled]="!name || name.trim().length < 2 || !workingDirectory || workingDirectory.trim().length < 2 || isSaving">
             {{ isSaving ? 'Salvando...' : 'Salvar' }}
           </button>
         </div>
@@ -207,6 +219,15 @@ import { ScreenplayStorage, Screenplay } from '../../services/screenplay-storage
       color: #475569;
     }
 
+    .required {
+      color: #ef4444;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
     .field-input {
       padding: 10px 12px;
       border: 1px solid #e2e8f0;
@@ -294,6 +315,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
   description = '';
   content = '';
   importPath = '';
+  workingDirectory = '';
   isLoading = false;
   isSaving = false;
 
@@ -308,6 +330,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         this.description = '';
         this.content = '';
         this.importPath = '';
+        this.workingDirectory = '/mnt/ramdisk/primoia-main/primoia';
         this.isLoading = false;
       }
     }
@@ -321,6 +344,7 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         this.description = sp.description || '';
         this.content = sp.content || '';
         this.importPath = sp.importPath || '';
+        this.workingDirectory = sp.working_directory || sp.workingDirectory || '';
         this.isLoading = false;
       },
       error: (err) => {
@@ -340,7 +364,8 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         name: this.name.trim(),
         description: this.description?.trim() || undefined,
         content: this.content,
-        importPath: this.importPath?.trim() || undefined
+        importPath: this.importPath?.trim() || undefined,
+        working_directory: this.workingDirectory?.trim() || undefined
       }).subscribe({
         next: () => {
           this.isSaving = false;
@@ -357,7 +382,8 @@ export class ScreenplayEditorModalComponent implements OnChanges {
         name: this.name.trim(),
         description: this.description?.trim() || undefined,
         content: this.content,
-        importPath: this.importPath?.trim() || undefined
+        importPath: this.importPath?.trim() || undefined,
+        working_directory: this.workingDirectory.trim()
       }).subscribe({
         next: (created) => {
           this.isSaving = false;
