@@ -338,27 +338,23 @@ export class ScreenplayStorage {
   }
 
   /**
-   * Mark screenplay as used (updates lastUsedAt timestamp)
+   * Mark screenplay as used (updates lastUsedAt timestamp on backend)
    * @param id Screenplay ID
    */
   markScreenplayAsUsed(id: string): Observable<void> {
     return from(
       fetch(`${this.baseUrl}/api/screenplays/${id}/mark-as-used`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       }).then(response => {
         if (!response.ok) {
-          throw new Error(`Failed to mark screenplay as used: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to mark screenplay as used: ${response.status}`);
         }
-        // 204 No Content returns nothing
-        return;
       })
     ).pipe(
       catchError(error => {
-        console.error(`[ScreenplayStorage] Error marking screenplay ${id} as used:`, error);
-        return throwError(() => new Error('Failed to mark screenplay as used'));
+        console.warn(`[ScreenplayStorage] mark-as-used failed for ${id}:`, error.message);
+        return of(undefined);
       })
     );
   }

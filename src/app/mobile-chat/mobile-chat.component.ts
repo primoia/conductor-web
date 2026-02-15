@@ -288,12 +288,14 @@ const DEFAULT_CONFIG: ConductorConfig = {
       <app-agent-events-modal
         [isVisible]="showAgentEvents"
         [filterMode]="'result'"
+        (eventSelected)="onEventNavigate($event)"
         (closeModal)="showAgentEvents = false">
       </app-agent-events-modal>
 
       <app-agent-events-modal
         [isVisible]="showDebugEvents"
         [filterMode]="'debug'"
+        (eventSelected)="onEventNavigate($event)"
         (closeModal)="showDebugEvents = false">
       </app-agent-events-modal>
 
@@ -2267,6 +2269,31 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     } catch {
       message.isHidden = false;
       if (userMessage) userMessage.isHidden = false;
+    }
+  }
+
+  async onEventNavigate(event: GamificationEvent): Promise<void> {
+    const meta = event.meta as Record<string, unknown> | undefined;
+    const screenplayId = meta?.['screenplay_id'] as string | undefined;
+    const conversationId = meta?.['conversation_id'] as string | undefined;
+    const instanceId = meta?.['instance_id'] as string | undefined;
+
+    // 1. Load screenplay if different from current
+    if (screenplayId && screenplayId !== this.activeScreenplayId) {
+      await this.navigationStateService.setScreenplay(screenplayId);
+    }
+
+    // 2. Select conversation if provided
+    if (conversationId && conversationId !== this.activeConversationId) {
+      this.onSelectConversation(conversationId);
+    }
+
+    // 3. Select agent instance if provided
+    if (instanceId) {
+      const agent = this.contextualAgents.find(a => a.id === instanceId);
+      if (agent) {
+        this.onDockAgentClick(agent);
+      }
     }
   }
 

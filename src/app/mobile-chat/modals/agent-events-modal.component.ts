@@ -45,7 +45,9 @@ import { GamificationEventsService, GamificationEvent } from '../../services/gam
             [class.info]="event.level === 'info'"
             [class.error]="event.severity === 'error'"
             [class.processing]="event.status === 'processing'"
-            [class.completed]="event.status === 'completed'">
+            [class.completed]="event.status === 'completed'"
+            [class.clickable]="hasNavigation(event)"
+            (click)="onEventClick(event)">
             <div class="event-row">
               <span class="event-emoji">{{ event.agentEmoji || getStatusEmoji(event) }}</span>
               <div class="event-content">
@@ -55,6 +57,7 @@ import { GamificationEventsService, GamificationEvent } from '../../services/gam
                   <span class="event-agent" *ngIf="event.agentName">{{ event.agentName }}</span>
                   <span class="event-time">{{ formatTime(event.timestamp) }}</span>
                   <span class="event-status" *ngIf="event.status">{{ event.status }}</span>
+                  <span class="event-nav" *ngIf="hasNavigation(event)">🔗</span>
                 </div>
               </div>
             </div>
@@ -270,12 +273,31 @@ import { GamificationEventsService, GamificationEvent } from '../../services/gam
       font-size: 10px;
       text-transform: uppercase;
     }
+
+    .event-card.clickable {
+      cursor: pointer;
+    }
+
+    .event-card.clickable:hover {
+      border-color: #667eea;
+      background: #f8faff;
+    }
+
+    .event-card.clickable:active {
+      background: #eef2ff;
+    }
+
+    .event-nav {
+      margin-left: auto;
+      font-size: 12px;
+    }
   `]
 })
 export class AgentEventsModalComponent implements OnInit, OnDestroy {
   @Input() isVisible = false;
   @Input() filterMode: 'all' | 'result' | 'debug' = 'all';
   @Output() closeModal = new EventEmitter<void>();
+  @Output() eventSelected = new EventEmitter<GamificationEvent>();
 
   events: GamificationEvent[] = [];
   activeFilter: 'all' | 'result' | 'debug' = 'all';
@@ -320,6 +342,18 @@ export class AgentEventsModalComponent implements OnInit, OnDestroy {
 
   onClose(): void {
     this.closeModal.emit();
+  }
+
+  hasNavigation(event: GamificationEvent): boolean {
+    const meta = event.meta;
+    return !!(meta?.['screenplay_id'] || meta?.['conversation_id']);
+  }
+
+  onEventClick(event: GamificationEvent): void {
+    if (this.hasNavigation(event)) {
+      this.eventSelected.emit(event);
+      this.closeModal.emit();
+    }
   }
 
   getStatusEmoji(event: GamificationEvent): string {
