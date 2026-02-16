@@ -111,24 +111,30 @@ export class GamificationEventsService {
     const taskId = (event.meta?.['task_id'] || event.meta?.['execution_id']) as string | undefined;
 
     if (!skipDuplicateCheck && taskId) {
-      // If we've seen this task_id before, UPDATE the existing event instead of creating new
       if (this.seenExecutionIds.has(taskId)) {
-        const newStatus = event.status;
-        console.log(`🔄 Updating event for task_id: ${taskId} -> status: ${newStatus}`);
-
-        const list = this.eventsSubject.value.map(ev => {
+        // Find existing event to check if level changed
+        const existing = this.eventsSubject.value.find(ev => {
           const evTaskId = ev.meta?.['task_id'] || ev.meta?.['execution_id'];
-          if (evTaskId === taskId) {
-            return {
-              ...ev,
-              ...event,
-              id: ev.id // Keep original id for ordering
-            };
-          }
-          return ev;
+          return evTaskId === taskId;
         });
-        this.eventsSubject.next(list);
-        return;
+
+        // If level changed (e.g., debug → result), create NEW event instead of overwriting
+        if (existing && existing.level !== event.level) {
+          console.log(`🆕 Level changed for task_id ${taskId}: ${existing.level} → ${event.level}, creating new event`);
+          // Fall through to create new event below
+        } else {
+          // Same level: update in-place (e.g., submitted → picked, both debug)
+          console.log(`🔄 Updating event for task_id: ${taskId} -> status: ${event.status}`);
+          const list = this.eventsSubject.value.map(ev => {
+            const evTaskId = ev.meta?.['task_id'] || ev.meta?.['execution_id'];
+            if (evTaskId === taskId) {
+              return { ...ev, ...event, id: ev.id };
+            }
+            return ev;
+          });
+          this.eventsSubject.next(list);
+          return;
+        }
       }
       this.seenExecutionIds.add(taskId);
     }
