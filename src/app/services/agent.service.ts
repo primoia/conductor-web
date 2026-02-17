@@ -127,7 +127,7 @@ export class AgentService {
         const agents = Array.isArray(response) ? response : (response.agents || []);
         // Transform API response to Agent model
         return agents.map((agent: any) => ({
-          id: agent.agent_id,  // Use agent_id (not ObjectId) for agent identification
+          id: agent.agent_id || agent.id,  // Support both API response formats
           name: agent.name,
           emoji: agent.emoji || '🤖',
           description: agent.description || agent.prompt || '',
@@ -426,7 +426,7 @@ export class AgentService {
    * Load all agent instances from MongoDB
    * @param filters Optional filters (agent_id, status, screenplay_id, conversation_id)
    */
-  loadAllInstances(filters?: { agent_id?: string; status?: string; screenplay_id?: string; conversation_id?: string }): Observable<any[]> {
+  loadAllInstances(filters?: { agent_id?: string; status?: string; screenplay_id?: string; conversation_id?: string; sort?: string }): Observable<any[]> {
     console.log('📥 [AGENT SERVICE] loadAllInstances chamado');
     console.log('   - Filters:', filters);
 
@@ -438,6 +438,7 @@ export class AgentService {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.screenplay_id) params.append('screenplay_id', filters.screenplay_id);
     if (filters?.conversation_id) params.append('conversation_id', filters.conversation_id);
+    if (filters?.sort) params.append('sort', filters.sort);
 
     if (params.toString()) {
       url += `?${params.toString()}`;

@@ -1969,7 +1969,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
    * 2. Merge agents from messages (fallback for any missing)
    */
   private loadAgentsFromMongoDB(conversationId: string, messages: Message[]): void {
-    const filters: any = { conversation_id: conversationId };
+    const filters: any = { conversation_id: conversationId, sort: 'display_order' };
     if (this.activeScreenplayId) {
       filters.screenplay_id = this.activeScreenplayId;
     }
@@ -1984,7 +1984,8 @@ export class MobileChatComponent implements OnInit, OnDestroy {
           definition: doc.definition || { title: doc.agent_id, description: '', unicode: '' },
           status: doc.status || 'pending' as const,
           position: doc.position || { x: 0, y: 0 },
-          config: { cwd: doc.cwd || doc.config?.cwd || this.screenplayWorkingDirectory || undefined }
+          config: { cwd: doc.cwd || doc.config?.cwd || this.screenplayWorkingDirectory || undefined },
+          display_order: doc.display_order
         }));
 
         // Merge agents from messages that are missing from MongoDB
@@ -2058,11 +2059,12 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.showAgentSelector = false;
 
     const { agent, instanceId, cwd } = selectionData;
+    const agentId = agent.id || (agent as any).agent_id;
 
     // Add the new instance to contextual agents
     const newAgent = {
       id: instanceId,
-      agent_id: agent.id,
+      agent_id: agentId,
       emoji: agent.emoji,
       definition: { title: agent.name, description: agent.description, unicode: '' },
       status: 'pending' as const,
@@ -2073,7 +2075,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.contextualAgents = [...this.contextualAgents, newAgent];
 
     // 💾 FASE 1: Persist instance to MongoDB (fix Task #81)
-    this.persistAgentInstanceToMongoDB(instanceId, agent.id, { x: 0, y: 0 }, cwd);
+    this.persistAgentInstanceToMongoDB(instanceId, agentId, { x: 0, y: 0 }, cwd);
 
     // Auto-select the new agent
     setTimeout(() => {
@@ -2146,7 +2148,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
     console.log('💾 [MOBILE] Persisting agent instance to MongoDB:', payload);
 
-    fetch(`${baseUrl}/api/agents/instances`, {
+    fetch(`/api/agents/instances`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2171,7 +2173,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
     console.log(`💾 [MOBILE] Updating CWD for agent ${instanceId} in MongoDB:`, cwd);
 
-    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+    fetch(`/api/agents/instances/${instanceId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cwd })
@@ -2199,23 +2201,15 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   private updateAgentOrdersInMongoDB(
     agentOrders: Array<{ instance_id: string; display_order: number }>
   ): void {
-    const baseUrl = environment.apiUrl || '';
-
     console.log('💾 [MOBILE] Updating agent dock order in MongoDB:', agentOrders);
 
-    // Update each agent's display_order individually
-    const updatePromises = agentOrders.map(({ instance_id, display_order }) =>
-      fetch(`${baseUrl}/api/agents/instances/${instance_id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_order })
-      })
-    );
-
-    Promise.all(updatePromises)
-      .then(responses => {
-        const allSuccess = responses.every(r => r.ok);
-        if (allSuccess) {
+    fetch(`/api/agents/instances/reorder`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_updates: agentOrders })
+    })
+      .then(response => {
+        if (response.ok) {
           console.log('✅ [MOBILE] Agent dock order updated in MongoDB successfully');
           // Update local display_order
           agentOrders.forEach(({ instance_id, display_order }) => {
@@ -2225,7 +2219,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
             }
           });
         } else {
-          console.warn('⚠️ [MOBILE] Some agent order updates failed');
+          console.warn('⚠️ [MOBILE] Failed to update agent order:', response.status);
         }
       })
       .catch(error => {

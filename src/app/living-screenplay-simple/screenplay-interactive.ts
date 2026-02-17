@@ -734,7 +734,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
       this.logging.info(`💾 ${logPrefix} Criando instância no MongoDB:`, 'ScreenplayInteractive', payload);
 
-      const response = await fetch(`${baseUrl}/api/agents/instances`, {  // 🔒 BUG FIX: Adicionar /api/ no path
+      const response = await fetch(`${baseUrl}/api/agents/instances`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -768,7 +768,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private updateAgentInMongoDB(instanceId: string, updates: any): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
 
-    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {  // 🔒 BUG FIX: Adicionar /api/ no path
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -867,7 +867,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   private deleteAgentFromMongoDB(instanceId: string): void {
     const baseUrl = this.agentService['baseUrl'] || 'http://localhost:5006';
 
-    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {  // 🔒 BUG FIX: Adicionar /api/ no path
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
