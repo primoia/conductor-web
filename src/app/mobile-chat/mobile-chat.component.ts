@@ -208,7 +208,7 @@ const DEFAULT_CONFIG: ConductorConfig = {
           <!-- AGENT OPTIONS POPUP -->
           <div class="agent-options-popup" *ngIf="showAgentOptions" (click)="showAgentOptions = false">
             <div class="agent-options-menu" (click)="$event.stopPropagation()">
-              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('personaEditModal')" [disabled]="!activeAgentId">✏️ Editar Persona</button>
+              <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('personaEditModal')" [disabled]="!activeAgentId">✏️ Editar Agente</button>
               <button class="opt-item" (click)="showAgentOptions = false; modalStateService.open('mcpManagerModal')" [disabled]="!activeAgentId">🔌 Gerenciar MCPs</button>
               <button class="opt-item" (click)="showAgentOptions = false; showAgentSelector = true" [disabled]="!activeConversationId">➕ Adicionar Agente</button>
               <button class="opt-item danger" (click)="showAgentOptions = false; onDeleteAgentClick()" [disabled]="!activeAgentId">🗑️ Remover Agente</button>
@@ -311,8 +311,11 @@ const DEFAULT_CONFIG: ConductorConfig = {
         [instanceId]="activeAgentId"
         [agentId]="selectedAgentDbId"
         [currentPersona]="activeAgentContext?.persona || ''"
+        [agentCwd]="activeAgentCwd"
+        [screenplayWorkingDirectory]="screenplayWorkingDirectory"
         (closeModal)="modalStateService.close('personaEditModal')"
-        (personaSaved)="onPersonaSaved($event)">
+        (personaSaved)="onPersonaSaved($event)"
+        (cwdChanged)="onAgentCwdChanged($event)">
       </app-persona-edit-modal>
 
       <app-mcp-manager-modal
@@ -1815,7 +1818,6 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     this.conversationService.getConversation(conversationId).subscribe({
       next: (conversation) => {
         this.activeConversationTitle = conversation.title || '';
-        this.contextualAgents = [];
 
         const messages: Message[] = conversation.messages.map((msg: ConvMessage) => ({
           id: msg.id,
@@ -1836,26 +1838,8 @@ export class MobileChatComponent implements OnInit, OnDestroy {
           timestamp: new Date()
         }];
 
-        // Restore all unique agents from conversation messages to the dock
-        const agentsFromMessages = new Map<string, any>();
-        messages.forEach(msg => {
-          if (msg.agent?.instance_id && !agentsFromMessages.has(msg.agent.instance_id)) {
-            agentsFromMessages.set(msg.agent.instance_id, msg.agent);
-          }
-        });
-        agentsFromMessages.forEach((agent, instanceId) => {
-          if (!this.contextualAgents.find(a => a.id === instanceId)) {
-            this.contextualAgents = [...this.contextualAgents, {
-              id: instanceId,
-              agent_id: agent.agent_id,
-              emoji: agent.emoji || '🤖',
-              definition: { title: agent.name || 'Agent', description: '', unicode: '' },
-              status: 'pending' as const,
-              position: { x: 0, y: 0 },
-              config: { cwd: this.screenplayWorkingDirectory || undefined }
-            }];
-          }
-        });
+        // Load agents from MongoDB (single source of truth)
+        this.loadAgentsFromMongoDB(conversationId, messages);
 
         // Set active agent from conversation
         if (conversation.active_agent) {
@@ -1885,10 +1869,11 @@ export class MobileChatComponent implements OnInit, OnDestroy {
               }];
             }
 
+            // 💾 FASE 2: Load CWD from MongoDB via agent context
             if (agentInList?.config?.cwd) {
               this.activeAgentCwd = agentInList.config.cwd;
             } else {
-              this.activeAgentCwd = localStorage.getItem(`agent-cwd-${this.activeAgentId}`) || this.screenplayWorkingDirectory || null;
+              this.activeAgentCwd = this.screenplayWorkingDirectory || null;
             }
           } else {
             this.clearAgentState();
@@ -1967,7 +1952,6 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   // ==========================================
 
   private loadAgentsForScreenplay(screenplayId: string): void {
-    // Start with empty agent dock - agents are added via + button or loaded from conversation
     this.contextualAgents = [];
 
     // Load screenplay working directory
@@ -1979,12 +1963,80 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Single source of truth for agent loading.
+   * 1. Load from MongoDB (primary)
+   * 2. Merge agents from messages (fallback for any missing)
+   */
+  private loadAgentsFromMongoDB(conversationId: string, messages: Message[]): void {
+    const filters: any = { conversation_id: conversationId };
+    if (this.activeScreenplayId) {
+      filters.screenplay_id = this.activeScreenplayId;
+    }
+
+    this.agentService.loadAllInstances(filters).subscribe({
+      next: (instances) => {
+        // Build agent list from MongoDB
+        const agents: any[] = instances.map((doc: any) => ({
+          id: doc.instance_id,
+          agent_id: doc.agent_id,
+          emoji: doc.emoji || '🤖',
+          definition: doc.definition || { title: doc.agent_id, description: '', unicode: '' },
+          status: doc.status || 'pending' as const,
+          position: doc.position || { x: 0, y: 0 },
+          config: { cwd: doc.cwd || doc.config?.cwd || this.screenplayWorkingDirectory || undefined }
+        }));
+
+        // Merge agents from messages that are missing from MongoDB
+        const loadedIds = new Set(agents.map(a => a.id));
+        messages.forEach(msg => {
+          if (msg.agent?.instance_id && !loadedIds.has(msg.agent.instance_id)) {
+            loadedIds.add(msg.agent.instance_id);
+            agents.push({
+              id: msg.agent.instance_id,
+              agent_id: msg.agent.agent_id,
+              emoji: msg.agent.emoji || '🤖',
+              definition: { title: msg.agent.name || 'Agent', description: '', unicode: '' },
+              status: 'pending' as const,
+              position: { x: 0, y: 0 },
+              config: { cwd: this.screenplayWorkingDirectory || undefined }
+            });
+          }
+        });
+
+        this.contextualAgents = agents;
+        console.log(`✅ [MOBILE] ${agents.length} agentes carregados (${instances.length} MongoDB + ${agents.length - instances.length} mensagens)`);
+      },
+      error: (err) => {
+        console.warn('⚠️ [MOBILE] Erro ao carregar agentes do MongoDB, usando mensagens:', err);
+        // Fallback: restore all from messages
+        const agents: any[] = [];
+        const seen = new Set<string>();
+        messages.forEach(msg => {
+          if (msg.agent?.instance_id && !seen.has(msg.agent.instance_id)) {
+            seen.add(msg.agent.instance_id);
+            agents.push({
+              id: msg.agent.instance_id,
+              agent_id: msg.agent.agent_id,
+              emoji: msg.agent.emoji || '🤖',
+              definition: { title: msg.agent.name || 'Agent', description: '', unicode: '' },
+              status: 'pending' as const,
+              position: { x: 0, y: 0 },
+              config: { cwd: this.screenplayWorkingDirectory || undefined }
+            });
+          }
+        });
+        this.contextualAgents = agents;
+      }
+    });
+  }
+
   onDockAgentClick(agent: any): void {
     this.activeAgentId = agent.id;
     this.selectedAgentDbId = agent.agent_id;
     this.selectedAgentName = agent.definition?.title || agent.emoji;
     this.selectedAgentEmoji = agent.emoji;
-    this.activeAgentCwd = agent.config?.cwd || localStorage.getItem(`agent-cwd-${agent.id}`) || this.screenplayWorkingDirectory || null;
+    this.activeAgentCwd = agent.config?.cwd || this.screenplayWorkingDirectory || null;
 
     this.navigationStateService.setInstance(agent.id);
     this.loadAgentContext(agent.id);
@@ -2020,6 +2072,9 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
     this.contextualAgents = [...this.contextualAgents, newAgent];
 
+    // 💾 FASE 1: Persist instance to MongoDB (fix Task #81)
+    this.persistAgentInstanceToMongoDB(instanceId, agent.id, { x: 0, y: 0 }, cwd);
+
     // Auto-select the new agent
     setTimeout(() => {
       this.onDockAgentClick(newAgent);
@@ -2054,6 +2109,128 @@ export class MobileChatComponent implements OnInit, OnDestroy {
         console.error('❌ [MOBILE] Error deleting agent on server:', err);
       }
     });
+  }
+
+  /**
+   * 💾 FASE 1: Persist agent instance to MongoDB (fix Task #81)
+   * This ensures agents created on mobile are visible on desktop
+   */
+  private persistAgentInstanceToMongoDB(
+    instanceId: string,
+    agentId: string,
+    position: { x: number; y: number },
+    cwd?: string
+  ): void {
+    const baseUrl = environment.apiUrl || '';
+
+    const payload: any = {
+      instance_id: instanceId,
+      agent_id: agentId,
+      position: position,
+      created_at: new Date().toISOString(),
+      is_system_default: false,
+      is_hidden: false,
+      screenplay_id: this.activeScreenplayId || null,
+      conversation_id: this.activeConversationId || null,
+      emoji: this.contextualAgents.find(a => a.id === instanceId)?.emoji || '🤖',
+      definition: this.contextualAgents.find(a => a.id === instanceId)?.definition || {
+        title: 'Mobile Agent',
+        description: 'Agent created from mobile interface',
+        unicode: ''
+      }
+    };
+
+    if (cwd) {
+      payload.cwd = cwd;
+    }
+
+    console.log('💾 [MOBILE] Persisting agent instance to MongoDB:', payload);
+
+    fetch(`${baseUrl}/api/agents/instances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [MOBILE] Agent instance persisted to MongoDB successfully');
+        } else {
+          console.warn('⚠️ [MOBILE] Failed to persist agent instance to MongoDB:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [MOBILE] Error persisting agent instance to MongoDB:', error);
+      });
+  }
+
+  /**
+   * 💾 FASE 2: Update agent CWD in MongoDB instead of localStorage
+   */
+  private updateAgentCwdInMongoDB(instanceId: string, cwd: string): void {
+    const baseUrl = environment.apiUrl || '';
+
+    console.log(`💾 [MOBILE] Updating CWD for agent ${instanceId} in MongoDB:`, cwd);
+
+    fetch(`${baseUrl}/api/agents/instances/${instanceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cwd })
+    })
+      .then(response => {
+        if (response.ok) {
+          console.log('✅ [MOBILE] Agent CWD updated in MongoDB successfully');
+          // Update local agent config
+          const agent = this.contextualAgents.find(a => a.id === instanceId);
+          if (agent && agent.config) {
+            agent.config.cwd = cwd;
+          }
+        } else {
+          console.warn('⚠️ [MOBILE] Failed to update agent CWD in MongoDB:', response.status);
+        }
+      })
+      .catch(error => {
+        console.error('❌ [MOBILE] Error updating agent CWD in MongoDB:', error);
+      });
+  }
+
+  /**
+   * 💾 FASE 3: Update agent dock order in MongoDB instead of localStorage
+   */
+  private updateAgentOrdersInMongoDB(
+    agentOrders: Array<{ instance_id: string; display_order: number }>
+  ): void {
+    const baseUrl = environment.apiUrl || '';
+
+    console.log('💾 [MOBILE] Updating agent dock order in MongoDB:', agentOrders);
+
+    // Update each agent's display_order individually
+    const updatePromises = agentOrders.map(({ instance_id, display_order }) =>
+      fetch(`${baseUrl}/api/agents/instances/${instance_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order })
+      })
+    );
+
+    Promise.all(updatePromises)
+      .then(responses => {
+        const allSuccess = responses.every(r => r.ok);
+        if (allSuccess) {
+          console.log('✅ [MOBILE] Agent dock order updated in MongoDB successfully');
+          // Update local display_order
+          agentOrders.forEach(({ instance_id, display_order }) => {
+            const agent: any = this.contextualAgents.find(a => a.id === instance_id);
+            if (agent) {
+              agent.display_order = display_order;
+            }
+          });
+        } else {
+          console.warn('⚠️ [MOBILE] Some agent order updates failed');
+        }
+      })
+      .catch(error => {
+        console.error('❌ [MOBILE] Error updating agent dock order in MongoDB:', error);
+      });
   }
 
   private loadAgentContext(instanceId: string): void {
@@ -2130,10 +2307,10 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       instanceId: this.activeAgentId
     };
 
-    // Persist cwd to localStorage so it survives conversation reloads
+    // 💾 FASE 2: Persist cwd to MongoDB instead of localStorage
     const effectiveCwd = params.cwd;
     if (effectiveCwd && this.activeAgentId) {
-      localStorage.setItem(`agent-cwd-${this.activeAgentId}`, effectiveCwd);
+      this.updateAgentCwdInMongoDB(this.activeAgentId, effectiveCwd);
     }
 
     const callbacks: MessageHandlingCallbacks = {
@@ -2398,30 +2575,35 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
   private saveAgentDockOrder(): void {
     if (!this.activeConversationId) return;
-    const ids = this.contextualAgents.map(a => a.id);
-    localStorage.setItem(`agent-dock-order-${this.activeConversationId}`, JSON.stringify(ids));
+
+    // 💾 FASE 3: Save order to MongoDB instead of localStorage
+    const agentOrders = this.contextualAgents.map((agent, index) => ({
+      instance_id: agent.id,
+      display_order: index
+    }));
+
+    this.updateAgentOrdersInMongoDB(agentOrders);
   }
 
   private applySavedAgentDockOrder(): void {
     if (!this.activeConversationId) return;
-    const raw = localStorage.getItem(`agent-dock-order-${this.activeConversationId}`);
-    if (!raw) return;
-    try {
-      const savedIds: string[] = JSON.parse(raw);
-      const agentMap = new Map(this.contextualAgents.map(a => [a.id, a]));
-      const ordered: any[] = [];
-      // First, add agents in saved order
-      savedIds.forEach(id => {
-        const agent = agentMap.get(id);
-        if (agent) {
-          ordered.push(agent);
-          agentMap.delete(id);
-        }
+
+    // 💾 FASE 3: Load order from MongoDB (via display_order field)
+    // The agents are already sorted by display_order when loaded from the database
+    // If an agent has a display_order field, use it to sort
+    const agentsWithOrder = this.contextualAgents.filter((a: any) =>
+      a.display_order !== undefined && a.display_order !== null
+    );
+
+    if (agentsWithOrder.length > 0) {
+      // Sort agents by display_order
+      this.contextualAgents.sort((a: any, b: any) => {
+        const orderA = a.display_order ?? Number.MAX_SAFE_INTEGER;
+        const orderB = b.display_order ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
       });
-      // Then append any new agents not in saved order
-      agentMap.forEach(agent => ordered.push(agent));
-      this.contextualAgents = ordered;
-    } catch {}
+      console.log('✅ [MOBILE] Applied agent dock order from MongoDB');
+    }
   }
 
   focusEditor(): void {
@@ -2444,6 +2626,19 @@ export class MobileChatComponent implements OnInit, OnDestroy {
     if (this.activeAgentContext) {
       this.activeAgentContext = { ...this.activeAgentContext, persona };
     }
+  }
+
+  onAgentCwdChanged(cwd: string): void {
+    if (!this.activeAgentId) return;
+    this.activeAgentCwd = cwd;
+    // Update local agent config
+    const agent = this.contextualAgents.find(a => a.id === this.activeAgentId);
+    if (agent) {
+      if (!agent.config) agent.config = {};
+      agent.config.cwd = cwd;
+    }
+    // Persist to MongoDB
+    this.updateAgentCwdInMongoDB(this.activeAgentId, cwd);
   }
 
   onMcpsSaved(mcps: any): void {

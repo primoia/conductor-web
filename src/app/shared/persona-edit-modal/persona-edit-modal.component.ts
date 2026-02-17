@@ -29,10 +29,14 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   @Input() instanceId: string | null = null;
   @Input() agentId: string | null = null;  // ID do agente base (para salvar no banco)
   @Input() currentPersona: string = '';
+  @Input() agentCwd: string | null = null;  // CWD atual do agente (override)
+  @Input() screenplayWorkingDirectory: string | null = null;  // CWD herdado do roteiro
   @Output() override closeModal = new EventEmitter<void>();
   @Output() personaSaved = new EventEmitter<string>();
+  @Output() cwdChanged = new EventEmitter<string>();
 
   personaText = '';
+  cwdText = '';  // Campo editável do CWD
   activeTab: 'edit' | 'preview' = 'edit';
   maxLength = 10000; // 10KB aproximadamente
   validationState: ValidationState = { isValid: false, errors: [], warnings: [] };
@@ -78,7 +82,7 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   }
 
   /**
-   * Carrega a persona atual (editada ou original)
+   * Carrega a persona atual (editada ou original) e o CWD
    */
   private loadPersona(): void {
     if (this.instanceId) {
@@ -86,13 +90,16 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
       if (this.currentPersona && !this.personaEditService.getOriginalPersona(this.instanceId)) {
         this.personaEditService.saveOriginalPersona(this.instanceId, this.currentPersona);
       }
-      
+
       // Primeiro tenta carregar persona editada
       const editedPersona = this.personaEditService.loadPersona(this.instanceId);
       this.personaText = editedPersona || this.currentPersona;
     } else {
       this.personaText = this.currentPersona;
     }
+
+    // Carregar CWD: agentCwd (override) ou screenplayWorkingDirectory (herdado)
+    this.cwdText = this.agentCwd || this.screenplayWorkingDirectory || '';
   }
 
   /**
@@ -186,12 +193,25 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   }
 
   /**
-   * Salva a persona editada
+   * Verifica se o CWD foi alterado em relação ao valor original
+   */
+  isCwdChanged(): boolean {
+    const original = this.agentCwd || this.screenplayWorkingDirectory || '';
+    return this.cwdText.trim() !== original;
+  }
+
+  /**
+   * Salva a persona editada e CWD alterado
    */
   async save(): Promise<void> {
     if (!this.validationState.isValid || !this.instanceId) {
       console.warn('⚠️ [PersonaEditModal] Tentativa de salvar persona inválida');
       return;
+    }
+
+    // Emitir mudança de CWD se alterado
+    if (this.isCwdChanged() && this.cwdText.trim()) {
+      this.cwdChanged.emit(this.cwdText.trim());
     }
 
     this.saveState = { status: 'saving', message: 'Salvando...' };

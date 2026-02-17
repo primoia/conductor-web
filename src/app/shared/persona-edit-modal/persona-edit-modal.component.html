@@ -5,12 +5,29 @@
 
       <!-- Header -->
       <div class="modal-header">
-        <h3 class="modal-title">Editar Persona</h3>
+        <h3 class="modal-title">Editar Agente</h3>
         <button class="close-btn" (click)="close()">✕</button>
       </div>
 
       <!-- Modal Body -->
       <div class="modal-body">
+        <!-- CWD Section -->
+        <div class="cwd-section">
+          <label class="cwd-label">Diretorio de trabalho (CWD)</label>
+          <input
+            type="text"
+            class="cwd-input"
+            [(ngModel)]="cwdText"
+            [placeholder]="screenplayWorkingDirectory || '/caminho/do/projeto'"
+            inputmode="url">
+          <small class="cwd-hint" *ngIf="screenplayWorkingDirectory && !agentCwd">
+            Herdado do roteiro: {{ screenplayWorkingDirectory }}
+          </small>
+          <small class="cwd-hint" *ngIf="agentCwd">
+            Override do agente (roteiro: {{ screenplayWorkingDirectory || 'nao definido' }})
+          </small>
+        </div>
+
         <div class="editor-container">
           <!-- Editor Tabs -->
           <div class="editor-tabs">

@@ -424,9 +424,9 @@ export class AgentService {
 
   /**
    * Load all agent instances from MongoDB
-   * @param filters Optional filters (agent_id, status)
+   * @param filters Optional filters (agent_id, status, screenplay_id, conversation_id)
    */
-  loadAllInstances(filters?: { agent_id?: string; status?: string }): Observable<any[]> {
+  loadAllInstances(filters?: { agent_id?: string; status?: string; screenplay_id?: string; conversation_id?: string }): Observable<any[]> {
     console.log('📥 [AGENT SERVICE] loadAllInstances chamado');
     console.log('   - Filters:', filters);
 
@@ -436,6 +436,8 @@ export class AgentService {
     const params = new URLSearchParams();
     if (filters?.agent_id) params.append('agent_id', filters.agent_id);
     if (filters?.status) params.append('status', filters.status);
+    if (filters?.screenplay_id) params.append('screenplay_id', filters.screenplay_id);
+    if (filters?.conversation_id) params.append('conversation_id', filters.conversation_id);
 
     if (params.toString()) {
       url += `?${params.toString()}`;

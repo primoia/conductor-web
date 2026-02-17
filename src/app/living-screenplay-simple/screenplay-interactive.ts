@@ -3793,6 +3793,36 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Handler para agentes descobertos nas mensagens mas ausentes do dock.
+   * Adiciona as instâncias ao map local e atualiza o dock.
+   */
+  public onAgentsRestoredFromMessages(agents: any[]): void {
+    let added = 0;
+    agents.forEach(agent => {
+      if (!this.agentInstances.has(agent.id)) {
+        const instance: AgentInstance = {
+          id: agent.id,
+          agent_id: agent.agent_id,
+          conversation_id: this.activeConversationId || undefined,
+          emoji: agent.emoji,
+          definition: agent.definition || { title: agent.agent_id, description: '', unicode: '' },
+          status: agent.status || 'pending',
+          position: agent.position || { x: 0, y: 0 },
+          config: agent.config || {},
+          is_system_default: false,
+          is_hidden: false
+        };
+        this.agentInstances.set(instance.id, instance);
+        added++;
+      }
+    });
+    if (added > 0) {
+      this.logging.info(`🔄 [SCREENPLAY] ${added} agente(s) restaurados das mensagens`, 'ScreenplayInteractive');
+      this.updateAgentDockLists();
+    }
+  }
+
+  /**
    * 🔥 REFATORADO: Handler para clique no agente do dock
    * FLUXO 3: Troca de agente - atualiza URL, NÃO recarrega histórico
    */
@@ -3877,8 +3907,8 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
     if (agentsInConversation.length === 0 && !retryAfterReload) {
       this.logging.info(`🔄 [NAV-STATE] Nenhum agente local para conversa ${conversationId}, recarregando do MongoDB...`, 'ScreenplayInteractive');
 
-      // Recarregar instâncias do MongoDB
-      this.agentService.loadAllInstances().subscribe({
+      // Recarregar instâncias do MongoDB (filtrado por screenplay no servidor)
+      this.agentService.loadAllInstances({ screenplay_id: this.currentScreenplay?.id }).subscribe({
         next: (instances: any[]) => {
           this.logging.info(`✅ [NAV-STATE] ${instances.length} instâncias recarregadas do MongoDB`, 'ScreenplayInteractive');
 
@@ -4333,7 +4363,7 @@ export class ScreenplayInteractive implements OnInit, AfterViewInit, OnDestroy {
 
     this.logging.info(`📥 [SCREENPLAY] Carregando agentes para roteiro: ${this.currentScreenplay.id}`, 'ScreenplayInteractive');
 
-    this.agentService.loadAllInstances().subscribe({
+    this.agentService.loadAllInstances({ screenplay_id: this.currentScreenplay.id }).subscribe({
       next: (instances: any[]) => {
         this.logging.info(`✅ [SCREENPLAY] ${instances.length} instâncias carregadas do MongoDB`, 'ScreenplayInteractive');
         this.logging.debug('🔍 [DEBUG] Todas as instâncias:', 'ScreenplayInteractive', instances.map(i => ({

@@ -215,14 +215,17 @@ const DEFAULT_CONFIG: ConductorConfig = {
         </div>
       </div>
 
-      <!-- Persona Edit Modal -->
+      <!-- Agent Edit Modal (Persona + CWD) -->
       <app-persona-edit-modal
         [isVisible]="modalStateService.isOpen('personaEditModal')"
         [instanceId]="activeAgentId"
         [agentId]="selectedAgentDbId"
         [currentPersona]="activeAgentContext?.persona || ''"
+        [agentCwd]="activeAgentCwd"
+        [screenplayWorkingDirectory]="screenplayWorkingDirectory"
         (closeModal)="closePersonaEditModal()"
-        (personaSaved)="onPersonaSaved($event)">
+        (personaSaved)="onPersonaSaved($event)"
+        (cwdChanged)="onAgentCwdChanged($event)">
       </app-persona-edit-modal>
 
       <!-- MCP Manager Modal -->
@@ -428,7 +431,7 @@ Erro: 'invalid_token' na response..."
                 📋 Ver Contexto
               </button>
               <button class="menu-item" (click)="editPersona()">
-                ✏️ Editar Persona
+                ✏️ Editar Agente
               </button>
               <button class="menu-item" (click)="editAgentCwd()">
                 📁 Editar diretório
@@ -2461,6 +2464,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
   @Output() conversationOrderChanged = new EventEmitter<any[]>(); // 🔥 NOVO: Notifica reordenação de conversas
   @Output() toggleFirstColumnRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita toggle do menu lateral
   @Output() openScreenplayModalRequested = new EventEmitter<void>(); // 🔥 NOVO: Solicita abertura do modal de roteiros
+  @Output() agentsRestoredFromMessages = new EventEmitter<any[]>(); // Agentes encontrados nas mensagens mas ausentes do dock
 
   @ViewChild(ChatInputComponent) chatInputComponent!: ChatInputComponent;
   @ViewChild(ConversationListComponent) conversationListComponent!: ConversationListComponent;
@@ -3177,6 +3181,32 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           timestamp: new Date()
         }];
 
+        // Restore agents from conversation messages that are missing from the dock
+        const agentsFromMessages = new Map<string, any>();
+        messages.forEach(msg => {
+          if (msg.agent?.instance_id && !agentsFromMessages.has(msg.agent.instance_id)) {
+            agentsFromMessages.set(msg.agent.instance_id, msg.agent);
+          }
+        });
+        const missingAgents: any[] = [];
+        agentsFromMessages.forEach((agent, instanceId) => {
+          if (!this.contextualAgents.find(a => a.id === instanceId)) {
+            missingAgents.push({
+              id: instanceId,
+              agent_id: agent.agent_id,
+              emoji: agent.emoji || '🤖',
+              definition: { title: agent.name || 'Agent', description: '', unicode: '' },
+              status: 'pending' as const,
+              position: { x: 0, y: 0 },
+              config: { cwd: this.screenplayWorkingDirectory || undefined }
+            });
+          }
+        });
+        if (missingAgents.length > 0) {
+          console.log(`🔄 [CHAT] Restaurando ${missingAgents.length} agente(s) das mensagens:`, missingAgents.map(a => a.emoji));
+          this.agentsRestoredFromMessages.emit(missingAgents);
+        }
+
         // Armazenar participantes
         this.conversationParticipants = conversation.participants;
 
@@ -3201,17 +3231,12 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
             this.selectedAgentEmoji = conversation.active_agent.emoji || null;
             console.log('✅ [CHAT] Agente ativo carregado:', conversation.active_agent.name);
 
-            // Carregar CWD do agente dos contextualAgents (se disponível)
+            // Carregar CWD do agente: config do agente → CWD do roteiro → null
             if (agentInLocalList?.config?.cwd) {
               this.activeAgentCwd = agentInLocalList.config.cwd;
               console.log('✅ [CHAT] CWD carregado do agente:', this.activeAgentCwd);
             } else {
-              // Fallback para localStorage
-              const storedCwd = localStorage.getItem(`agent-cwd-${this.activeAgentId}`);
-              this.activeAgentCwd = storedCwd || null;
-              if (storedCwd) {
-                console.log('✅ [CHAT] CWD carregado do localStorage:', storedCwd);
-              }
+              this.activeAgentCwd = this.screenplayWorkingDirectory || null;
             }
           } else {
             // Agente foi deletado - limpar estado
@@ -3265,14 +3290,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           console.log('✅ Agent context loaded:', context);
           this.activeAgentContext = context;
 
-          // Load cwd
+          // Load cwd: context → param → screenplay → null
           if (context.cwd) {
             this.activeAgentCwd = context.cwd;
           } else if (cwd) {
             this.activeAgentCwd = cwd;
           } else {
-            const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
-            this.activeAgentCwd = storedCwd || null;
+            this.activeAgentCwd = this.screenplayWorkingDirectory || null;
           }
 
           // Map history messages
@@ -3358,8 +3382,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         } else if (cwd) {
           this.activeAgentCwd = cwd;
         } else {
-          const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
-          this.activeAgentCwd = storedCwd || null;
+          this.activeAgentCwd = this.screenplayWorkingDirectory || null;
         }
       },
       error: (error) => {
@@ -3388,8 +3411,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
           } else if (cwd) {
             this.activeAgentCwd = cwd;
           } else {
-            const storedCwd = localStorage.getItem(`agent-cwd-${instanceId}`);
-            this.activeAgentCwd = storedCwd || null;
+            this.activeAgentCwd = this.screenplayWorkingDirectory || null;
           }
         },
         error: (error) => {
@@ -3506,30 +3528,13 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         this.agentService.updateInstanceCwd(this.activeAgentId, newCwd).subscribe({
           next: (result) => {
             console.log('✅ [CHAT] CWD saved to MongoDB:', result);
-
-            // Update local state
             this.activeAgentCwd = newCwd;
-
-            // Also store in localStorage as backup
-            localStorage.setItem(`agent-cwd-${this.activeAgentId}`, newCwd);
-
             this.closeCwdModal();
           },
           error: (error) => {
-            console.error('❌ [CHAT] MongoDB save failed:', error);
-
-            // Fallback: use localStorage if MongoDB fails
-            console.warn('⚠️ [CHAT] Usando localStorage como fallback');
-
-            // Update local state
+            console.error('❌ [CHAT] Erro ao salvar CWD no MongoDB:', error);
+            // Update local state anyway so the session works
             this.activeAgentCwd = newCwd;
-
-            // Store in localStorage
-            localStorage.setItem(`agent-cwd-${this.activeAgentId}`, newCwd);
-
-            console.log('✅ [CHAT] CWD saved to localStorage (fallback)');
-
-            // Close modal - localStorage worked fine
             this.closeCwdModal();
           }
         })
@@ -4216,17 +4221,30 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
    * Handle persona saved event
    */
   onPersonaSaved(editedPersona: string): void {
-    console.log('✅ [CHAT] Persona editada salva:', { 
-      instanceId: this.activeAgentId, 
-      personaLength: editedPersona.length 
+    console.log('✅ [CHAT] Persona editada salva:', {
+      instanceId: this.activeAgentId,
+      personaLength: editedPersona.length
     });
-    
+
     // Atualiza o contexto local se necessário
     if (this.activeAgentContext) {
       this.activeAgentContext.persona = editedPersona;
     }
-    
+
     this.closePersonaEditModal();
+  }
+
+  onAgentCwdChanged(cwd: string): void {
+    if (!this.activeAgentId) return;
+    console.log('📁 [CHAT] CWD alterado via modal:', { instanceId: this.activeAgentId, cwd });
+    this.activeAgentCwd = cwd;
+    // Persist to MongoDB via AgentService
+    this.subscriptions.add(
+      this.agentService.updateInstanceCwd(this.activeAgentId, cwd).subscribe({
+        next: () => console.log('✅ [CHAT] CWD salvo no MongoDB'),
+        error: (err) => console.error('❌ [CHAT] Erro ao salvar CWD:', err)
+      })
+    );
   }
 
   /**
