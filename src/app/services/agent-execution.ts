@@ -82,6 +82,14 @@ export class AgentExecutionService {
   }
 
   /**
+   * Register an agent for state tracking only (no SSE execution).
+   * Use this when execution is handled externally (e.g. via gateway WebSocket).
+   */
+  public trackAgent(agent: AgentExecutionState): void {
+    this.updateAgentState(agent.id, { ...agent, status: 'running', logs: ['🚀 Agent execution started'] });
+  }
+
+  /**
    * Mark an agent as completed (for external executions)
    */
   public completeAgent(agentId: string, result?: any): void {

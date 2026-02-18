@@ -483,8 +483,8 @@ export class AgentEventsModalComponent implements OnInit, OnDestroy, AfterViewCh
 
   get filteredEvents(): GamificationEvent[] {
     const filter = this.filterMode !== 'all' ? this.filterMode : this.activeFilter;
-    if (filter === 'all') return this.events;
-    return this.events.filter(e => e.level === filter);
+    const list = filter === 'all' ? this.events : this.events.filter(e => e.level === filter);
+    return [...list].reverse(); // newest first
   }
 
   get unseenCount(): number {

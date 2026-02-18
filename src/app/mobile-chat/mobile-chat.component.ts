@@ -78,8 +78,8 @@ const DEFAULT_CONFIG: ConductorConfig = {
       <!-- TOP MENU POPUP -->
       <div class="top-menu-popup" *ngIf="showTopMenu" (click)="showTopMenu = false">
         <div class="top-menu-list" (click)="$event.stopPropagation()">
-          <button class="opt-item" (click)="showTopMenu = false; editorScreenplayId = null; showScreenplayEditor = true">🆕 Novo Roteiro</button>
           <button class="opt-item" (click)="showTopMenu = false; showScreenplaySelector = true">📂 Selecionar Roteiro</button>
+          <button class="opt-item" (click)="showTopMenu = false; editorScreenplayId = null; showScreenplayEditor = true">🆕 Novo Roteiro</button>
           <button class="opt-item" (click)="showTopMenu = false; editorScreenplayId = activeScreenplayId; showScreenplayEditor = true" [disabled]="!activeScreenplayId">📝 Editar Roteiro</button>
           <div class="opt-divider"></div>
           <button class="opt-item" (click)="showTopMenu = false; showAgentEvents = true">🔔 Eventos dos Agentes</button>

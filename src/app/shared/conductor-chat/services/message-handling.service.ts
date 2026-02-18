@@ -241,7 +241,7 @@ export class MessageHandlingService {
       status: 'running',
       logs: ['🚀 Agent execution started']
     };
-    this.agentExecutionService.executeAgent(executionState);
+    this.agentExecutionService.trackAgent(executionState);
 
     // Executar agente
     this.agentService.executeAgent(
@@ -327,7 +327,7 @@ export class MessageHandlingService {
       status: 'running',
       logs: ['🚀 Agent execution started']
     };
-    this.agentExecutionService.executeAgent(executionState);
+    this.agentExecutionService.trackAgent(executionState);
 
     // Executar agente
     this.agentService.executeAgent(
