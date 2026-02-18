@@ -275,11 +275,13 @@ export class MessageHandlingService {
       },
       error: (error) => {
         console.error('❌ [MESSAGE-SERVICE] Agent execution error:', error);
-        callbacks.onProgressUpdate('', params.instanceId); // Limpar progresso
         this.agentExecutionService.cancelAgent(params.instanceId);
 
-        // BFF already marked error on the bot placeholder server-side
-        // Reload conversation to show error message from MongoDB
+        // Extract user-friendly error message from gateway response
+        const errorMsg = this.extractErrorMessage(error);
+        callbacks.onProgressUpdate(errorMsg, params.instanceId);
+
+        // Reload conversation (if placeholder exists in MongoDB)
         if (callbacks.onConversationReload) {
           callbacks.onConversationReload(params.conversationId!);
         }
@@ -287,6 +289,19 @@ export class MessageHandlingService {
         callbacks.onLoadingChange(false);
       }
     });
+  }
+
+  /**
+   * Extrai mensagem de erro legível do response do gateway
+   */
+  private extractErrorMessage(error: any): string {
+    const msg = error?.message || error?.error || '';
+    // Gateway returns: "Agent execution failed: 400 {"detail":"..."}"
+    const detailMatch = msg.match(/"detail"\s*:\s*"([^"]+)"/);
+    if (detailMatch) {
+      return detailMatch[1];
+    }
+    return msg || 'Erro ao executar agente';
   }
 
   /**
@@ -356,9 +371,10 @@ export class MessageHandlingService {
         callbacks.onLoadingChange(false);
 
         // Adicionar mensagem de erro ao histórico
+        const errorMsg = this.extractErrorMessage(error);
         const errorMessage: Message = {
           id: `error-${Date.now()}`,
-          content: `❌ Erro: ${error.error || error.message || 'Erro ao executar agente'}`,
+          content: `❌ ${errorMsg}`,
           type: 'bot',
           timestamp: new Date()
         };

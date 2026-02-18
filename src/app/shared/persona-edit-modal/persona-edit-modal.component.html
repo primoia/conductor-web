@@ -14,18 +14,34 @@
         <!-- CWD Section -->
         <div class="cwd-section">
           <label class="cwd-label">Diretorio de trabalho (CWD)</label>
+
+          <!-- Inherited from screenplay (read-only display) -->
+          <div class="cwd-inherited" *ngIf="screenplayWorkingDirectory">
+            <span class="cwd-inherited-icon">📂</span>
+            <span class="cwd-inherited-path">{{ screenplayWorkingDirectory }}</span>
+            <span class="cwd-inherited-badge">roteiro</span>
+          </div>
+          <small class="cwd-hint cwd-hint-warn" *ngIf="!screenplayWorkingDirectory">
+            Nenhum CWD configurado no roteiro. Configure nas propriedades do roteiro.
+          </small>
+
+          <!-- Override toggle -->
+          <label class="cwd-override-toggle" *ngIf="screenplayWorkingDirectory">
+            <input
+              type="checkbox"
+              [checked]="!!agentCwd"
+              (change)="toggleCwdOverride($event)">
+            <span class="cwd-override-label">Usar caminho diferente para este agente</span>
+          </label>
+
+          <!-- Override input (only when overriding) -->
           <input
+            *ngIf="agentCwd || !screenplayWorkingDirectory"
             type="text"
             class="cwd-input"
             [(ngModel)]="cwdText"
             [placeholder]="screenplayWorkingDirectory || '/caminho/do/projeto'"
             inputmode="url">
-          <small class="cwd-hint" *ngIf="screenplayWorkingDirectory && !agentCwd">
-            Herdado do roteiro: {{ screenplayWorkingDirectory }}
-          </small>
-          <small class="cwd-hint" *ngIf="agentCwd">
-            Override do agente (roteiro: {{ screenplayWorkingDirectory || 'nao definido' }})
-          </small>
         </div>
 
         <div class="editor-container">

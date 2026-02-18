@@ -193,6 +193,23 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
   }
 
   /**
+   * Alterna entre usar CWD do roteiro ou override do agente
+   */
+  toggleCwdOverride(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (checked) {
+      // Enable override - start with screenplay value
+      this.cwdText = this.screenplayWorkingDirectory || '';
+      this.agentCwd = this.cwdText;
+    } else {
+      // Disable override - revert to screenplay
+      this.agentCwd = null;
+      this.cwdText = this.screenplayWorkingDirectory || '';
+    }
+    this.cdr.markForCheck();
+  }
+
+  /**
    * Verifica se o CWD foi alterado em relação ao valor original
    */
   isCwdChanged(): boolean {
@@ -210,8 +227,9 @@ export class PersonaEditModalComponent extends BaseModalComponent implements OnI
     }
 
     // Emitir mudança de CWD se alterado
-    if (this.isCwdChanged() && this.cwdText.trim()) {
-      this.cwdChanged.emit(this.cwdText.trim());
+    if (this.isCwdChanged()) {
+      // Emit the override value, or empty string to clear override (use screenplay CWD)
+      this.cwdChanged.emit(this.agentCwd ? this.cwdText.trim() : '');
     }
 
     this.saveState = { status: 'saving', message: 'Salvando...' };
