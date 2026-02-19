@@ -1740,6 +1740,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
         this.selectedAgentName = null;
         this.selectedAgentEmoji = null;
         this.activeAgentCwd = null;
+        this.contextualAgents = [];
 
         this.chatState.messages = [{
           id: `empty-${Date.now()}`,
