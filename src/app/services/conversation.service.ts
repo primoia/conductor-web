@@ -28,7 +28,7 @@ export interface AgentInfo {
 
 export interface Message {
   id: string;
-  type: 'user' | 'bot';
+  type: 'user' | 'bot' | 'delegation';
   content: string;
   timestamp: string;
   agent?: AgentInfo;  // Presente apenas em mensagens de bot
@@ -44,6 +44,8 @@ export interface Conversation {
   messages: Message[];
   screenplay_id?: string;
   context?: string;  // Campo de contexto markdown
+  max_chain_depth?: number;  // Per-conversation chain limit (null = global default)
+  auto_delegate?: boolean;  // Allow agents to auto-chain without human
 }
 
 export interface ConversationSummary {
@@ -63,6 +65,8 @@ export interface CreateConversationRequest {
   active_agent?: AgentInfo;
   screenplay_id?: string;
   context?: string;  // Campo de contexto markdown
+  max_chain_depth?: number;  // Per-conversation chain limit (null = global default)
+  auto_delegate?: boolean;  // Allow agents to auto-chain without human
 }
 
 export interface AddMessageRequest {
@@ -183,6 +187,19 @@ export class ConversationService {
     return this.http.patch<{ success: boolean; message: string }>(
       `${this.apiUrl}/${conversationId}/context`,
       { context }
+    );
+  }
+
+  /**
+   * Update chain settings (max_chain_depth, auto_delegate).
+   */
+  updateConversationSettings(
+    conversationId: string,
+    settings: { max_chain_depth?: number | null; auto_delegate?: boolean }
+  ): Observable<{ success: boolean; message: string }> {
+    return this.http.patch<{ success: boolean; message: string }>(
+      `${this.apiUrl}/${conversationId}/settings`,
+      settings
     );
   }
 

@@ -10,7 +10,7 @@ export interface ApiConfig {
 export interface Message {
   id: string;
   content: string;
-  type: 'user' | 'bot' | 'system';
+  type: 'user' | 'bot' | 'system' | 'delegation';
   timestamp: Date;
   isStreaming?: boolean;
   isDeleted?: boolean;  // Soft delete flag (shows disabled in chat, excluded from prompt)

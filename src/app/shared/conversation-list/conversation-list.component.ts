@@ -156,6 +156,39 @@ import { ConversationService, ConversationSummary } from '../../services/convers
               rows="10"
             ></textarea>
           </div>
+
+          <div class="chain-settings">
+            <h4>Cadeia de Agentes</h4>
+
+            <div class="form-group toggle-group">
+              <label class="toggle-label" for="modal-auto-delegate">
+                <span>Auto-delegar</span>
+                <span class="toggle-hint">Agentes podem chamar outros agentes sem esperar o humano</span>
+              </label>
+              <label class="toggle-switch">
+                <input
+                  id="modal-auto-delegate"
+                  type="checkbox"
+                  [(ngModel)]="editModalAutoDelegate"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="form-group" *ngIf="editModalAutoDelegate">
+              <label for="modal-chain-depth">Limite de ciclos autonomos</label>
+              <input
+                id="modal-chain-depth"
+                type="number"
+                class="modal-title-input chain-depth-input"
+                [(ngModel)]="editModalMaxChainDepth"
+                placeholder="Global (10)"
+                min="1"
+                max="100"
+              />
+              <span class="field-hint">Vazio = usa limite global. Max 100.</span>
+            </div>
+          </div>
         </div>
 
         <div class="modal-footer">
@@ -537,6 +570,98 @@ import { ConversationService, ConversationSummary } from '../../services/convers
       background: #0056b3;
     }
 
+    /* Chain Settings Styles */
+    .chain-settings {
+      border-top: 1px solid #dee2e6;
+      padding-top: 16px;
+      margin-top: 8px;
+    }
+
+    .chain-settings h4 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .toggle-label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .toggle-label span:first-child {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    .toggle-hint {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #ced4da;
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+
+    .toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: #007bff;
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .chain-depth-input {
+      width: 120px !important;
+    }
+
+    .field-hint {
+      display: block;
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+
     /* Delete Confirmation Modal Styles */
     .delete-overlay {
       z-index: 10001;
@@ -634,6 +759,8 @@ export class ConversationListComponent implements OnInit {
   editingConversation: ConversationSummary | null = null;
   editModalTitle = '';
   editModalContext = '';
+  editModalAutoDelegate = false;
+  editModalMaxChainDepth: number | null = null;
 
   // 🔥 NOVO: Estado do modal de confirmação de delete
   showDeleteModal = false;
@@ -713,6 +840,8 @@ export class ConversationListComponent implements OnInit {
         this.editingConversation = conversation;
         this.editModalTitle = fullConversation.title;
         this.editModalContext = fullConversation.context || '';
+        this.editModalAutoDelegate = fullConversation.auto_delegate || false;
+        this.editModalMaxChainDepth = fullConversation.max_chain_depth || null;
         this.showEditModal = true;
 
         // Focar no contexto após o modal abrir
@@ -755,25 +884,48 @@ export class ConversationListComponent implements OnInit {
           this.conversationService.updateConversationContext(conversationId, trimmedContext || null).subscribe({
             next: () => {
               console.log('✅ Contexto atualizado com sucesso');
-              this.closeEditModal();
-              this.loadConversations(); // Recarregar lista
+              this.saveChainSettings(conversationId);
             },
             error: (error: any) => {
               console.error('❌ Erro ao atualizar contexto:', error);
               alert('Título atualizado, mas erro ao atualizar contexto');
-              this.closeEditModal();
-              this.loadConversations();
+              this.saveChainSettings(conversationId);
             }
           });
         } else {
-          // Apenas título foi alterado
-          this.closeEditModal();
-          this.loadConversations();
+          this.saveChainSettings(conversationId);
         }
       },
       error: (error: any) => {
         console.error('❌ Erro ao atualizar título:', error);
         alert('Erro ao atualizar conversa');
+      }
+    });
+  }
+
+  /**
+   * Salva chain settings (auto_delegate, max_chain_depth) e fecha o modal.
+   */
+  private saveChainSettings(conversationId: string): void {
+    const settings: { max_chain_depth?: number | null; auto_delegate?: boolean } = {
+      auto_delegate: this.editModalAutoDelegate,
+    };
+
+    // Only send max_chain_depth if auto_delegate is on
+    if (this.editModalAutoDelegate) {
+      settings.max_chain_depth = this.editModalMaxChainDepth || 0; // 0 = reset to global
+    }
+
+    this.conversationService.updateConversationSettings(conversationId, settings).subscribe({
+      next: () => {
+        console.log('✅ Chain settings atualizados');
+        this.closeEditModal();
+        this.loadConversations();
+      },
+      error: (error: any) => {
+        console.error('❌ Erro ao atualizar chain settings:', error);
+        this.closeEditModal();
+        this.loadConversations();
       }
     });
   }
@@ -786,6 +938,8 @@ export class ConversationListComponent implements OnInit {
     this.editingConversation = null;
     this.editModalTitle = '';
     this.editModalContext = '';
+    this.editModalAutoDelegate = false;
+    this.editModalMaxChainDepth = null;
   }
 
   /**

@@ -21,6 +21,7 @@ import { environment } from '../../../environments/environment';
 import { ConversationService, Conversation, AgentInfo as ConvAgentInfo, Message as ConvMessage } from '../../services/conversation.service';
 import { NavigationStateService } from '../../services/navigation-state.service';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
+import { GamificationEventsService } from '../../services/gamification-events.service';
 
 const DEFAULT_CONFIG: ConductorConfig = {
   api: {
@@ -2566,7 +2567,8 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
     private conversationService: ConversationService,  // 🔥 NOVO
     private messageHandlingService: MessageHandlingService,  // 🔥 FASE 1.1
     public modalStateService: ModalStateService,  // 🔥 FASE 1.2 (public para template)
-    private navigationStateService: NavigationStateService  // 🔥 Estado de navegação
+    private navigationStateService: NavigationStateService,  // 🔥 Estado de navegação
+    private gamificationEventsService: GamificationEventsService
   ) { }
 
   ngOnInit(): void {
@@ -2599,6 +2601,16 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
       this.speechService.transcript$.subscribe(transcript => {
         if (transcript && this.chatInputComponent) {
           this.chatInputComponent.insertText(transcript);
+        }
+      })
+    );
+
+    // Auto-reload conversation when a delegated task completes
+    this.subscriptions.add(
+      this.gamificationEventsService.taskCompleted$.subscribe(event => {
+        if (event.conversation_id && event.conversation_id === this.activeConversationId) {
+          console.log(`🔗 [DELEGATION] Task ${event.task_id} ${event.status} in active conversation, reloading...`);
+          this.loadConversation(event.conversation_id);
         }
       })
     );
@@ -3164,7 +3176,7 @@ export class ConductorChatComponent implements OnInit, OnDestroy {
         const messages: Message[] = conversation.messages.map((msg: ConvMessage) => ({
           id: msg.id,
           content: msg.content,
-          type: msg.type as 'user' | 'bot' | 'system',
+          type: msg.type as 'user' | 'bot' | 'system' | 'delegation',
           timestamp: new Date(msg.timestamp),
           agent: msg.agent,  // Informações do agente (para mensagens de bot)
           isDeleted: (msg as any).isDeleted || false,

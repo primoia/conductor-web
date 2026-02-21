@@ -353,6 +353,28 @@ const DEFAULT_CONFIG: ConductorConfig = {
               rows="4"
               placeholder="Contexto markdown (opcional)"
               (touchend)="$event.stopPropagation()"></textarea>
+
+            <div class="conv-edit-chain">
+              <label class="conv-edit-label">Cadeia de Agentes</label>
+              <div class="conv-edit-toggle-row">
+                <span class="conv-edit-toggle-text">Auto-delegar</span>
+                <label class="conv-edit-toggle">
+                  <input type="checkbox" [(ngModel)]="editConvAutoDelegate" />
+                  <span class="conv-edit-toggle-slider"></span>
+                </label>
+              </div>
+              <div *ngIf="editConvAutoDelegate" class="conv-edit-depth-row">
+                <span class="conv-edit-toggle-text">Ciclos max</span>
+                <input
+                  type="number"
+                  class="conv-edit-depth-input"
+                  [(ngModel)]="editConvMaxChainDepth"
+                  placeholder="10"
+                  min="1"
+                  max="100"
+                  (touchend)="$event.stopPropagation()" />
+              </div>
+            </div>
           </div>
           <div class="conv-edit-footer">
             <button class="conv-edit-cancel" (click)="showConvEditModal = false">Cancelar</button>
@@ -1274,6 +1296,76 @@ const DEFAULT_CONFIG: ConductorConfig = {
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
+    .conv-edit-chain {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .conv-edit-toggle-row,
+    .conv-edit-depth-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .conv-edit-toggle-text {
+      font-size: 14px;
+      color: #334155;
+    }
+
+    .conv-edit-toggle {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .conv-edit-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .conv-edit-toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #cbd5e1;
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+
+    .conv-edit-toggle-slider:before {
+      content: "";
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .conv-edit-toggle input:checked + .conv-edit-toggle-slider {
+      background: #667eea;
+    }
+
+    .conv-edit-toggle input:checked + .conv-edit-toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    .conv-edit-depth-input {
+      width: 70px;
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      text-align: center;
+    }
+
     .conv-edit-footer {
       display: flex;
       justify-content: flex-end;
@@ -1522,6 +1614,8 @@ export class MobileChatComponent implements OnInit, OnDestroy {
   activeConversationTitle = '';
   editConvTitle = '';
   editConvContext = '';
+  editConvAutoDelegate = false;
+  editConvMaxChainDepth: number | null = null;
   readModeMessage: Message | null = null;
 
   // Message handling
@@ -1584,6 +1678,16 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       this.gamificationEventsService.events$.subscribe(events => {
         this.resultEventCount = events.filter(e => e.level === 'result').length;
         this.debugEventCount = events.filter(e => e.level === 'debug').length;
+      })
+    );
+
+    // Auto-reload conversation when a delegated task completes
+    this.subscriptions.add(
+      this.gamificationEventsService.taskCompleted$.subscribe(event => {
+        if (event.conversation_id && event.conversation_id === this.activeConversationId) {
+          console.log(`🔗 [DELEGATION] Task ${event.task_id} ${event.status} in active conversation, reloading...`);
+          this.loadConversation(event.conversation_id);
+        }
       })
     );
 
@@ -1823,7 +1927,7 @@ export class MobileChatComponent implements OnInit, OnDestroy {
         const messages: Message[] = conversation.messages.map((msg: ConvMessage) => ({
           id: msg.id,
           content: msg.content,
-          type: msg.type as 'user' | 'bot' | 'system',
+          type: msg.type as 'user' | 'bot' | 'system' | 'delegation',
           timestamp: new Date(msg.timestamp),
           agent: msg.agent,
           isDeleted: (msg as any).isDeleted || false,
@@ -2530,6 +2634,8 @@ export class MobileChatComponent implements OnInit, OnDestroy {
       next: (conv) => {
         this.editConvTitle = conv.title || this.activeConversationTitle || '';
         this.editConvContext = (conv as any).context || '';
+        this.editConvAutoDelegate = conv.auto_delegate || false;
+        this.editConvMaxChainDepth = conv.max_chain_depth || null;
         this.showConvEditModal = true;
       },
       error: () => {
@@ -2543,22 +2649,36 @@ export class MobileChatComponent implements OnInit, OnDestroy {
 
     const convId = this.activeConversationId;
     const newTitle = this.editConvTitle.trim();
+    const ctx = this.editConvContext?.trim() || null;
+    const settings: { max_chain_depth?: number | null; auto_delegate?: boolean } = {
+      auto_delegate: this.editConvAutoDelegate,
+    };
+    if (this.editConvAutoDelegate) {
+      settings.max_chain_depth = this.editConvMaxChainDepth || 0;
+    }
+
+    // Fire all three updates in parallel, close modal when all settle
+    let pending = 3;
+    const done = () => { if (--pending <= 0) this.showConvEditModal = false; };
 
     this.conversationService.updateConversationTitle(convId, newTitle).subscribe({
       next: () => {
         this.activeConversationTitle = newTitle;
         const conv = this.conversations.find(c => c.conversation_id === convId);
         if (conv) conv.title = newTitle;
-
-        const ctx = this.editConvContext?.trim() || null;
-        this.conversationService.updateConversationContext(convId, ctx).subscribe({
-          next: () => { this.showConvEditModal = false; },
-          error: () => { this.showConvEditModal = false; }
-        });
+        done();
       },
-      error: (err) => {
-        console.error('Error updating conversation:', err);
-      }
+      error: (err) => { console.error('Error updating title:', err); done(); }
+    });
+
+    this.conversationService.updateConversationContext(convId, ctx).subscribe({
+      next: () => done(),
+      error: (err) => { console.error('Error updating context:', err); done(); }
+    });
+
+    this.conversationService.updateConversationSettings(convId, settings).subscribe({
+      next: () => done(),
+      error: (err) => { console.error('Error updating chain settings:', err); done(); }
     });
   }
 

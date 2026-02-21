@@ -50,6 +50,10 @@ export class GamificationEventsService {
   // 🔥 Subject para receber eventos locais de task (sem dependência circular)
   private localTaskEventSubject = new Subject<{type: string; data: any; timestamp?: number}>();
 
+  /** Emits when a task completes/errors with a conversation_id (for auto-reload) */
+  private readonly taskCompletedSubject = new Subject<{ conversation_id: string; task_id: string; status: string }>();
+  public readonly taskCompleted$: Observable<{ conversation_id: string; task_id: string; status: string }> = this.taskCompletedSubject.asObservable();
+
   constructor(
     private readonly metricsService: AgentMetricsService,
     private readonly personalization: AgentPersonalizationService,
@@ -559,6 +563,14 @@ export class GamificationEventsService {
           agentName: event.data.agent_name || event.data.agent_id,
           status: 'completed'
         });
+        // Notify conversation listeners for auto-reload
+        if (event.data.conversation_id) {
+          this.taskCompletedSubject.next({
+            conversation_id: event.data.conversation_id,
+            task_id: event.data.task_id,
+            status: 'completed',
+          });
+        }
         break;
 
       case 'task_error':
@@ -579,6 +591,14 @@ export class GamificationEventsService {
           agentName: event.data.agent_name || event.data.agent_id,
           status: 'error'
         });
+        // Notify conversation listeners for auto-reload
+        if (event.data.conversation_id) {
+          this.taskCompletedSubject.next({
+            conversation_id: event.data.conversation_id,
+            task_id: event.data.task_id,
+            status: 'error',
+          });
+        }
         break;
 
       case 'system_alert':

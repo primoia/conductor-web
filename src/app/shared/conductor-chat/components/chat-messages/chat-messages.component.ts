@@ -18,11 +18,17 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
         [class.user-message]="message.type === 'user'"
         [class.bot-message]="message.type === 'bot'"
         [class.system-message]="message.type === 'system'"
+        [class.delegation-message]="message.type === 'delegation'"
         [class.progress-message]="message.status === 'pending'"
         [class.disabled]="message.isDeleted"
       >
+        <!-- Delegation Messages (agent chain handoff) -->
+        <div *ngIf="message.type === 'delegation'" class="message-content">
+          <div class="markdown-content" [innerHTML]="formatMessage(message.content)"></div>
+        </div>
+
         <!-- User and System Messages -->
-        <div *ngIf="message.type !== 'bot'" class="message-content">
+        <div *ngIf="message.type !== 'bot' && message.type !== 'delegation'" class="message-content">
           <strong *ngIf="message.type !== 'system'">Você:</strong>
           <span>{{ message.content }}</span>
         </div>
@@ -174,6 +180,16 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
 
     .system-message .message-content {
       font-style: italic;
+    }
+
+    .delegation-message {
+      background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+      color: #1e40af;
+      align-self: center;
+      border: 1px solid #93c5fd;
+      border-left: 3px solid #3b82f6;
+      font-size: 12px;
+      max-width: 90%;
     }
 
     .progress-message {
