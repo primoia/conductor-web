@@ -840,8 +840,8 @@ export class ConversationListComponent implements OnInit {
         this.editingConversation = conversation;
         this.editModalTitle = fullConversation.title;
         this.editModalContext = fullConversation.context || '';
-        this.editModalAutoDelegate = fullConversation.auto_delegate || false;
-        this.editModalMaxChainDepth = fullConversation.max_chain_depth || null;
+        this.editModalAutoDelegate = fullConversation.auto_delegate !== false;
+        this.editModalMaxChainDepth = fullConversation.max_chain_depth ?? 10;
         this.showEditModal = true;
 
         // Focar no contexto após o modal abrir

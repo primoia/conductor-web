@@ -183,11 +183,11 @@ import { ToolCallTimelineComponent } from '../tool-call-timeline/tool-call-timel
     }
 
     .delegation-message {
-      background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
-      color: #1e40af;
-      align-self: center;
-      border: 1px solid #93c5fd;
-      border-left: 3px solid #3b82f6;
+      background: #f8f9fa;
+      color: #6b7280;
+      align-self: flex-start;
+      border: 1px solid #e5e7eb;
+      border-left: 3px solid #9ca3af;
       font-size: 12px;
       max-width: 90%;
     }
