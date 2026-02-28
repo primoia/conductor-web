@@ -40,6 +40,10 @@ bootstrapApplication(App, {
         path: 'm',
         loadComponent: () => import('./app/mobile-chat/mobile-chat.component').then(m => m.MobileChatComponent)
       },
+      {
+        path: 'media-studio',
+        loadComponent: () => import('./app/media-studio/media-studio.component').then(m => m.MediaStudioComponent)
+      },
       { path: '**', redirectTo: '' }
     ]),
     {

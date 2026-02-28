@@ -36,6 +36,10 @@ export const routes: Routes = [
     loadComponent: () => import('./mobile-chat/mobile-chat.component').then(m => m.MobileChatComponent)
   },
   {
+    path: 'media-studio',
+    loadComponent: () => import('./media-studio/media-studio.component').then(m => m.MediaStudioComponent)
+  },
+  {
     path: '',
     redirectTo: '/screenplay',
     pathMatch: 'full'

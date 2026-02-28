@@ -10,6 +10,15 @@ COPY . .
 # Exclude chat directory and build Angular
 RUN npm run build --configuration=production
 
+# Generate media-studio.html from index.html with Primo PWA manifest
+RUN sed \
+  -e 's|href="manifest.json"|href="/assets/media-studio-manifest.json"|' \
+  -e 's|content="Conductor"|content="Primo"|' \
+  -e 's|content="#667eea"|content="#03050a"|' \
+  -e 's|<title>ConductorApp</title>|<title>Primo</title>|' \
+  /app/dist/conductor-app/browser/index.html \
+  > /app/dist/conductor-app/browser/media-studio.html
+
 # Production stage
 FROM nginx:alpine
 

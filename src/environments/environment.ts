@@ -1,6 +1,7 @@
 export const environment = {
   production: false,
   apiUrl: '/api',  // Usa proxy nginx
+  mediaStudioUrl: 'http://localhost:12012',
 
   // 🔥 FEATURE FLAGS
   features: {

@@ -10,5 +10,20 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
+  },
+  "/media-studio/ws/stream": {
+    "target": "http://localhost:12012",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true,
+    "pathRewrite": { "^/media-studio": "" },
+    "logLevel": "debug"
+  },
+  "/media-studio/api/*": {
+    "target": "http://localhost:12012",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": { "^/media-studio": "" },
+    "logLevel": "debug"
   }
 }

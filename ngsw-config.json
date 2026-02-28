@@ -43,6 +43,8 @@
   "navigationUrls": [
     "/**",
     "!/**/*.*",
-    "!/**/api/**"
+    "!/**/api/**",
+    "!/media-studio/**",
+    "!/media-studio"
   ]
 }
