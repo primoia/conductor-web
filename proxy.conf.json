@@ -11,19 +11,23 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
-  "/media-studio/ws/stream": {
-    "target": "http://localhost:12012",
+  "/jarvis/ws/stream": {
+    "target": "http://localhost:12012/ws/stream",
     "secure": false,
-    "changeOrigin": true,
     "ws": true,
-    "pathRewrite": { "^/media-studio": "" },
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/jarvis": ""
+    },
     "logLevel": "debug"
   },
-  "/media-studio/api/*": {
-    "target": "http://localhost:12012",
+  "/jarvis/api/*": {
+    "target": "http://localhost:12012/api",
     "secure": false,
     "changeOrigin": true,
-    "pathRewrite": { "^/media-studio": "" },
+    "pathRewrite": {
+      "^/jarvis": ""
+    },
     "logLevel": "debug"
   }
 }

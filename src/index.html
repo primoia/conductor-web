@@ -14,7 +14,12 @@
   <meta name="theme-color" content="#667eea">
 
   <!-- 🔥 PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json" id="pwa-manifest">
+  <script>
+    if (window.location.pathname.startsWith('/jarvis')) {
+      document.getElementById('pwa-manifest').setAttribute('href', 'assets/jarvis-manifest.json');
+    }
+  </script>
 
   <!-- 🔥 Apple iOS Meta Tags -->
   <meta name="apple-mobile-web-app-title" content="Conductor">

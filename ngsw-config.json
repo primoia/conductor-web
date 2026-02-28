@@ -44,7 +44,7 @@
     "/**",
     "!/**/*.*",
     "!/**/api/**",
-    "!/media-studio/**",
-    "!/media-studio"
+    "!/jarvis",
+    "!/jarvis/**"
   ]
 }

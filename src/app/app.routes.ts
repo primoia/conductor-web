@@ -36,7 +36,7 @@ export const routes: Routes = [
     loadComponent: () => import('./mobile-chat/mobile-chat.component').then(m => m.MobileChatComponent)
   },
   {
-    path: 'media-studio',
+    path: 'jarvis',
     loadComponent: () => import('./media-studio/media-studio.component').then(m => m.MediaStudioComponent)
   },
   {
