@@ -1,0 +1,97 @@
+:host {
+  pointer-events: none;
+}
+
+.hud {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, rgba(3, 5, 10, 0.9) 0%, transparent 100%);
+}
+
+.status-line {
+  font-size: 0.7rem;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: color 0.5s, text-shadow 0.5s;
+
+  &.idle { color: #2a3545; }
+  &.connected { color: #00e87b; text-shadow: 0 0 20px rgba(0, 232, 123, 0.3); }
+  &.listening { color: #00d4ff; text-shadow: 0 0 20px rgba(0, 212, 255, 0.3); }
+  &.vosk { color: #448aff; text-shadow: 0 0 20px rgba(68, 138, 255, 0.4); }
+  &.whisper { color: #ce60f0; text-shadow: 0 0 20px rgba(206, 96, 240, 0.4); }
+  &.speaking { color: #ffb347; text-shadow: 0 0 20px rgba(255, 179, 71, 0.4); }
+  &.error { color: #ff3355; }
+}
+
+.rec-timer {
+  position: fixed;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 0.65rem;
+  letter-spacing: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+  color: #ff4060;
+  font-weight: 600;
+
+  &.active { opacity: 0.85; }
+}
+
+.rec-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff4060;
+  margin-right: 10px;
+  vertical-align: middle;
+  animation: recpulse 1s infinite;
+}
+
+@keyframes recpulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.info-line {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: #1a2535;
+  pointer-events: none;
+}
+
+.tap-hint {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 160px);
+  font-size: 0.68rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #00d4ff;
+  opacity: 0;
+  transition: opacity 1s;
+  pointer-events: none;
+  font-weight: 600;
+
+  &.visible { opacity: 0.45; }
+}
