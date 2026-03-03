@@ -10,7 +10,7 @@ import { MediaStudioWebSocketService } from '../../services/media-studio-websock
 
 interface DisplayEntry {
   text: string;
-  type: 'partial' | 'final' | 'wake' | 'speaking';
+  type: 'partial' | 'final' | 'wake' | 'speaking' | 'assistant';
   engine?: string;
   engineCss?: string;
   engineCssDim?: string;
@@ -36,6 +36,12 @@ interface DisplayEntry {
         Transcriptions will appear here
       </div>
       <div
+        *ngIf="thinkingIndicator"
+        class="transcript-entry thinking-indicator"
+      >
+        Pensando...
+      </div>
+      <div
         *ngIf="speakingIndicator"
         class="transcript-entry speaking-indicator"
       >
@@ -46,9 +52,17 @@ interface DisplayEntry {
         class="transcript-entry"
         [class.partial]="entry.type === 'partial'"
         [class.wake]="entry.type === 'wake'"
+        [class.assistant]="entry.type === 'assistant'"
         [class.fading]="entry.fading"
         [class.faded]="entry.faded"
       >
+        <span
+          *ngIf="entry.type === 'assistant'"
+          class="engine-tag"
+          style="background: #ce60f008; color: #ce60f0; border: 1px solid #ce60f040;"
+        >
+          JARVIS
+        </span>
         <span
           *ngIf="entry.engine && (entry.type === 'wake' || entry.type === 'final')"
           class="engine-tag"
@@ -67,6 +81,7 @@ interface DisplayEntry {
 })
 export class TranscriptOverlayComponent implements OnDestroy {
   entries: DisplayEntry[] = [];
+  thinkingIndicator = false;
   speakingIndicator = false;
   private partialEntry: DisplayEntry | null = null;
   private activeEngine: string | null = null;
@@ -121,6 +136,19 @@ export class TranscriptOverlayComponent implements OnDestroy {
         break;
       }
 
+      case 'llm_start':
+        this.thinkingIndicator = true;
+        break;
+
+      case 'llm_response':
+        this.thinkingIndicator = false;
+        this.addEntry(msg.text, 'assistant');
+        break;
+
+      case 'llm_end':
+        this.thinkingIndicator = false;
+        break;
+
       case 'tts_start':
         this.speakingIndicator = true;
         break;
@@ -132,10 +160,10 @@ export class TranscriptOverlayComponent implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private addEntry(text: string, type: 'final' | 'wake' | 'partial', engine?: string): void {
+  private addEntry(text: string, type: 'final' | 'wake' | 'partial' | 'assistant', engine?: string): void {
     const entry = this.createEntry(text, type, engine);
 
-    if (type === 'final') {
+    if (type === 'final' || type === 'assistant') {
       entry.typewriterDone = false;
       entry.typewriterText = '';
       this.entries.push(entry);
@@ -150,7 +178,7 @@ export class TranscriptOverlayComponent implements OnDestroy {
     this.trimEntries();
   }
 
-  private createEntry(text: string, type: 'final' | 'wake' | 'partial', engine?: string): DisplayEntry {
+  private createEntry(text: string, type: 'final' | 'wake' | 'partial' | 'assistant', engine?: string): DisplayEntry {
     const entry: DisplayEntry = {
       text,
       type,

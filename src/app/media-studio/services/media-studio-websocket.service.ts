@@ -219,6 +219,23 @@ export class MediaStudioWebSocketService {
           this.setStatus('LISTENING', 'listening');
           break;
 
+        case 'llm_start':
+          this.setAnimState('thinking');
+          this.setStatus('THINKING...', 'thinking');
+          break;
+
+        case 'llm_response':
+          // Stay in thinking until llm_end
+          break;
+
+        case 'llm_end':
+          // Transition handled by tts_start; fallback to listening if no TTS
+          if (this.animState$.getValue() === 'thinking') {
+            this.setAnimState('listening');
+            this.setStatus('LISTENING', 'listening');
+          }
+          break;
+
         case 'tts_start':
           this.ttsPlaying$.next(true);
           this.setAnimState('speaking');
@@ -288,6 +305,9 @@ export class MediaStudioWebSocketService {
         this.recordStart$.next(Date.now());
         break;
       }
+      case 'thinking':
+        this.tgtPal$.next(P['thinking']);
+        break;
       case 'speaking':
         this.tgtPal$.next(P['speaking']);
         break;

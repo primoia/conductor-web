@@ -7,7 +7,8 @@ export const P: Record<string, PaletteColor> = {
   whisper:  { r: 206, g: 96,  b: 240, hex: '#ce60f0' },
   rec:      { r: 255, g: 64,  b: 96,  hex: '#ff4060' },
   green:    { r: 0,   g: 232, b: 123, hex: '#00e87b' },
-  speaking: { r: 255, g: 179, b: 71,  hex: '#ffb347' },
+  speaking:  { r: 255, g: 179, b: 71,  hex: '#ffb347' },
+  thinking:  { r: 206, g: 96,  b: 240, hex: '#ce60f0' },
 };
 
 const EXTRA_COLORS: { r: number; g: number; b: number; css: string; cssDim: string; cssBg: string }[] = [

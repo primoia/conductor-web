@@ -26,7 +26,7 @@ export class VisualizerCanvasComponent implements AfterViewInit, OnDestroy {
   private time = 0;
   private curPal: PaletteColor = { ...P['idle'] };
   private tgtPal: PaletteColor = { ...P['idle'] };
-  private animState: 'idle' | 'connecting' | 'listening' | 'recording' | 'speaking' = 'idle';
+  private animState: 'idle' | 'connecting' | 'listening' | 'recording' | 'thinking' | 'speaking' = 'idle';
   private expandScale = 1.0;
   private destroy$ = new Subject<void>();
   private resizeHandler = () => this.resize();
@@ -70,7 +70,7 @@ export class VisualizerCanvasComponent implements AfterViewInit, OnDestroy {
   private animate = (): void => {
     this.time += 0.016;
     this.curPal = lerpPal(this.curPal, this.tgtPal, 0.06);
-    const tgtExpand = this.animState === 'recording' ? 1.15 : this.animState === 'speaking' ? 1.08 : 1.0;
+    const tgtExpand = this.animState === 'recording' ? 1.15 : this.animState === 'thinking' ? 1.05 : this.animState === 'speaking' ? 1.08 : 1.0;
     this.expandScale += (tgtExpand - this.expandScale) * 0.06;
     this.wsSvc.updateAudioData();
     this.drawScene(this.time);
@@ -90,7 +90,7 @@ export class VisualizerCanvasComponent implements AfterViewInit, OnDestroy {
 
     const s = this.scale;
     const lvl = this.wsSvc.smoothLevel;
-    const active = this.animState === 'listening' || this.animState === 'recording' || this.animState === 'speaking';
+    const active = this.animState === 'listening' || this.animState === 'recording' || this.animState === 'thinking' || this.animState === 'speaking';
     const rec = this.animState === 'recording';
 
     this.drawEnergyField(s, lvl, t, active, rec);

@@ -39,6 +39,22 @@
     text-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
   }
 
+  &.assistant {
+    color: #ce60f0;
+    font-weight: 500;
+    text-shadow: 0 0 10px rgba(206, 96, 240, 0.2);
+  }
+
+  &.thinking-indicator {
+    color: #ce60f0;
+    font-weight: 600;
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    text-shadow: 0 0 15px rgba(206, 96, 240, 0.4);
+    animation: pulse-thinking 1.2s ease-in-out infinite;
+  }
+
   &.speaking-indicator {
     color: #ffb347;
     font-weight: 600;
@@ -48,6 +64,11 @@
     text-shadow: 0 0 15px rgba(255, 179, 71, 0.4);
     animation: pulse-speaking 1.2s ease-in-out infinite;
   }
+}
+
+@keyframes pulse-thinking {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 @keyframes pulse-speaking {

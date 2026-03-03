@@ -1,4 +1,4 @@
-export type AnimState = 'idle' | 'connecting' | 'listening' | 'recording' | 'speaking';
+export type AnimState = 'idle' | 'connecting' | 'listening' | 'recording' | 'thinking' | 'speaking';
 
 export interface PaletteColor {
   r: number;
@@ -53,6 +53,20 @@ export interface WsTtsStartMessage {
   text: string;
 }
 
+export interface WsLlmStartMessage {
+  type: 'llm_start';
+  text: string;
+}
+
+export interface WsLlmResponseMessage {
+  type: 'llm_response';
+  text: string;
+}
+
+export interface WsLlmEndMessage {
+  type: 'llm_end';
+}
+
 export interface WsTtsEndMessage {
   type: 'tts_end';
   text?: string;
@@ -63,6 +77,9 @@ export type WsMessage =
   | WsWakeWordMessage
   | WsPartialMessage
   | WsTranscriptionMessage
+  | WsLlmStartMessage
+  | WsLlmResponseMessage
+  | WsLlmEndMessage
   | WsTtsStartMessage
   | WsTtsEndMessage;
 
@@ -78,7 +95,7 @@ export interface MediaStudioConfig {
 
 export interface TranscriptEntry {
   text: string;
-  type: 'partial' | 'final' | 'wake';
+  type: 'partial' | 'final' | 'wake' | 'assistant';
   engine?: string;
   fading: boolean;
   faded: boolean;
