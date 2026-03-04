@@ -29,6 +29,7 @@ export interface WsConfigMessage {
   type: 'config';
   session_id: string;
   max_record_seconds?: number;
+  features?: string[];
 }
 
 export interface WsWakeWordMessage {
@@ -58,6 +59,11 @@ export interface WsLlmStartMessage {
   text: string;
 }
 
+export interface WsLlmTokenMessage {
+  type: 'llm_token';
+  text: string;
+}
+
 export interface WsLlmResponseMessage {
   type: 'llm_response';
   text: string;
@@ -72,16 +78,36 @@ export interface WsTtsEndMessage {
   text?: string;
 }
 
+export interface WsInterruptedMessage {
+  type: 'interrupted';
+}
+
+export interface WsDisplayMessage {
+  type: 'display';
+  command: 'notification' | 'color' | 'overlay' | 'animate';
+  payload?: {
+    text?: string;
+    color?: string;
+    state?: AnimState;
+    duration?: number;
+    level?: 'info' | 'warning' | 'error';
+    position?: 'top' | 'center' | 'bottom';
+  };
+}
+
 export type WsMessage =
   | WsConfigMessage
   | WsWakeWordMessage
   | WsPartialMessage
   | WsTranscriptionMessage
   | WsLlmStartMessage
+  | WsLlmTokenMessage
   | WsLlmResponseMessage
   | WsLlmEndMessage
   | WsTtsStartMessage
-  | WsTtsEndMessage;
+  | WsTtsEndMessage
+  | WsInterruptedMessage
+  | WsDisplayMessage;
 
 export interface WakeWordEntry {
   keyword?: string;

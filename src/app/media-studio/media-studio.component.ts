@@ -80,11 +80,21 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
   }
 
   onTap(): void {
+    // Barge-in: tap during speaking/thinking interrupts the response
+    if (this.animState === 'speaking' || this.animState === 'thinking') {
+      this.wsSvc.interrupt();
+      return;
+    }
     this.wsSvc.toggleMic();
   }
 
   onTouchStart(e: TouchEvent): void {
     e.preventDefault();
+    // Barge-in: tap during speaking/thinking interrupts the response
+    if (this.animState === 'speaking' || this.animState === 'thinking') {
+      this.wsSvc.interrupt();
+      return;
+    }
     this.wsSvc.toggleMic();
   }
 }

@@ -24,6 +24,12 @@ export class MediaStudioWebSocketService {
 
   private ttsOutputAnalyser: AnalyserNode | null = null;
 
+  // ── Chunked audio queue for streaming TTS ──
+  private audioQueue: ArrayBuffer[] = [];
+  private isPlayingChunk = false;
+  private currentSource: AudioBufferSourceNode | null = null;
+  private ttsEndReceived = false;
+
   // Observable state
   animState$ = new BehaviorSubject<AnimState>('idle');
   tgtPal$ = new BehaviorSubject<PaletteColor>(P['idle']);
@@ -38,6 +44,8 @@ export class MediaStudioWebSocketService {
 
   // Events
   message$ = new Subject<WsMessage>();
+  // MCP display commands
+  displayCommand$ = new Subject<{ command: string; payload?: any }>();
 
   get streaming(): boolean {
     return this._streaming;
@@ -77,6 +85,20 @@ export class MediaStudioWebSocketService {
     }
   }
 
+  /** Send an interrupt command to stop current LLM/TTS processing. */
+  interrupt(): void {
+    this.stopAudioPlayback();
+    this.sendTtsState(false);
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'interrupt' }));
+    }
+    this.zone.run(() => {
+      this.ttsPlaying$.next(false);
+      this.setAnimState('listening');
+      this.setStatus('LISTENING', 'listening');
+    });
+  }
+
   async startStreaming(): Promise<void> {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -114,7 +136,7 @@ export class MediaStudioWebSocketService {
 
       this.ws.onmessage = (e) => {
         if (e.data instanceof ArrayBuffer) {
-          this.playTtsAudio(e.data);
+          this.enqueueTtsAudio(e.data);
           return;
         }
         const msg: WsMessage = JSON.parse(e.data);
@@ -166,6 +188,7 @@ export class MediaStudioWebSocketService {
   stopStreaming(): void {
     this._streaming = false;
     this._activeEngine = null;
+    this.stopAudioPlayback();
     this.setAnimState('idle');
     if (this.workletNode) {
       this.workletNode.disconnect();
@@ -208,6 +231,10 @@ export class MediaStudioWebSocketService {
         case 'wake_word':
           this._activeEngine = msg.engine || 'vosk';
           this.activeAgent$.next(msg.keyword || null);
+          // Barge-in: if currently speaking, stop playback
+          if (this.animState$.getValue() === 'speaking') {
+            this.stopAudioPlayback();
+          }
           this.setAnimState('recording', this._activeEngine);
           this.setStatus(`[${this._activeEngine.toUpperCase()}] RECORDING`, this._activeEngine);
           break;
@@ -224,12 +251,16 @@ export class MediaStudioWebSocketService {
           this.setStatus('THINKING...', 'thinking');
           break;
 
+        case 'llm_token':
+          // Stay in thinking state — transcript overlay handles token display
+          break;
+
         case 'llm_response':
-          // Stay in thinking until llm_end
+          // Full LLM response received — stay in current state
           break;
 
         case 'llm_end':
-          // Transition handled by tts_start; fallback to listening if no TTS
+          // If not speaking (no TTS), transition to listening
           if (this.animState$.getValue() === 'thinking') {
             this.setAnimState('listening');
             this.setStatus('LISTENING', 'listening');
@@ -237,26 +268,70 @@ export class MediaStudioWebSocketService {
           break;
 
         case 'tts_start':
+          this.ttsEndReceived = false;
           this.ttsPlaying$.next(true);
           this.setAnimState('speaking');
           this.setStatus('SPEAKING', 'speaking');
+          this.sendTtsState(true);
           break;
 
         case 'tts_end':
-          // If audio already finished playing, transition immediately
-          if (!this.ttsOutputAnalyser) {
-            this.ttsPlaying$.next(false);
-            this.setAnimState('listening');
-            this.setStatus('LISTENING', 'listening');
+          this.ttsEndReceived = true;
+          // If audio queue is empty and nothing playing, transition now
+          if (this.audioQueue.length === 0 && !this.isPlayingChunk) {
+            this.onAllAudioFinished();
           }
-          // Otherwise source.onended will handle the transition
+          // Otherwise, onChunkEnded will handle transition when queue drains
+          break;
+
+        case 'interrupted':
+          this.stopAudioPlayback();
+          this.ttsPlaying$.next(false);
+          this.setAnimState('listening');
+          this.setStatus('LISTENING', 'listening');
+          break;
+
+        case 'display':
+          this.handleDisplayCommand(msg);
           break;
       }
     });
   }
 
-  private playTtsAudio(arrayBuffer: ArrayBuffer): void {
-    if (!this.audioCtx) return;
+  // ── Chunked Audio Queue Player ──
+
+  /** Enqueue a TTS audio chunk for sequential playback. */
+  private enqueueTtsAudio(arrayBuffer: ArrayBuffer): void {
+    this.audioQueue.push(arrayBuffer);
+    // If we're in thinking state and first audio arrives, switch to speaking
+    if (this.animState$.getValue() === 'thinking') {
+      this.zone.run(() => {
+        this.ttsPlaying$.next(true);
+        this.setAnimState('speaking');
+        this.setStatus('SPEAKING', 'speaking');
+      });
+      this.sendTtsState(true);
+    }
+    // If not currently playing, start
+    if (!this.isPlayingChunk) {
+      this.playNextChunk();
+    }
+  }
+
+  /** Play the next chunk from the audio queue. */
+  private playNextChunk(): void {
+    if (!this.audioCtx || this.audioQueue.length === 0) {
+      this.isPlayingChunk = false;
+      // If tts_end was already received and queue is drained, finish
+      if (this.ttsEndReceived) {
+        this.onAllAudioFinished();
+      }
+      return;
+    }
+
+    this.isPlayingChunk = true;
+    const arrayBuffer = this.audioQueue.shift()!;
+
     // PCM S16LE at 22050 Hz, mono
     const pcm = new Int16Array(arrayBuffer);
     const sampleRate = 22050;
@@ -270,21 +345,83 @@ export class MediaStudioWebSocketService {
 
     const source = this.audioCtx.createBufferSource();
     source.buffer = buf;
+    this.currentSource = source;
 
-    this.ttsOutputAnalyser = this.audioCtx.createAnalyser();
-    this.ttsOutputAnalyser.fftSize = 256;
-    source.connect(this.ttsOutputAnalyser);
-    this.ttsOutputAnalyser.connect(this.audioCtx.destination);
+    // Create/reuse output analyser for speaking visualization
+    if (!this.ttsOutputAnalyser && this.audioCtx) {
+      this.ttsOutputAnalyser = this.audioCtx.createAnalyser();
+      this.ttsOutputAnalyser.fftSize = 256;
+      this.ttsOutputAnalyser.connect(this.audioCtx.destination);
+    }
+
+    if (this.ttsOutputAnalyser) {
+      source.connect(this.ttsOutputAnalyser);
+    } else {
+      source.connect(this.audioCtx.destination);
+    }
 
     source.onended = () => {
-      this.zone.run(() => {
-        this.ttsOutputAnalyser = null;
-        this.ttsPlaying$.next(false);
-        this.setAnimState('listening');
-        this.setStatus('LISTENING', 'listening');
-      });
+      this.currentSource = null;
+      this.playNextChunk();
     };
     source.start();
+  }
+
+  /** Called when all audio chunks have been played and tts_end was received. */
+  private onAllAudioFinished(): void {
+    this.sendTtsState(false);
+    this.zone.run(() => {
+      this.ttsOutputAnalyser = null;
+      this.ttsPlaying$.next(false);
+      if (this._streaming) {
+        this.setAnimState('listening');
+        this.setStatus('LISTENING', 'listening');
+      }
+    });
+  }
+
+  /** Notify server whether TTS is currently playing (for voice barge-in). */
+  private sendTtsState(active: boolean): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'tts_state', active }));
+    }
+  }
+
+  /** Stop any in-progress audio playback and clear the queue. */
+  private stopAudioPlayback(): void {
+    this.audioQueue = [];
+    this.isPlayingChunk = false;
+    this.ttsEndReceived = false;
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch { /* already stopped */ }
+      this.currentSource = null;
+    }
+    this.ttsOutputAnalyser = null;
+  }
+
+  /** Handle MCP display commands from REST facade. */
+  private handleDisplayCommand(msg: any): void {
+    const command = msg.command;
+    const payload = msg.payload || {};
+    this.displayCommand$.next({ command, payload });
+
+    switch (command) {
+      case 'animate':
+        if (payload.state) {
+          this.setAnimState(payload.state);
+        }
+        break;
+      case 'color':
+        if (payload.color) {
+          const hex = payload.color.replace('#', '');
+          const r = parseInt(hex.substr(0, 2), 16);
+          const g = parseInt(hex.substr(2, 2), 16);
+          const b = parseInt(hex.substr(4, 2), 16);
+          this.tgtPal$.next({ r, g, b, hex: '#' + hex });
+        }
+        break;
+      // notification and overlay are handled by the transcript overlay component via displayCommand$
+    }
   }
 
   private setAnimState(st: AnimState, engine?: string): void {

@@ -84,6 +84,7 @@ export class TranscriptOverlayComponent implements OnDestroy {
   thinkingIndicator = false;
   speakingIndicator = false;
   private partialEntry: DisplayEntry | null = null;
+  private streamEntry: DisplayEntry | null = null; // live-streaming LLM entry
   private activeEngine: string | null = null;
   private destroy$ = new Subject<void>();
   private readonly MAX_ENTRIES = 4;
@@ -138,15 +139,49 @@ export class TranscriptOverlayComponent implements OnDestroy {
 
       case 'llm_start':
         this.thinkingIndicator = true;
+        // Prepare a streaming entry for live token display
+        this.streamEntry = null;
+        break;
+
+      case 'llm_token':
+        this.thinkingIndicator = false;
+        if (msg.text) {
+          if (!this.streamEntry) {
+            // Create entry on first token
+            this.streamEntry = this.createEntry('', 'assistant');
+            this.streamEntry.typewriterDone = true;
+            this.streamEntry.showCursor = true;
+            this.entries.push(this.streamEntry);
+            this.updateFading();
+            this.trimEntries();
+          }
+          // Append token to the streaming entry
+          this.streamEntry.text += msg.text;
+          this.streamEntry.typewriterText = this.streamEntry.text;
+        }
         break;
 
       case 'llm_response':
         this.thinkingIndicator = false;
-        this.addEntry(msg.text, 'assistant');
+        if (this.streamEntry) {
+          // Finalize the streaming entry with the complete text
+          this.streamEntry.text = msg.text;
+          this.streamEntry.typewriterText = msg.text;
+          this.streamEntry.typewriterDone = true;
+          this.streamEntry.showCursor = false;
+          this.streamEntry = null;
+        } else {
+          // Fallback: no streaming tokens received, show full text
+          this.addEntry(msg.text, 'assistant');
+        }
         break;
 
       case 'llm_end':
         this.thinkingIndicator = false;
+        if (this.streamEntry) {
+          this.streamEntry.showCursor = false;
+          this.streamEntry = null;
+        }
         break;
 
       case 'tts_start':
@@ -155,6 +190,15 @@ export class TranscriptOverlayComponent implements OnDestroy {
 
       case 'tts_end':
         this.speakingIndicator = false;
+        break;
+
+      case 'interrupted':
+        this.thinkingIndicator = false;
+        this.speakingIndicator = false;
+        if (this.streamEntry) {
+          this.streamEntry.showCursor = false;
+          this.streamEntry = null;
+        }
         break;
     }
     this.cdr.markForCheck();
