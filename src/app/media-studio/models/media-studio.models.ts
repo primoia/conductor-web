@@ -82,6 +82,10 @@ export interface WsInterruptedMessage {
   type: 'interrupted';
 }
 
+export interface WsConversationEndMessage {
+  type: 'conversation_end';
+}
+
 export interface WsDisplayMessage {
   type: 'display';
   command: 'notification' | 'color' | 'overlay' | 'animate';
@@ -107,6 +111,7 @@ export type WsMessage =
   | WsTtsStartMessage
   | WsTtsEndMessage
   | WsInterruptedMessage
+  | WsConversationEndMessage
   | WsDisplayMessage;
 
 export interface WakeWordEntry {

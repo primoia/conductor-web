@@ -291,6 +291,12 @@ export class MediaStudioWebSocketService {
           this.setStatus('LISTENING', 'listening');
           break;
 
+        case 'conversation_end':
+          this.activeAgent$.next(null);
+          this.setAnimState('listening');
+          this.setStatus('LISTENING', 'listening');
+          break;
+
         case 'display':
           this.handleDisplayCommand(msg);
           break;
