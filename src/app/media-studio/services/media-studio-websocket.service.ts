@@ -23,6 +23,7 @@ export class MediaStudioWebSocketService {
   private audioLevel = 0;
 
   private ttsOutputAnalyser: AnalyserNode | null = null;
+  private micTrack: MediaStreamTrack | null = null;
 
   // ── Chunked audio queue for streaming TTS ──
   private audioQueue: ArrayBuffer[] = [];
@@ -89,6 +90,7 @@ export class MediaStudioWebSocketService {
   interrupt(): void {
     this.stopAudioPlayback();
     this.sendTtsState(false);
+    this.setMicMuted(false);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'interrupt' }));
     }
@@ -124,6 +126,7 @@ export class MediaStudioWebSocketService {
         this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
 
+      this.micTrack = this.mediaStream.getAudioTracks()[0] || null;
       this.audioCtx = new AudioContext();
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       this.ws = new WebSocket(proto + '//' + location.host + '/jarvis/ws/stream');
@@ -199,6 +202,7 @@ export class MediaStudioWebSocketService {
       this.audioCtx.close();
       this.audioCtx = null;
     }
+    this.micTrack = null;
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((t) => t.stop());
       this.mediaStream = null;
@@ -273,6 +277,7 @@ export class MediaStudioWebSocketService {
           this.setAnimState('speaking');
           this.setStatus('SPEAKING', 'speaking');
           this.sendTtsState(true);
+          this.setMicMuted(true);
           break;
 
         case 'tts_end':
@@ -286,6 +291,7 @@ export class MediaStudioWebSocketService {
 
         case 'interrupted':
           this.stopAudioPlayback();
+          this.setMicMuted(false);
           this.ttsPlaying$.next(false);
           this.setAnimState('listening');
           this.setStatus('LISTENING', 'listening');
@@ -317,6 +323,7 @@ export class MediaStudioWebSocketService {
         this.setStatus('SPEAKING', 'speaking');
       });
       this.sendTtsState(true);
+      this.setMicMuted(true);
     }
     // If not currently playing, start
     if (!this.isPlayingChunk) {
@@ -376,6 +383,7 @@ export class MediaStudioWebSocketService {
   /** Called when all audio chunks have been played and tts_end was received. */
   private onAllAudioFinished(): void {
     this.sendTtsState(false);
+    this.setMicMuted(false);
     this.zone.run(() => {
       this.ttsOutputAnalyser = null;
       this.ttsPlaying$.next(false);
@@ -384,6 +392,13 @@ export class MediaStudioWebSocketService {
         this.setStatus('LISTENING', 'listening');
       }
     });
+  }
+
+  /** Mute/unmute microphone track to prevent echo-triggered barge-in on tablet speakers. */
+  private setMicMuted(muted: boolean): void {
+    if (this.micTrack) {
+      this.micTrack.enabled = !muted;
+    }
   }
 
   /** Notify server whether TTS is currently playing (for voice barge-in). */
