@@ -30,6 +30,7 @@ export class MediaStudioWebSocketService {
   private isPlayingChunk = false;
   private currentSource: AudioBufferSourceNode | null = null;
   private ttsEndReceived = false;
+  private pendingDecodes = 0;
 
   // Observable state
   animState$ = new BehaviorSubject<AnimState>('idle');
@@ -90,7 +91,6 @@ export class MediaStudioWebSocketService {
   interrupt(): void {
     this.stopAudioPlayback();
     this.sendTtsState(false);
-    this.setMicMuted(false);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'interrupt' }));
     }
@@ -277,13 +277,12 @@ export class MediaStudioWebSocketService {
           this.setAnimState('speaking');
           this.setStatus('SPEAKING', 'speaking');
           this.sendTtsState(true);
-          this.setMicMuted(true);
           break;
 
         case 'tts_end':
           this.ttsEndReceived = true;
-          // If audio queue is empty and nothing playing, transition now
-          if (this.audioQueue.length === 0 && !this.isPlayingChunk) {
+          // If audio queue is empty, nothing playing, and no decodes in flight, transition now
+          if (this.audioQueue.length === 0 && !this.isPlayingChunk && this.pendingDecodes === 0) {
             this.onAllAudioFinished();
           }
           // Otherwise, onChunkEnded will handle transition when queue drains
@@ -291,7 +290,6 @@ export class MediaStudioWebSocketService {
 
         case 'interrupted':
           this.stopAudioPlayback();
-          this.setMicMuted(false);
           this.ttsPlaying$.next(false);
           this.setAnimState('listening');
           this.setStatus('LISTENING', 'listening');
@@ -314,47 +312,49 @@ export class MediaStudioWebSocketService {
 
   /** Enqueue a TTS audio chunk for sequential playback. */
   private enqueueTtsAudio(arrayBuffer: ArrayBuffer): void {
-    this.audioQueue.push(arrayBuffer);
-    // If we're in thinking state and first audio arrives, switch to speaking
-    if (this.animState$.getValue() === 'thinking') {
-      this.zone.run(() => {
-        this.ttsPlaying$.next(true);
-        this.setAnimState('speaking');
-        this.setStatus('SPEAKING', 'speaking');
-      });
-      this.sendTtsState(true);
-      this.setMicMuted(true);
-    }
-    // If not currently playing, start
-    if (!this.isPlayingChunk) {
-      this.playNextChunk();
-    }
+    if (!this.audioCtx) return;
+    this.pendingDecodes++;
+    // Pre-decode WAV eagerly so playNextChunk is instant (no async gap between chunks)
+    this.audioCtx.decodeAudioData(arrayBuffer.slice(0)).then((buf) => {
+      this.pendingDecodes--;
+      // Fade-in 128 samples (~6ms) to smooth chunk start
+      const data = buf.getChannelData(0);
+      const fadeLen = Math.min(128, data.length);
+      for (let i = 0; i < fadeLen; i++) data[i] *= i / fadeLen;
+
+      this.audioQueue.push(buf as any);
+      // If we're in thinking state and first audio arrives, switch to speaking
+      if (this.animState$.getValue() === 'thinking') {
+        this.zone.run(() => {
+          this.ttsPlaying$.next(true);
+          this.setAnimState('speaking');
+          this.setStatus('SPEAKING', 'speaking');
+        });
+        this.sendTtsState(true);
+      }
+      // If not currently playing, start
+      if (!this.isPlayingChunk) {
+        this.playNextChunk();
+      }
+    }).catch((err) => {
+      this.pendingDecodes--;
+      console.error('[audio] decode error:', err);
+    });
   }
 
   /** Play the next chunk from the audio queue. */
   private playNextChunk(): void {
     if (!this.audioCtx || this.audioQueue.length === 0) {
       this.isPlayingChunk = false;
-      // If tts_end was already received and queue is drained, finish
-      if (this.ttsEndReceived) {
+      // If tts_end was already received, queue drained, and no decodes in flight, finish
+      if (this.ttsEndReceived && this.pendingDecodes === 0) {
         this.onAllAudioFinished();
       }
       return;
     }
 
     this.isPlayingChunk = true;
-    const arrayBuffer = this.audioQueue.shift()!;
-
-    // PCM S16LE at 22050 Hz, mono
-    const pcm = new Int16Array(arrayBuffer);
-    const sampleRate = 22050;
-    const float32 = new Float32Array(pcm.length);
-    for (let i = 0; i < pcm.length; i++) {
-      float32[i] = pcm[i] / 32768;
-    }
-
-    const buf = this.audioCtx.createBuffer(1, float32.length, sampleRate);
-    buf.getChannelData(0).set(float32);
+    const buf = this.audioQueue.shift()! as any as AudioBuffer;
 
     const source = this.audioCtx.createBufferSource();
     source.buffer = buf;
@@ -383,7 +383,6 @@ export class MediaStudioWebSocketService {
   /** Called when all audio chunks have been played and tts_end was received. */
   private onAllAudioFinished(): void {
     this.sendTtsState(false);
-    this.setMicMuted(false);
     this.zone.run(() => {
       this.ttsOutputAnalyser = null;
       this.ttsPlaying$.next(false);
@@ -413,6 +412,7 @@ export class MediaStudioWebSocketService {
     this.audioQueue = [];
     this.isPlayingChunk = false;
     this.ttsEndReceived = false;
+    this.pendingDecodes = 0;
     if (this.currentSource) {
       try { this.currentSource.stop(); } catch { /* already stopped */ }
       this.currentSource = null;
