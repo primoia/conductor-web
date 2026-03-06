@@ -5,8 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Jarvis',
   webDir: 'dist/conductor-app/browser',
   server: {
-    // ADB reverse: localhost on tablet → computer's port
-    url: 'http://localhost:11299/jarvis',
+    url: 'https://conductor.primoia.dev/jarvis',
     cleartext: true,
   },
   android: {
