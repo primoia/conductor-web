@@ -12,7 +12,7 @@
     "logLevel": "debug"
   },
   "/jarvis/ws/stream": {
-    "target": "http://localhost:12012/ws/stream",
+    "target": "http://localhost:12900/ws/stream",
     "secure": false,
     "ws": true,
     "changeOrigin": true,
@@ -22,7 +22,7 @@
     "logLevel": "debug"
   },
   "/jarvis/api/*": {
-    "target": "http://localhost:12012/api",
+    "target": "http://localhost:12900/api",
     "secure": false,
     "changeOrigin": true,
     "pathRewrite": {
