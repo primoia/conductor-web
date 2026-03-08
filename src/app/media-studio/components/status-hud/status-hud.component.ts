@@ -9,6 +9,7 @@ import { AnimState } from '../../models/media-studio.models';
   template: `
     <div class="hud hud-top">
       <div class="status-line" [ngClass]="statusClass">{{ statusText }}</div>
+      <div class="pipeline-line" *ngIf="pipelineSummary" [class.mismatch]="languageMismatch">{{ pipelineSummary }}</div>
     </div>
 
     <div class="rec-timer" [class.active]="animState === 'recording'">
@@ -27,6 +28,8 @@ export class StatusHudComponent implements OnChanges, OnDestroy {
   @Input() infoText = '';
   @Input() maxRecSeconds = 10;
   @Input() recordStart = 0;
+  @Input() pipelineSummary = '';
+  @Input() languageMismatch = false;
 
   recTimeDisplay = '00:00';
   recMaxDisplay = '00:10';

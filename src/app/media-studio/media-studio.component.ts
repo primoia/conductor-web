@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, combineLatest, takeUntil } from 'rxjs';
 import { AnimState, AgentCarouselItem } from './models/media-studio.models';
 import { VisualizerCanvasComponent } from './components/visualizer-canvas/visualizer-canvas.component';
 import { StatusHudComponent } from './components/status-hud/status-hud.component';
@@ -9,6 +9,7 @@ import { TranscriptOverlayComponent } from './components/transcript-overlay/tran
 import { SttDialComponent } from './components/stt-dial/stt-dial.component';
 import { LlmDialComponent } from './components/llm-dial/llm-dial.component';
 import { VoiceDialComponent } from './components/voice-dial/voice-dial.component';
+import { ResponseLangDialComponent } from './components/response-lang-dial/response-lang-dial.component';
 import { MediaStudioWebSocketService } from './services/media-studio-websocket.service';
 import { MediaStudioConfigService } from './services/media-studio-config.service';
 
@@ -24,6 +25,7 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
     SttDialComponent,
     LlmDialComponent,
     VoiceDialComponent,
+    ResponseLangDialComponent,
   ],
   template: `
     <div class="media-studio-root" (click)="onTap()" (touchstart)="onTouchStart($event)">
@@ -35,6 +37,8 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
         [infoText]="infoText"
         [maxRecSeconds]="maxRecSeconds"
         [recordStart]="recordStart"
+        [pipelineSummary]="pipelineSummary"
+        [languageMismatch]="languageMismatch"
       ></app-status-hud>
       <app-agent-carousel
         [agents]="agents"
@@ -44,6 +48,7 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
       <app-transcript-overlay></app-transcript-overlay>
       <div class="dial-row">
         <app-stt-dial></app-stt-dial>
+        <app-response-lang-dial></app-response-lang-dial>
         <app-llm-dial></app-llm-dial>
         <app-voice-dial></app-voice-dial>
       </div>
@@ -60,6 +65,8 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
   recordStart = 0;
   agents: AgentCarouselItem[] = [];
   activeAgent: string | null = null;
+  pipelineSummary = '';
+  languageMismatch = false;
 
   private destroy$ = new Subject<void>();
 
@@ -77,6 +84,36 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
     this.wsSvc.recordStart$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.recordStart = v));
     this.configSvc.agents.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.agents = v));
     this.wsSvc.activeAgent$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.activeAgent = v));
+
+    // Pipeline summary line: combines all 4 dials into a single status string
+    combineLatest([
+      this.wsSvc.sttActiveProfile$,
+      this.wsSvc.sttProfiles$,
+      this.wsSvc.responseCurrentLang$,
+      this.wsSvc.responseLangs$,
+      this.wsSvc.llmCurrentProvider$,
+      this.wsSvc.llmProviders$,
+      this.wsSvc.ttsCurrentVoice$,
+      this.wsSvc.ttsVoices$,
+    ]).pipe(takeUntil(this.destroy$)).subscribe(([sttId, sttProfiles, respLangId, respLangs, llmId, llmProviders, ttsId, ttsVoices]) => {
+      const sttProfile = sttProfiles.find(p => p.id === sttId);
+      const respLang = respLangs.find(l => l.id === respLangId);
+      const llmProv = llmProviders.find(p => p.id === llmId);
+      const ttsVoice = ttsVoices.find(v => v.id === ttsId);
+
+      const sttLabel = sttProfile ? (sttProfile.language === 'pt' ? 'PT-BR' : sttProfile.language === 'en' ? 'EN' : 'MULTI') : '';
+      const respLabel = respLang ? respLang.short : 'AUT';
+      const llmLabel = llmProv ? llmProv.name : '';
+      const ttsLabel = ttsVoice ? `${ttsVoice.label}${ttsVoice.language ? ' (' + ttsVoice.language + ')' : ''}` : '';
+
+      this.pipelineSummary = `\uD83C\uDFA4 ${sttLabel} \u2192 \uD83D\uDCAC ${respLabel} \u2192 \uD83E\uDD16 ${llmLabel} \u2192 \uD83D\uDD0A ${ttsLabel}`;
+
+      // Mismatch: response language differs from TTS voice language
+      const respBase = respLangId === 'auto' ? '' : respLangId.split('-')[0];
+      const ttsLang = ttsVoice?.language || '';
+      const ttsBase = ttsLang === 'multi' ? '' : ttsLang.split('-')[0];
+      this.languageMismatch = respBase !== '' && ttsBase !== '' && respBase !== ttsBase;
+    });
 
     this.configSvc.loadAgents();
 

@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { AnimState, LlmProviderInfo, SttProfile, TtsVoiceInfo, WsMessage } from '../models/media-studio.models';
+import { AnimState, LlmProviderInfo, ResponseLangInfo, SttProfile, TtsVoiceInfo, WsMessage } from '../models/media-studio.models';
 import { P, getEngineColor } from '../constants/media-studio-palette';
 import { PaletteColor } from '../models/media-studio.models';
 
@@ -49,6 +49,8 @@ export class MediaStudioWebSocketService {
   llmCurrentProvider$ = new BehaviorSubject<string>('');
   ttsVoices$ = new BehaviorSubject<TtsVoiceInfo[]>([]);
   ttsCurrentVoice$ = new BehaviorSubject<string>('');
+  responseLangs$ = new BehaviorSubject<ResponseLangInfo[]>([]);
+  responseCurrentLang$ = new BehaviorSubject<string>('auto');
 
   // Events
   message$ = new Subject<WsMessage>();
@@ -129,6 +131,14 @@ export class MediaStudioWebSocketService {
       this.ws.send(JSON.stringify({ type: 'tts_config', voice: voiceId }));
     }
     this.ttsCurrentVoice$.next(voiceId);
+  }
+
+  /** Switch the LLM response language on the server (e.g., "auto", "pt-BR", "en"). */
+  setResponseLang(langId: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'response_lang_config', language: langId }));
+    }
+    this.responseCurrentLang$.next(langId);
   }
 
   async startStreaming(): Promise<void> {
@@ -276,6 +286,12 @@ export class MediaStudioWebSocketService {
           if (msg.tts_current_voice) {
             this.ttsCurrentVoice$.next(msg.tts_current_voice);
           }
+          if (msg.response_languages && msg.response_languages.length > 0) {
+            this.responseLangs$.next(msg.response_languages);
+          }
+          if (msg.response_current_language) {
+            this.responseCurrentLang$.next(msg.response_current_language);
+          }
           this.setStatus('LISTENING', 'listening');
           this.setAnimState('listening');
           break;
@@ -357,6 +373,11 @@ export class MediaStudioWebSocketService {
         case 'tts_config_ack':
           if (msg.voices) this.ttsVoices$.next(msg.voices);
           if (msg.current_voice) this.ttsCurrentVoice$.next(msg.current_voice);
+          break;
+
+        case 'response_lang_config_ack':
+          if (msg.response_languages) this.responseLangs$.next(msg.response_languages);
+          if (msg.current_language) this.responseCurrentLang$.next(msg.current_language);
           break;
 
         case 'display':

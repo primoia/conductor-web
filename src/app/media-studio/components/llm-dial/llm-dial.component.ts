@@ -27,7 +27,7 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
       <button
         class="cycle-btn"
         (click)="cycle(); $event.stopPropagation()"
-        (touchstart)="$event.stopPropagation(); $event.preventDefault()"
+        (touchstart)="cycle(); $event.stopPropagation(); $event.preventDefault()"
       >
         <span class="cycle-icon">{{ currentIcon }}</span>
       </button>

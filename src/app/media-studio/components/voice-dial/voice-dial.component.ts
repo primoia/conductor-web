@@ -20,14 +20,14 @@ import { TtsVoiceInfo } from '../../models/media-studio.models';
           [class.active]="v.id === currentVoice"
         >
           <span class="led-dot"></span>
-          <span class="led-text">{{ v.short }}</span>
+          <span class="led-text">{{ langIcon(v) }} {{ v.short }}</span>
         </div>
       </div>
       <!-- Round cycle button -->
       <button
         class="cycle-btn"
         (click)="cycle(); $event.stopPropagation()"
-        (touchstart)="$event.stopPropagation(); $event.preventDefault()"
+        (touchstart)="cycle(); $event.stopPropagation(); $event.preventDefault()"
       >
         <span class="cycle-icon">VO</span>
       </button>
@@ -164,5 +164,12 @@ export class VoiceDialComponent implements OnInit, OnDestroy {
 
   get current(): TtsVoiceInfo | undefined {
     return this.voices.find(v => v.id === this.currentVoice);
+  }
+
+  langIcon(v: TtsVoiceInfo): string {
+    const lang = v.language || '';
+    if (lang.startsWith('en')) return '\uD83C\uDDFA\uD83C\uDDF8'; // 🇺🇸
+    if (lang === 'multi') return '\uD83C\uDF10'; // 🌐
+    return '\u26A1'; // ⚡ (default for pt-BR and others)
   }
 }

@@ -34,6 +34,22 @@
   &.error { color: #ff3355; }
 }
 
+.pipeline-line {
+  font-size: 0.5rem;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 4px;
+  transition: color 0.4s;
+
+  &.mismatch {
+    color: rgba(255, 193, 7, 0.6);
+
+    &::before {
+      content: '\1F500 ';
+    }
+  }
+}
+
 .rec-timer {
   position: fixed;
   top: 42px;

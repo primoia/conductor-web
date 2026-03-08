@@ -36,6 +36,8 @@ export interface WsConfigMessage {
   current_provider?: string;
   tts_voices?: TtsVoiceInfo[];
   tts_current_voice?: string;
+  response_languages?: ResponseLangInfo[];
+  response_current_language?: string;
 }
 
 export interface WsLlmConfigAckMessage {
@@ -48,6 +50,12 @@ export interface WsTtsConfigAckMessage {
   type: 'tts_config_ack';
   current_voice: string;
   voices: TtsVoiceInfo[];
+}
+
+export interface WsResponseLangConfigAckMessage {
+  type: 'response_lang_config_ack';
+  current_language: string;
+  response_languages: ResponseLangInfo[];
 }
 
 export interface WsWakeWordMessage {
@@ -135,6 +143,13 @@ export interface TtsVoiceInfo {
   id: string;       // "pt-BR-FranciscaNeural"
   label: string;    // "Francisca"
   short: string;    // "FRA" (LED label)
+  language?: string; // "pt-BR", "en-US", "multi"
+}
+
+export interface ResponseLangInfo {
+  id: string;       // "auto", "pt-BR", "en"
+  label: string;    // "Auto", "Português", "English"
+  short: string;    // "AUT", "PT", "EN"
 }
 
 export type WsMessage =
@@ -152,7 +167,8 @@ export type WsMessage =
   | WsConversationEndMessage
   | WsDisplayMessage
   | WsLlmConfigAckMessage
-  | WsTtsConfigAckMessage;
+  | WsTtsConfigAckMessage
+  | WsResponseLangConfigAckMessage;
 
 export interface WakeWordEntry {
   keyword?: string;
