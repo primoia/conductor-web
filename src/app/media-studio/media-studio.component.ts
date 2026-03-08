@@ -8,6 +8,7 @@ import { AgentCarouselComponent } from './components/agent-carousel/agent-carous
 import { TranscriptOverlayComponent } from './components/transcript-overlay/transcript-overlay.component';
 import { SttDialComponent } from './components/stt-dial/stt-dial.component';
 import { LlmDialComponent } from './components/llm-dial/llm-dial.component';
+import { VoiceDialComponent } from './components/voice-dial/voice-dial.component';
 import { MediaStudioWebSocketService } from './services/media-studio-websocket.service';
 import { MediaStudioConfigService } from './services/media-studio-config.service';
 
@@ -22,6 +23,7 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
     TranscriptOverlayComponent,
     SttDialComponent,
     LlmDialComponent,
+    VoiceDialComponent,
   ],
   template: `
     <div class="media-studio-root" (click)="onTap()" (touchstart)="onTouchStart($event)">
@@ -43,6 +45,7 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
       <div class="dial-row">
         <app-stt-dial></app-stt-dial>
         <app-llm-dial></app-llm-dial>
+        <app-voice-dial></app-voice-dial>
       </div>
     </div>
   `,

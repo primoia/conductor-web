@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { AnimState, LlmProviderInfo, SttProfile, WsMessage } from '../models/media-studio.models';
+import { AnimState, LlmProviderInfo, SttProfile, TtsVoiceInfo, WsMessage } from '../models/media-studio.models';
 import { P, getEngineColor } from '../constants/media-studio-palette';
 import { PaletteColor } from '../models/media-studio.models';
 
@@ -47,6 +47,8 @@ export class MediaStudioWebSocketService {
   sttActiveProfile$ = new BehaviorSubject<string>('fast');
   llmProviders$ = new BehaviorSubject<LlmProviderInfo[]>([]);
   llmCurrentProvider$ = new BehaviorSubject<string>('');
+  ttsVoices$ = new BehaviorSubject<TtsVoiceInfo[]>([]);
+  ttsCurrentVoice$ = new BehaviorSubject<string>('');
 
   // Events
   message$ = new Subject<WsMessage>();
@@ -119,6 +121,14 @@ export class MediaStudioWebSocketService {
       this.ws.send(JSON.stringify({ type: 'llm_config', provider: providerId }));
     }
     this.llmCurrentProvider$.next(providerId);
+  }
+
+  /** Switch the TTS voice on the server (e.g., "pt-BR-FranciscaNeural"). */
+  setTtsVoice(voiceId: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'tts_config', voice: voiceId }));
+    }
+    this.ttsCurrentVoice$.next(voiceId);
   }
 
   async startStreaming(): Promise<void> {
@@ -260,6 +270,12 @@ export class MediaStudioWebSocketService {
           if (msg.current_provider) {
             this.llmCurrentProvider$.next(msg.current_provider);
           }
+          if (msg.tts_voices && msg.tts_voices.length > 0) {
+            this.ttsVoices$.next(msg.tts_voices);
+          }
+          if (msg.tts_current_voice) {
+            this.ttsCurrentVoice$.next(msg.tts_current_voice);
+          }
           this.setStatus('LISTENING', 'listening');
           this.setAnimState('listening');
           break;
@@ -277,7 +293,7 @@ export class MediaStudioWebSocketService {
 
         case 'transcription':
           this._activeEngine = null;
-          this.activeAgent$.next(null);
+          // Keep activeAgent$ alive — only clear on conversation_end
           this.setAnimState('listening');
           this.setStatus('LISTENING', 'listening');
           break;
@@ -336,6 +352,11 @@ export class MediaStudioWebSocketService {
         case 'llm_config_ack':
           if (msg.providers) this.llmProviders$.next(msg.providers);
           if (msg.current_provider) this.llmCurrentProvider$.next(msg.current_provider);
+          break;
+
+        case 'tts_config_ack':
+          if (msg.voices) this.ttsVoices$.next(msg.voices);
+          if (msg.current_voice) this.ttsCurrentVoice$.next(msg.current_voice);
           break;
 
         case 'display':

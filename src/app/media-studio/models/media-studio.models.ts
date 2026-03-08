@@ -34,12 +34,20 @@ export interface WsConfigMessage {
   stt_active_profile?: string;
   providers?: LlmProviderInfo[];
   current_provider?: string;
+  tts_voices?: TtsVoiceInfo[];
+  tts_current_voice?: string;
 }
 
 export interface WsLlmConfigAckMessage {
   type: 'llm_config_ack';
   current_provider: string;
   providers: LlmProviderInfo[];
+}
+
+export interface WsTtsConfigAckMessage {
+  type: 'tts_config_ack';
+  current_voice: string;
+  voices: TtsVoiceInfo[];
 }
 
 export interface WsWakeWordMessage {
@@ -123,6 +131,12 @@ export interface LlmProviderInfo {
   model: string;    // "deepseek-chat", "gpt-4o-mini", etc.
 }
 
+export interface TtsVoiceInfo {
+  id: string;       // "pt-BR-FranciscaNeural"
+  label: string;    // "Francisca"
+  short: string;    // "FRA" (LED label)
+}
+
 export type WsMessage =
   | WsConfigMessage
   | WsWakeWordMessage
@@ -137,7 +151,8 @@ export type WsMessage =
   | WsInterruptedMessage
   | WsConversationEndMessage
   | WsDisplayMessage
-  | WsLlmConfigAckMessage;
+  | WsLlmConfigAckMessage
+  | WsTtsConfigAckMessage;
 
 export interface WakeWordEntry {
   keyword?: string;

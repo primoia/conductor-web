@@ -2,25 +2,25 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { MediaStudioWebSocketService } from '../../services/media-studio-websocket.service';
-import { LlmProviderInfo } from '../../models/media-studio.models';
+import { TtsVoiceInfo } from '../../models/media-studio.models';
 
 @Component({
-  selector: 'app-llm-dial',
+  selector: 'app-voice-dial',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="dial-wrap" *ngIf="providers.length > 1"
+    <div class="dial-wrap" *ngIf="voices.length > 1"
          (click)="$event.stopPropagation()"
          (touchstart)="$event.stopPropagation(); $event.preventDefault()">
-      <!-- LED indicators — all providers visible, active one lit -->
+      <!-- LED indicators — all voices visible, active one lit -->
       <div class="led-strip">
         <div
-          *ngFor="let p of providers"
+          *ngFor="let v of voices"
           class="led-item"
-          [class.active]="p.id === currentProvider"
+          [class.active]="v.id === currentVoice"
         >
           <span class="led-dot"></span>
-          <span class="led-text">{{ p.name }}</span>
+          <span class="led-text">{{ v.short }}</span>
         </div>
       </div>
       <!-- Round cycle button -->
@@ -29,9 +29,9 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
         (click)="cycle(); $event.stopPropagation()"
         (touchstart)="$event.stopPropagation(); $event.preventDefault()"
       >
-        <span class="cycle-icon">{{ currentIcon }}</span>
+        <span class="cycle-icon">VO</span>
       </button>
-      <span class="cycle-sub">{{ current?.model || '' }}</span>
+      <span class="cycle-sub">{{ current?.label || '' }}</span>
     </div>
   `,
   styles: [`
@@ -67,13 +67,13 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
       width: 5px;
       height: 5px;
       border-radius: 50%;
-      background: rgba(206, 96, 240, 0.3);
+      background: rgba(255, 149, 0, 0.3);
       transition: all 0.3s ease;
     }
 
     .led-item.active .led-dot {
-      background: #ce60f0;
-      box-shadow: 0 0 8px rgba(206, 96, 240, 0.6);
+      background: #ff9500;
+      box-shadow: 0 0 8px rgba(255, 149, 0, 0.6);
     }
 
     .led-text {
@@ -86,8 +86,8 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
     }
 
     .led-item.active .led-text {
-      color: rgba(206, 96, 240, 0.9);
-      text-shadow: 0 0 6px rgba(206, 96, 240, 0.3);
+      color: rgba(255, 149, 0, 0.9);
+      text-shadow: 0 0 6px rgba(255, 149, 0, 0.3);
     }
 
     /* Round button */
@@ -95,7 +95,7 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
       width: 44px;
       height: 44px;
       border-radius: 50%;
-      border: 2px solid rgba(206, 96, 240, 0.35);
+      border: 2px solid rgba(255, 149, 0, 0.35);
       background: rgba(3, 5, 10, 0.85);
       backdrop-filter: blur(12px);
       cursor: pointer;
@@ -103,14 +103,14 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
       align-items: center;
       justify-content: center;
       transition: all 0.25s ease;
-      box-shadow: 0 0 10px rgba(206, 96, 240, 0.12),
-                  inset 0 0 6px rgba(206, 96, 240, 0.04);
+      box-shadow: 0 0 10px rgba(255, 149, 0, 0.12),
+                  inset 0 0 6px rgba(255, 149, 0, 0.04);
     }
 
     .cycle-btn:hover {
-      border-color: rgba(206, 96, 240, 0.6);
-      box-shadow: 0 0 18px rgba(206, 96, 240, 0.25),
-                  inset 0 0 10px rgba(206, 96, 240, 0.08);
+      border-color: rgba(255, 149, 0, 0.6);
+      box-shadow: 0 0 18px rgba(255, 149, 0, 0.25),
+                  inset 0 0 10px rgba(255, 149, 0, 0.08);
     }
 
     .cycle-btn:active {
@@ -120,7 +120,7 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
     .cycle-icon {
       font-size: 16px;
       line-height: 1;
-      color: rgba(206, 96, 240, 0.9);
+      color: rgba(255, 149, 0, 0.9);
       font-weight: 700;
       font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
     }
@@ -137,25 +137,17 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
     }
   `],
 })
-export class LlmDialComponent implements OnInit, OnDestroy {
-  providers: LlmProviderInfo[] = [];
-  currentProvider = '';
+export class VoiceDialComponent implements OnInit, OnDestroy {
+  voices: TtsVoiceInfo[] = [];
+  currentVoice = '';
 
   private destroy$ = new Subject<void>();
-
-  private static readonly ICONS: Record<string, string> = {
-    deepseek: 'DS',
-    openai: 'AI',
-    claude: 'CL',
-    groq: 'GQ',
-    default: 'LM',
-  };
 
   constructor(private wsSvc: MediaStudioWebSocketService) {}
 
   ngOnInit(): void {
-    this.wsSvc.llmProviders$.pipe(takeUntil(this.destroy$)).subscribe(p => this.providers = p);
-    this.wsSvc.llmCurrentProvider$.pipe(takeUntil(this.destroy$)).subscribe(p => this.currentProvider = p);
+    this.wsSvc.ttsVoices$.pipe(takeUntil(this.destroy$)).subscribe(v => this.voices = v);
+    this.wsSvc.ttsCurrentVoice$.pipe(takeUntil(this.destroy$)).subscribe(v => this.currentVoice = v);
   }
 
   ngOnDestroy(): void {
@@ -164,17 +156,13 @@ export class LlmDialComponent implements OnInit, OnDestroy {
   }
 
   cycle(): void {
-    if (this.providers.length < 2) return;
-    const idx = this.providers.findIndex(p => p.id === this.currentProvider);
-    const next = (idx + 1) % this.providers.length;
-    this.wsSvc.setLlmProvider(this.providers[next].id);
+    if (this.voices.length < 2) return;
+    const idx = this.voices.findIndex(v => v.id === this.currentVoice);
+    const next = (idx + 1) % this.voices.length;
+    this.wsSvc.setTtsVoice(this.voices[next].id);
   }
 
-  get current(): LlmProviderInfo | undefined {
-    return this.providers.find(p => p.id === this.currentProvider);
-  }
-
-  get currentIcon(): string {
-    return LlmDialComponent.ICONS[this.currentProvider] || LlmDialComponent.ICONS['default'];
+  get current(): TtsVoiceInfo | undefined {
+    return this.voices.find(v => v.id === this.currentVoice);
   }
 }

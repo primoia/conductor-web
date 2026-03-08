@@ -21,11 +21,12 @@
 
 .dial-row {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  left: calc(50% + 20vmin);
+  transform: translateY(-50%);
   display: flex;
-  gap: 32px;
+  flex-direction: column;
+  gap: 24px;
   z-index: 100;
   pointer-events: none;
 }
