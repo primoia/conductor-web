@@ -9,7 +9,9 @@ import { SttProfile } from '../../models/media-studio.models';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="dial-wrap" *ngIf="profiles.length > 1">
+    <div class="dial-wrap" *ngIf="profiles.length > 1"
+         (click)="$event.stopPropagation()"
+         (touchstart)="$event.stopPropagation(); $event.preventDefault()">
       <!-- LED indicators — all options visible, active one lit -->
       <div class="led-strip">
         <div
@@ -24,8 +26,8 @@ import { SttProfile } from '../../models/media-studio.models';
       <!-- Round cycle button -->
       <button
         class="cycle-btn"
-        (click)="cycle()"
-        (touchstart)="$event.stopPropagation()"
+        (click)="cycle(); $event.stopPropagation()"
+        (touchstart)="$event.stopPropagation(); $event.preventDefault()"
       >
         <span class="cycle-icon">{{ currentIcon }}</span>
       </button>
