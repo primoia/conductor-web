@@ -30,6 +30,16 @@ export interface WsConfigMessage {
   session_id: string;
   max_record_seconds?: number;
   features?: string[];
+  stt_profiles?: SttProfile[];
+  stt_active_profile?: string;
+  providers?: LlmProviderInfo[];
+  current_provider?: string;
+}
+
+export interface WsLlmConfigAckMessage {
+  type: 'llm_config_ack';
+  current_provider: string;
+  providers: LlmProviderInfo[];
 }
 
 export interface WsWakeWordMessage {
@@ -99,6 +109,20 @@ export interface WsDisplayMessage {
   };
 }
 
+export interface SttProfile {
+  id: string;       // "fast", "en", "accurate"
+  label: string;    // display name
+  language: string; // "pt", "en", "auto"
+  model: string;    // "base", "medium", "large-v3"
+  latency: string;  // "~1s", "~3s"
+}
+
+export interface LlmProviderInfo {
+  id: string;       // "deepseek", "openai", "groq"
+  name: string;     // "DeepSeek", "OpenAI", "Groq"
+  model: string;    // "deepseek-chat", "gpt-4o-mini", etc.
+}
+
 export type WsMessage =
   | WsConfigMessage
   | WsWakeWordMessage
@@ -112,7 +136,8 @@ export type WsMessage =
   | WsTtsEndMessage
   | WsInterruptedMessage
   | WsConversationEndMessage
-  | WsDisplayMessage;
+  | WsDisplayMessage
+  | WsLlmConfigAckMessage;
 
 export interface WakeWordEntry {
   keyword?: string;

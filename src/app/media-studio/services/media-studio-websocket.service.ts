@@ -1,6 +1,6 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
-import { AnimState, WsMessage } from '../models/media-studio.models';
+import { AnimState, LlmProviderInfo, SttProfile, WsMessage } from '../models/media-studio.models';
 import { P, getEngineColor } from '../constants/media-studio-palette';
 import { PaletteColor } from '../models/media-studio.models';
 
@@ -43,6 +43,10 @@ export class MediaStudioWebSocketService {
   recordStart$ = new BehaviorSubject<number>(0);
   activeAgent$ = new BehaviorSubject<string | null>(null);
   ttsPlaying$ = new BehaviorSubject<boolean>(false);
+  sttProfiles$ = new BehaviorSubject<SttProfile[]>([]);
+  sttActiveProfile$ = new BehaviorSubject<string>('fast');
+  llmProviders$ = new BehaviorSubject<LlmProviderInfo[]>([]);
+  llmCurrentProvider$ = new BehaviorSubject<string>('');
 
   // Events
   message$ = new Subject<WsMessage>();
@@ -99,6 +103,22 @@ export class MediaStudioWebSocketService {
       this.setAnimState('listening');
       this.setStatus('LISTENING', 'listening');
     });
+  }
+
+  /** Switch the STT profile on the server (e.g., "fast", "en", "accurate"). */
+  setSttProfile(profileId: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'stt_config', profile: profileId }));
+    }
+    this.sttActiveProfile$.next(profileId);
+  }
+
+  /** Switch the LLM provider on the server (e.g., "deepseek", "openai", "groq"). */
+  setLlmProvider(providerId: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'llm_config', provider: providerId }));
+    }
+    this.llmCurrentProvider$.next(providerId);
   }
 
   async startStreaming(): Promise<void> {
@@ -228,6 +248,18 @@ export class MediaStudioWebSocketService {
           if (msg.max_record_seconds) {
             this.maxRecSeconds$.next(msg.max_record_seconds);
           }
+          if (msg.stt_profiles && msg.stt_profiles.length > 0) {
+            this.sttProfiles$.next(msg.stt_profiles);
+          }
+          if (msg.stt_active_profile) {
+            this.sttActiveProfile$.next(msg.stt_active_profile);
+          }
+          if (msg.providers && msg.providers.length > 0) {
+            this.llmProviders$.next(msg.providers);
+          }
+          if (msg.current_provider) {
+            this.llmCurrentProvider$.next(msg.current_provider);
+          }
           this.setStatus('LISTENING', 'listening');
           this.setAnimState('listening');
           break;
@@ -299,6 +331,11 @@ export class MediaStudioWebSocketService {
           this.activeAgent$.next(null);
           this.setAnimState('listening');
           this.setStatus('LISTENING', 'listening');
+          break;
+
+        case 'llm_config_ack':
+          if (msg.providers) this.llmProviders$.next(msg.providers);
+          if (msg.current_provider) this.llmCurrentProvider$.next(msg.current_provider);
           break;
 
         case 'display':

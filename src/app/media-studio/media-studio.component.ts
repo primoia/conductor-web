@@ -6,6 +6,8 @@ import { VisualizerCanvasComponent } from './components/visualizer-canvas/visual
 import { StatusHudComponent } from './components/status-hud/status-hud.component';
 import { AgentCarouselComponent } from './components/agent-carousel/agent-carousel.component';
 import { TranscriptOverlayComponent } from './components/transcript-overlay/transcript-overlay.component';
+import { SttDialComponent } from './components/stt-dial/stt-dial.component';
+import { LlmDialComponent } from './components/llm-dial/llm-dial.component';
 import { MediaStudioWebSocketService } from './services/media-studio-websocket.service';
 import { MediaStudioConfigService } from './services/media-studio-config.service';
 
@@ -18,6 +20,8 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
     StatusHudComponent,
     AgentCarouselComponent,
     TranscriptOverlayComponent,
+    SttDialComponent,
+    LlmDialComponent,
   ],
   template: `
     <div class="media-studio-root" (click)="onTap()" (touchstart)="onTouchStart($event)">
@@ -36,6 +40,10 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
         [activeAgent]="activeAgent"
       ></app-agent-carousel>
       <app-transcript-overlay></app-transcript-overlay>
+      <div class="dial-row">
+        <app-stt-dial></app-stt-dial>
+        <app-llm-dial></app-llm-dial>
+      </div>
     </div>
   `,
   styleUrls: ['./media-studio.component.scss'],
