@@ -18,17 +18,33 @@ import { AnimState } from '../../models/media-studio.models';
     </div>
 
     <div class="control-buttons" *ngIf="activeAgent && animState !== 'idle'">
-      <button class="ctrl-btn" [class.active]="agentLocked"
+      <button class="ctrl-btn lock-btn" [class.active]="agentLocked"
               (click)="$event.stopPropagation(); lockToggle.emit()"
               (touchstart)="onBtnTouch($event, 'lock')"
-              [attr.title]="agentLocked ? 'Agent travado' : 'Travar agent'">
-        <span class="ctrl-icon">{{ agentLocked ? '\uD83D\uDD12' : '\uD83D\uDD13' }}</span>
+              [attr.title]="agentLocked ? 'Agent travado (clique para destravar)' : 'Travar agent (impede timeout)'">
+        <svg class="ctrl-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path *ngIf="agentLocked" d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <path *ngIf="!agentLocked" d="M7 11V7a5 5 0 0 1 9.9-1"/>
+        </svg>
       </button>
-      <button class="ctrl-btn" [class.active]="micMuted"
+      <button class="ctrl-btn mic-btn" [class.active]="micMuted"
               (click)="$event.stopPropagation(); muteToggle.emit()"
               (touchstart)="onBtnTouch($event, 'mute')"
-              [attr.title]="micMuted ? 'Mic mutado' : 'Mutar mic'">
-        <span class="ctrl-icon">{{ micMuted ? '\uD83D\uDD07' : '\uD83C\uDFA4' }}</span>
+              [attr.title]="micMuted ? 'Mic mutado (clique para ativar)' : 'Mutar mic (silencia entrada)'">
+        <svg *ngIf="!micMuted" class="ctrl-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <svg *ngIf="micMuted" class="ctrl-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>
+          <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
       </button>
     </div>
 
