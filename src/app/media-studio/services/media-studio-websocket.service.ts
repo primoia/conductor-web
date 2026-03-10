@@ -51,6 +51,8 @@ export class MediaStudioWebSocketService {
   ttsCurrentVoice$ = new BehaviorSubject<string>('');
   responseLangs$ = new BehaviorSubject<ResponseLangInfo[]>([]);
   responseCurrentLang$ = new BehaviorSubject<string>('auto');
+  agentLocked$ = new BehaviorSubject<boolean>(false);
+  micMuted$ = new BehaviorSubject<boolean>(false);
 
   // Events
   message$ = new Subject<WsMessage>();
@@ -139,6 +141,27 @@ export class MediaStudioWebSocketService {
       this.ws.send(JSON.stringify({ type: 'response_lang_config', language: langId }));
     }
     this.responseCurrentLang$.next(langId);
+  }
+
+  /** Toggle agent lock — prevents conversation_end timeout when agent is active. */
+  toggleAgentLock(): void {
+    const locked = !this.agentLocked$.getValue();
+    this.agentLocked$.next(locked);
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'lock_agent', locked }));
+    }
+  }
+
+  /** Toggle microphone mute — silences audio input while keeping session alive. */
+  toggleMicMute(): void {
+    const muted = !this.micMuted$.getValue();
+    this.micMuted$.next(muted);
+    if (this.micTrack) {
+      this.micTrack.enabled = !muted;
+    }
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'mic_mute', muted }));
+    }
   }
 
   async startStreaming(): Promise<void> {
@@ -254,6 +277,8 @@ export class MediaStudioWebSocketService {
     this.setStatus('TAP TO CONNECT', 'idle');
     this.tapHintVisible$.next(true);
     this.infoText$.next('');
+    this.agentLocked$.next(false);
+    this.micMuted$.next(false);
     this.freqData = new Uint8Array(128);
     this.tdData = new Uint8Array(256);
   }
@@ -380,6 +405,10 @@ export class MediaStudioWebSocketService {
           if (msg.current_language) this.responseCurrentLang$.next(msg.current_language);
           break;
 
+        case 'lock_agent_ack':
+          if (msg.locked !== undefined) this.agentLocked$.next(msg.locked);
+          break;
+
         case 'display':
           this.handleDisplayCommand(msg);
           break;
@@ -470,13 +499,6 @@ export class MediaStudioWebSocketService {
         this.setStatus('LISTENING', 'listening');
       }
     });
-  }
-
-  /** Mute/unmute microphone track to prevent echo-triggered barge-in on tablet speakers. */
-  private setMicMuted(muted: boolean): void {
-    if (this.micTrack) {
-      this.micTrack.enabled = !muted;
-    }
   }
 
   /** Notify server whether TTS is currently playing (for voice barge-in). */

@@ -39,6 +39,11 @@ import { MediaStudioConfigService } from './services/media-studio-config.service
         [recordStart]="recordStart"
         [pipelineSummary]="pipelineSummary"
         [languageMismatch]="languageMismatch"
+        [activeAgent]="activeAgent"
+        [agentLocked]="agentLocked"
+        [micMuted]="micMuted"
+        (lockToggle)="onLockToggle()"
+        (muteToggle)="onMuteToggle()"
       ></app-status-hud>
       <app-agent-carousel
         [agents]="agents"
@@ -67,6 +72,8 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
   activeAgent: string | null = null;
   pipelineSummary = '';
   languageMismatch = false;
+  agentLocked = false;
+  micMuted = false;
 
   private destroy$ = new Subject<void>();
 
@@ -84,6 +91,8 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
     this.wsSvc.recordStart$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.recordStart = v));
     this.configSvc.agents.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.agents = v));
     this.wsSvc.activeAgent$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.activeAgent = v));
+    this.wsSvc.agentLocked$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.agentLocked = v));
+    this.wsSvc.micMuted$.pipe(takeUntil(this.destroy$)).subscribe((v) => (this.micMuted = v));
 
     // Pipeline summary line: combines all 4 dials into a single status string
     combineLatest([
@@ -134,6 +143,14 @@ export class MediaStudioComponent implements OnInit, OnDestroy {
       return;
     }
     this.wsSvc.toggleMic();
+  }
+
+  onLockToggle(): void {
+    this.wsSvc.toggleAgentLock();
+  }
+
+  onMuteToggle(): void {
+    this.wsSvc.toggleMicMute();
   }
 
   onTouchStart(e: TouchEvent): void {

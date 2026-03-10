@@ -112,6 +112,11 @@ export interface WsConversationEndMessage {
   type: 'conversation_end';
 }
 
+export interface WsLockAgentAckMessage {
+  type: 'lock_agent_ack';
+  locked: boolean;
+}
+
 export interface WsDisplayMessage {
   type: 'display';
   command: 'notification' | 'color' | 'overlay' | 'animate';
@@ -165,6 +170,7 @@ export type WsMessage =
   | WsTtsEndMessage
   | WsInterruptedMessage
   | WsConversationEndMessage
+  | WsLockAgentAckMessage
   | WsDisplayMessage
   | WsLlmConfigAckMessage
   | WsTtsConfigAckMessage
