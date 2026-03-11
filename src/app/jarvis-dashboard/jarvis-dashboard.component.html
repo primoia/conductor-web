@@ -1,0 +1,57 @@
+<div class="dashboard-container">
+    <app-context-sidebar class="sidebar-container" [expanded]="sidebarExpanded" [activeContextId]="activeContextId"
+        [contexts]="contextGroups" (contextSelected)="switchContext($event)" (toggleExpanded)="toggleSidebar()">
+    </app-context-sidebar>
+
+    <main class="main-container">
+        <app-hud-header class="header-container" [title]="'System.OS // JARVIS_PIPELINE'"
+            [systemStatus]="systemStatus"></app-hud-header>
+
+        <div class="orbital-system-area">
+            <div class="core-integrity-container">
+                <app-core-integrity [showDetailedAnalysis]="showDetailedAnalysis"></app-core-integrity>
+            </div>
+            <div class="orbital-agents-container" #agentsContainer [style.--agent-scale]="agentScale"
+                [class.resizing]="isResizing">
+                <app-orbital-agents *ngFor="let agent of agents" [agent]="agent"
+                    [showDetailedAnalysis]="showDetailedAnalysis" (agentToggle)="toggleAgent($event)">
+                </app-orbital-agents>
+
+                <div class="jarvis-core-container">
+                    <app-jarvis-core [showDetailedAnalysis]="showDetailedAnalysis" [isMicActive]="isMicActive"
+                        [agents]="agents" [agentScale]="agentScale" (micTriggered)="triggerMicrophone()"
+                        (scanToggled)="toggleScan()" (chatOpened)="toggleGlobalChat()"
+                        (registrationOpened)="openAgentRegistration()">
+                    </app-jarvis-core>
+                </div>
+            </div>
+            <div class="info-stream-container">
+                <aside
+                    class="flex flex-col items-end gap-12 z-10 pointer-events-none transition-opacity duration-700 text-stark-cyan"
+                    [class.opacity-5]="showDetailedAnalysis">
+                    <app-inbound-stream [showDetailedAnalysis]="showDetailedAnalysis" [logs]="logs"
+                        (logGenerated)="onLogGenerated($event)"></app-inbound-stream>
+                    <app-agent-radar [agents]="agents" [showDetailedAnalysis]="showDetailedAnalysis"></app-agent-radar>
+                </aside>
+            </div>
+        </div>
+
+        <app-status-footer class="footer-container"
+            [metrics]="[{label: 'PWR', value: 'ARC-01'}, {label: 'TMP', value: '22.4C'}]"
+            [showDetailedAnalysis]="showDetailedAnalysis">
+        </app-status-footer>
+    </main>
+
+    <div class="extra-container">
+        <app-global-chat [showGlobalChat]="showCommunicationHub" (closeChat)="toggleGlobalChat()"></app-global-chat>
+        <app-agent-registration-modal [visible]="showAgentRegistration" (closeClicked)="showAgentRegistration = false"
+            (register)="registerAgent($event)">
+        </app-agent-registration-modal>
+        <app-interaction-panel [agent]="getActiveAgent()" [messages]="activeInteraction"
+            [visible]="showInteractionPanel" (closeClicked)="closePanels()" (expandClicked)="openDetailedAnalysis()">
+        </app-interaction-panel>
+        <app-deep-analysis [agent]="getActiveAgent()" [messages]="activeInteraction" [logs]="logs" [metrics]="metrics"
+            [isProcessing]="isAgentWorking" [visible]="showDetailedAnalysis" (closeClicked)="closePanels()">
+        </app-deep-analysis>
+    </div>
+</div>

@@ -1,0 +1,3 @@
+[submodule "jarvis-ui"]
+	path = jarvis-ui
+	url = https://github.com/SyAuler/jarvis.git

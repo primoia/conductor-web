@@ -1,0 +1,33 @@
+{
+  "/api/*": {
+    "target": "http://localhost:5006",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/mcp/*": {
+    "target": "http://localhost:5006",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/jarvis/ws/stream": {
+    "target": "http://BACKEND_IP:12900/ws/stream",
+    "secure": false,
+    "ws": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/jarvis": ""
+    },
+    "logLevel": "debug"
+  },
+  "/jarvis/api/*": {
+    "target": "http://BACKEND_IP:12900/api",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/jarvis": ""
+    },
+    "logLevel": "debug"
+  }
+}

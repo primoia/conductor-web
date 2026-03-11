@@ -1,3 +1,8 @@
+/* Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* You can add global styles to this file, and also import other style files */
 
 /* Importar fontes de emoji para garantir renderização correta */
@@ -53,3 +58,102 @@ draggable-circle,
 .draggable-circle {
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Segoe UI Symbol', 'Android Emoji', 'EmojiSymbols', sans-serif !important;
 }
+
+/* ========== Jarvis UI Global Styles ========== */
+
+.glow-text {
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.7);
+}
+
+.hud-border {
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.scanlines {
+  background: linear-gradient(to bottom,
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.1) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+.glow-amber {
+  color: #f59e0b;
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+}
+
+.glow-magenta {
+  color: #d946ef;
+  text-shadow: 0 0 10px rgba(217, 70, 239, 0.7);
+}
+
+.glow-emerald {
+  color: #10b981;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-loading-bar {
+  animation: loading-bar 1.5s infinite linear;
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(34, 211, 238, 0.05); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(34, 211, 238, 0.3); border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(34, 211, 238, 0.5); }
+
+@keyframes fade-in-jarvis {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(24px); }
+}
+
+@keyframes fade-only {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in { animation: fade-in-jarvis 0.8s ease-out forwards; }
+.animate-fade-only { animation: fade-only 0.5s ease-out forwards; }
+
+@keyframes slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in { animation: slide-in-right 0.5s ease-out forwards; }
+
+.scanning-line {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 242, 255, 0.4) 50%, transparent 100%);
+  box-shadow: 0 0 10px rgba(0, 242, 255, 0.1);
+  z-index: 0;
+  pointer-events: none;
+  animation: scanning 12s linear infinite;
+  opacity: 0.2;
+}
+
+@keyframes scanning {
+  0% { top: 0%; opacity: 0; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

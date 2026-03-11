@@ -37,6 +37,9 @@ yarn-error.log
 testem.log
 /typings
 
+# Remote proxy config (local override, not committed)
+proxy.conf.remote.json
+
 # System files
 .DS_Store
 Thumbs.db

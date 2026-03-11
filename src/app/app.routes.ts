@@ -40,6 +40,10 @@ export const routes: Routes = [
     loadComponent: () => import('./media-studio/media-studio.component').then(m => m.MediaStudioComponent)
   },
   {
+    path: 'jarvis-ui',
+    loadComponent: () => import('./jarvis-dashboard/jarvis-dashboard.component').then(m => m.JarvisDashboardComponent)
+  },
+  {
     path: '',
     redirectTo: '/screenplay',
     pathMatch: 'full'

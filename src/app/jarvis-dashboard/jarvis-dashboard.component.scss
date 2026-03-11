@@ -1,0 +1,137 @@
+/* Integrated HUD Dashboard Layout */
+
+.dashboard-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background-color: #030a1c;
+    background-image:
+        radial-gradient(circle at 50% 50%, rgba(0, 163, 255, 0.1) 0%, transparent 70%),
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+    background-size: 100% 100%, 100% 4px;
+    color: #4df2ff;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+
+.sidebar-container {
+    height: 100%;
+    z-index: 100;
+    border-right: 1px solid rgba(77, 242, 255, 0.1);
+    background: rgba(3, 10, 28, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 0;
+    position: relative;
+    overflow: hidden;
+    z-index: 10;
+    transition: all 0.5s ease-in-out;
+}
+
+.header-container {
+    width: 100%;
+    z-index: 90;
+}
+
+.footer-container {
+    width: 100%;
+    z-index: 90;
+}
+
+/* Central Area with Delimiter and Side Cards */
+
+.orbital-system-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.core-integrity-container {
+    position: absolute;
+    left: 1rem;
+    top: 2%;
+    z-index: 30;
+    pointer-events: auto;
+}
+
+.info-stream-container {
+    position: absolute;
+    right: 1rem;
+    top: 2%;
+    z-index: 30;
+    pointer-events: auto;
+}
+
+/* The Orbital System (Delimitador) */
+
+.orbital-agents-container {
+    position: relative;
+    width: 85%;
+    height: 100%;
+
+    border: 1px dashed rgba(77, 242, 255, 0.25);
+    border-radius: 250px;
+    background: transparent;
+    box-shadow: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 20;
+
+    app-orbital-agents {
+        pointer-events: auto;
+    }
+}
+
+.jarvis-core-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    pointer-events: auto;
+}
+
+/* Interaction & Scanlines */
+
+.extra-container {
+    position: absolute;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+
+    >* {
+        pointer-events: auto;
+    }
+}
+
+/* Ignite Animation */
+@keyframes dashboard-ignite {
+    from {
+        opacity: 0;
+        filter: blur(5px) brightness(1.5);
+    }
+
+    to {
+        opacity: 1;
+        filter: blur(0) brightness(1);
+    }
+}
+
+.dashboard-container {
+    animation: dashboard-ignite 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}

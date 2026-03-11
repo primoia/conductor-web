@@ -44,6 +44,10 @@ bootstrapApplication(App, {
         path: 'jarvis',
         loadComponent: () => import('./app/media-studio/media-studio.component').then(m => m.MediaStudioComponent)
       },
+      {
+        path: 'jarvis-ui',
+        loadComponent: () => import('./app/jarvis-dashboard/jarvis-dashboard.component').then(m => m.JarvisDashboardComponent)
+      },
       { path: '**', redirectTo: '' }
     ]),
     {
