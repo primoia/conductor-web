@@ -23,13 +23,13 @@ import {
   ChatMessage,
   ContextGroup,
   SystemMetric,
-  NewAgentData
+  NewAgentData,
+  VoiceCaptureService
 } from 'jarvis-ui/src/public-api';
 
 import { MediaStudioWebSocketService } from '../media-studio/services/media-studio-websocket.service';
 import { MediaStudioConfigService } from '../media-studio/services/media-studio-config.service';
 import { WsMessage } from '../media-studio/models/media-studio.models';
-import { VoiceCaptureService } from 'jarvis-ui/src/app/services/voice-capture.service';
 
 const AGENT_COLORS = ['#f59e0b', '#d946ef', '#10b981', '#ef4444', '#818cf8', '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#14b8a6'];
 const ICON_TYPES: ('robot' | 'shield' | 'circle')[] = ['robot', 'shield', 'circle'];
@@ -288,6 +288,7 @@ export class JarvisDashboardComponent implements OnInit, AfterViewInit, OnDestro
         this.activeInteraction = [{
           id: crypto.randomUUID(),
           sender: 'user',
+          type: 'stark',
           text,
           timestamp: new Date().toLocaleTimeString()
         }, ...this.activeInteraction];
@@ -304,6 +305,7 @@ export class JarvisDashboardComponent implements OnInit, AfterViewInit, OnDestro
           this.activeInteraction = [{
             id: this.streamingMsgId,
             sender: 'agent',
+            type: 'agent',
             agentName: active?.name || 'JARVIS',
             agentColor: active?.color,
             text: '',
@@ -377,6 +379,7 @@ export class JarvisDashboardComponent implements OnInit, AfterViewInit, OnDestro
     this.showInteractionPanel = true;
     this.activeInteraction = [{
       sender: 'agent',
+      type: 'agent',
       agentName: agent.name,
       agentColor: agent.color,
       text: 'UPLINK ESTABLISHED. READY FOR COMMANDS.',

@@ -8,10 +8,10 @@
   },
   "include": [
     "src/**/*.ts",
-    "jarvis-ui/src/**/*.ts"
+    "jarvis-ui/projects/jarvis-ui/src/**/*.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts",
-    "jarvis-ui/src/**/*.spec.ts"
+    "jarvis-ui/projects/jarvis-ui/src/**/*.spec.ts"
   ]
 }

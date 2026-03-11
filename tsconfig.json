@@ -15,7 +15,7 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "jarvis-ui/*": ["./jarvis-ui/*"]
+      "jarvis-ui/*": ["./jarvis-ui/projects/jarvis-ui/*"]
     }
   },
   "angularCompilerOptions": {
