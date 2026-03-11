@@ -1,0 +1,7 @@
+node_modules
+dist
+jarvis-ui/node_modules
+jarvis-ui/dist
+chat/node_modules
+chat/dist
+.angular

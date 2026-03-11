@@ -3,6 +3,7 @@ module.exports = {
   darkMode: 'class',
   content: [
     "./src/**/*.{html,ts,scss}",
+    "./jarvis-ui/projects/jarvis-ui/src/**/*.{html,ts,scss}",
     "./jarvis-ui/src/**/*.{html,ts,scss}",
   ],
   theme: {

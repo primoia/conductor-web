@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Build Angular app
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 COPY . .
 # Exclude chat directory and build Angular
 RUN npm run build --configuration=production
