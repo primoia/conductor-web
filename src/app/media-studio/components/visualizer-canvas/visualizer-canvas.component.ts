@@ -63,8 +63,9 @@ export class VisualizerCanvasComponent implements AfterViewInit, OnDestroy {
     this.W = canvas.width = Math.round(rect.width);
     this.H = canvas.height = Math.round(rect.height);
     this.cx = this.W / 2;
-    this.cy = this.H / 2;
-    this.scale = Math.min(this.W, this.H) / 1200;
+    const isPortrait = this.W < 768 && this.H > this.W;
+    this.cy = isPortrait ? this.H * 0.38 : this.H / 2;
+    this.scale = isPortrait ? this.W / 500 : Math.min(this.W, this.H) / 1200;
   }
 
   private animate = (): void => {

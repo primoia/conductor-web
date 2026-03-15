@@ -170,3 +170,47 @@
 
   &.visible { opacity: 0.45; }
 }
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .control-buttons {
+    inset: 44px 12px auto auto;
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .ctrl-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .info-line {
+    bottom: 6px;
+    left: 16px;
+    transform: none;
+    text-align: left;
+  }
+
+  .tap-hint {
+    transform: translate(-50%, 80px);
+    font-size: 0.55rem;
+  }
+
+  .hud-top {
+    padding: 8px 12px;
+  }
+
+  .status-line {
+    font-size: 0.5rem;
+    letter-spacing: 3px;
+  }
+
+  .pipeline-line {
+    font-size: 0.38rem;
+    letter-spacing: 1px;
+  }
+
+  .rec-timer {
+    top: 34px;
+    font-size: 0.55rem;
+  }
+}

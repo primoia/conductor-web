@@ -13,7 +13,7 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
          (click)="$event.stopPropagation()"
          (touchstart)="$event.stopPropagation(); $event.preventDefault()">
       <!-- LED indicators — all providers visible, active one lit -->
-      <div class="led-strip">
+      <div class="led-strip" [class.leds-visible]="ledsVisible">
         <div
           *ngFor="let p of providers"
           class="led-item"
@@ -135,13 +135,29 @@ import { LlmProviderInfo } from '../../models/media-studio.models';
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    @media (max-width: 767px) and (orientation: portrait) {
+      .dial-wrap { flex-direction: row; gap: 8px; }
+      .led-strip {
+        flex-direction: row; gap: 6px;
+        max-width: 0; opacity: 0; overflow: hidden;
+        transition: max-width 0.3s ease, opacity 0.3s ease;
+      }
+      .led-strip.leds-visible { max-width: 200px; opacity: 1; }
+      .cycle-btn { width: 36px; height: 36px; flex-shrink: 0; }
+      .cycle-icon { font-size: 14px; }
+      .cycle-sub { display: none; }
+      .led-text { font-size: 6px; letter-spacing: 1px; }
+    }
   `],
 })
 export class LlmDialComponent implements OnInit, OnDestroy {
   providers: LlmProviderInfo[] = [];
   currentProvider = '';
+  ledsVisible = false;
 
   private destroy$ = new Subject<void>();
+  private hideTimer: any;
 
   private static readonly ICONS: Record<string, string> = {
     deepseek: 'DS',
@@ -165,9 +181,21 @@ export class LlmDialComponent implements OnInit, OnDestroy {
 
   cycle(): void {
     if (this.providers.length < 2) return;
+    const isPortrait = window.innerWidth < 768 && window.innerHeight > window.innerWidth;
+    if (isPortrait && !this.ledsVisible) {
+      this.ledsVisible = true;
+      this.resetHideTimer();
+      return;
+    }
     const idx = this.providers.findIndex(p => p.id === this.currentProvider);
     const next = (idx + 1) % this.providers.length;
     this.wsSvc.setLlmProvider(this.providers[next].id);
+    if (isPortrait) this.resetHideTimer();
+  }
+
+  private resetHideTimer(): void {
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.ledsVisible = false, 3000);
   }
 
   get current(): LlmProviderInfo | undefined {

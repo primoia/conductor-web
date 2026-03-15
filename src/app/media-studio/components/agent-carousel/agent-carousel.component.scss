@@ -53,3 +53,18 @@
     opacity: 1;
   }
 }
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .agent-carousel {
+    top: 38%;
+    transform: translate(-50%, 30px);
+    width: 140px;
+    height: 60px;
+  }
+
+  .agent-item {
+    font-size: 0.45rem;
+    letter-spacing: 3px;
+    padding: 4px 0;
+  }
+}

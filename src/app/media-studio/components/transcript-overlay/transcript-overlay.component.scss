@@ -101,3 +101,19 @@
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
+
+@media (max-width: 767px) and (orientation: portrait) {
+  .transcript-area {
+    bottom: 4%;
+    width: 88%;
+    left: 3%;
+    transform: none;
+    padding: 10px 14px;
+    max-width: none;
+  }
+
+  .transcript-entry {
+    font-size: 0.78rem;
+    text-align: left;
+  }
+}

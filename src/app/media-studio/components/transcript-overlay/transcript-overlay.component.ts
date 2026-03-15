@@ -87,12 +87,13 @@ export class TranscriptOverlayComponent implements OnDestroy {
   private streamEntry: DisplayEntry | null = null; // live-streaming LLM entry
   private activeEngine: string | null = null;
   private destroy$ = new Subject<void>();
-  private readonly MAX_ENTRIES = 4;
+  private maxEntries = 4;
 
   constructor(
     private wsSvc: MediaStudioWebSocketService,
     private cdr: ChangeDetectorRef,
   ) {
+    this.maxEntries = window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 1 : 4;
     this.wsSvc.message$.pipe(takeUntil(this.destroy$)).subscribe((msg) => this.onMessage(msg));
   }
 
@@ -281,7 +282,7 @@ export class TranscriptOverlayComponent implements OnDestroy {
   }
 
   private trimEntries(): void {
-    while (this.entries.length > this.MAX_ENTRIES + 1) {
+    while (this.entries.length > this.maxEntries + 1) {
       this.entries.shift();
     }
   }

@@ -13,7 +13,7 @@ import { ResponseLangInfo } from '../../models/media-studio.models';
          (click)="$event.stopPropagation()"
          (touchstart)="$event.stopPropagation(); $event.preventDefault()">
       <!-- LED indicators — all options visible, active one lit -->
-      <div class="led-strip">
+      <div class="led-strip" [class.leds-visible]="ledsVisible">
         <div
           *ngFor="let l of langs"
           class="led-item"
@@ -128,13 +128,29 @@ import { ResponseLangInfo } from '../../models/media-studio.models';
       color: rgba(255, 255, 255, 0.3);
       letter-spacing: 1px;
     }
+
+    @media (max-width: 767px) and (orientation: portrait) {
+      .dial-wrap { flex-direction: row; gap: 8px; }
+      .led-strip {
+        flex-direction: row; gap: 6px;
+        max-width: 0; opacity: 0; overflow: hidden;
+        transition: max-width 0.3s ease, opacity 0.3s ease;
+      }
+      .led-strip.leds-visible { max-width: 200px; opacity: 1; }
+      .cycle-btn { width: 36px; height: 36px; flex-shrink: 0; }
+      .cycle-icon { font-size: 14px; }
+      .cycle-sub { display: none; }
+      .led-text { font-size: 6px; letter-spacing: 1px; }
+    }
   `],
 })
 export class ResponseLangDialComponent implements OnInit, OnDestroy {
   langs: ResponseLangInfo[] = [];
   currentLang = 'auto';
+  ledsVisible = false;
 
   private destroy$ = new Subject<void>();
+  private hideTimer: any;
 
   constructor(private wsSvc: MediaStudioWebSocketService) {}
 
@@ -150,9 +166,21 @@ export class ResponseLangDialComponent implements OnInit, OnDestroy {
 
   cycle(): void {
     if (this.langs.length < 2) return;
+    const isPortrait = window.innerWidth < 768 && window.innerHeight > window.innerWidth;
+    if (isPortrait && !this.ledsVisible) {
+      this.ledsVisible = true;
+      this.resetHideTimer();
+      return;
+    }
     const idx = this.langs.findIndex(l => l.id === this.currentLang);
     const next = (idx + 1) % this.langs.length;
     this.wsSvc.setResponseLang(this.langs[next].id);
+    if (isPortrait) this.resetHideTimer();
+  }
+
+  private resetHideTimer(): void {
+    clearTimeout(this.hideTimer);
+    this.hideTimer = setTimeout(() => this.ledsVisible = false, 3000);
   }
 
   get current(): ResponseLangInfo | undefined {
