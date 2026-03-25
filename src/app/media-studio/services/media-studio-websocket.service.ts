@@ -191,8 +191,11 @@ export class MediaStudioWebSocketService {
 
       this.micTrack = this.mediaStream.getAudioTracks()[0] || null;
       this.audioCtx = new AudioContext();
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      this.ws = new WebSocket(proto + '//' + location.host + '/jarvis/ws/stream');
+      // Capacitor native: assets served locally, connect WS to remote server
+      const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+      const wsHost = isNative ? 'conductor.primoia.dev' : location.host;
+      const wsProto = isNative ? 'wss:' : (location.protocol === 'https:' ? 'wss:' : 'ws:');
+      this.ws = new WebSocket(wsProto + '//' + wsHost + '/jarvis/ws/stream');
       this.ws.binaryType = 'arraybuffer';
 
       this.ws.onopen = () => {

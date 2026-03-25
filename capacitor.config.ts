@@ -6,10 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist/conductor-app/browser',
   server: {
     url: 'https://conductor.primoia.dev/jarvis',
-    cleartext: true,
+    appendUserAgent: 'PrimoiaJarvis/1.0',
   },
   android: {
-    // Allow mic and audio permissions
     webContentsDebuggingEnabled: true,
   },
 };
